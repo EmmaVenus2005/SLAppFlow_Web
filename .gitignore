@@ -1,0 +1,4 @@
+/.htaccess
+/config.ini
+/request_log.txt
+/secret.php
