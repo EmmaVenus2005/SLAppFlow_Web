@@ -18,7 +18,7 @@ if (count($parts) > 2)
 
     // Corresponding of the instance's API subdomain
     if ($config['subdomains']['api'] === $parts[0]) { include "api/apiindex.php"; }
-    if ($config['subdomains']['www'] === $parts[0]) { echo "Web"; }
+    if ($config['subdomains']['www'] === $parts[0]) { include "webcontrol/wcindex.php"; }
 
 } else {
     // returns 404

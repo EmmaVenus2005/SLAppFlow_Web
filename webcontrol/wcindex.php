@@ -4,11 +4,13 @@
 session_start();
 
 // Directory where apps are located
-$appsDir = __DIR__ . '/apps';
+//$appsDir = __DIR__ . '/apps';
+$appsDir = $homeDir . '/apps';
+
 $apps = [];
 
 // Reading the config file that contains confidential data
-$_SESSION['config'] = parse_ini_file(__DIR__ . '/../config.ini', true);
+$_SESSION['config'] = $config;
 
 // Database connection details
 $servername = $_SESSION['config']['webcontroldb']['servername'];
@@ -57,14 +59,27 @@ if (!isset($_SESSION['uuid']) || !isset($_SESSION['name']))
 
 }
 
-// Getting all apps available in the folder
-if (is_dir($appsDir)) {
-    foreach (scandir($appsDir) as $dir) {
-        if ($dir !== '.' && $dir !== '..' && is_dir("$appsDir/$dir")) {
-            $apps[$dir] = ucfirst($dir);
-        }
+// Checking for apps folder
+if (is_dir($appsDir)) 
+{
+  
+  // Getting all apps available in the folder
+  foreach (scandir($appsDir) as $dir) 
+  {
+      
+    // If the app has a 'web' folder
+    if ($dir !== '.' && $dir !== '..' && is_dir("$appsDir/$dir/web")) 
+    {
+
+      // Adds it to the list
+      $apps[$dir] = $dir;
+
     }
+  
+  }
+
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -185,11 +200,11 @@ if (is_dir($appsDir)) {
 <body>
   <div class="navbar">
     <div class="menu">
-      <img src="menu-icon.webp" alt="Menu">
+      <img src="webcontrol/menu-icon.webp" alt="Menu">
       <div class="dropdown">
         <?php foreach ($apps as $key => $appName): ?>
-          <a href="apps/<?php echo $key; ?>/index.php">
-            <img src="apps/<?php echo $key; ?>/icon.webp" alt="<?php echo $appName; ?>">
+          <a href="apps/<?php echo $key; ?>/web/index.php">
+            <img src="apps/<?php echo $key; ?>/web/icon.webp" alt="<?php echo $appName; ?>">
             <?php echo $appName; ?>
           </a>
         <?php endforeach; ?>
