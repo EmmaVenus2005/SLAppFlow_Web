@@ -26,8 +26,8 @@ if (!preg_match('/^[a-zA-Z0-9_]+$/', $flowName)) {
 }
 
 // Define the path to the flow script
-$flowPath = dirname(__DIR__) . '/flows/' . $appid;
-$flowScript = $flowPath . '/' . $flowName . '.php';
+$appPath = $homeDir . '/apps/' . $appid;
+$flowScript = $appPath . '/flows/' . $flowName . '.php';
 
 // Check if the flow script exists
 if (!file_exists($flowScript)) {
@@ -66,7 +66,7 @@ if (function_exists('fastcgi_finish_request')) {
 set_time_limit(0);
 
 // Get the directory path containing the PHP files
-$functionsDir = dirname(__DIR__) . '/functions/';
+$functionsDir = $homeDir . '/functions/';
 
 // Ensure the directory exists
 if (is_dir($functionsDir)) {
@@ -78,7 +78,7 @@ if (is_dir($functionsDir)) {
 }
 
 // Get the directory path containing the app-specific PHP files
-$functionsDir = $flowPath . '/functions/';
+$functionsDir = $appPath . '/functions/';
 
 // Ensure the directory exists
 if (is_dir($functionsDir)) {
@@ -92,8 +92,4 @@ if (is_dir($functionsDir)) {
 // Include the flow script
 include_once $flowScript;
 
-// Optionally, log the completion of the flow
-//error_log("Flow '$flowName' for app '$appid' with session '$session' completed.");
-
 ?>
-
