@@ -1,12 +1,18 @@
 <?php
 
+// This is called when opening the webpage. It will display the navigation bar, authenticate the user
+// with its key (given in URL using id GET property).
+// Once authenticated, sets 'uuid' and 'name' as PHP session variables, used to know if the user is 
+// well authenticated.
+// If an app is selected, will include 'webcontrol/wcapp.php', and give the appid as GET parameter.
+
 // Starting a new PHP session
 session_start();
 
 // Directory where apps are located
-//$appsDir = __DIR__ . '/apps';
 $appsDir = $homeDir . '/apps';
 
+// Creating array that will contain the available apps list
 $apps = [];
 
 // Reading the config file that contains confidential data
@@ -26,38 +32,32 @@ if ($rlvconn->connect_error) {
     die("Connection failed: " . $wcconn->connect_error);
 }
 
-// If not already authenticated
-if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) 
-{ 
+// Get the 'id' parameter from GET request
+$id = isset($_GET['id']) ? trim($_GET['id']) : '';
 
-  // Get the 'id' parameter from GET request
-  $id = isset($_GET['id']) ? trim($_GET['id']) : '';
-
-  if (empty($id)) {
-      die("Unauthorized: Missing ID parameter.");
-  }
-
-  // Prepare SQL statement to prevent SQL injection
-  $stmt = $wcconn->prepare("SELECT UserID, UserName FROM WebControl.Link WHERE Link = ?");
-  $stmt->bind_param("s", $id);
-  $stmt->execute();
-  $result = $stmt->get_result();
-
-  // Check if any row is returned
-  if ($result->num_rows === 0) {
-      die("Unauthorized: Invalid link ID.");
-  }
-
-  // Fetch user details
-  $row = $result->fetch_assoc();
-  $_SESSION['uuid'] = $row['UserID'];
-  $_SESSION['name'] = $row['UserName'];
-
-  // Close statement and connection
-  $stmt->close();
-  $wcconn->close();
-
+if (empty($id)) {
+    die("Unauthorized: Missing ID parameter.");
 }
+
+// Prepare SQL statement to prevent SQL injection
+$stmt = $wcconn->prepare("SELECT UserID, UserName FROM WebControl.Link WHERE Link = ?");
+$stmt->bind_param("s", $id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Check if any row is returned
+if ($result->num_rows === 0) {
+    die("Unauthorized: Invalid link ID.");
+}
+
+// Fetch user details
+$row = $result->fetch_assoc();
+$_SESSION['uuid'] = $row['UserID'];
+$_SESSION['name'] = $row['UserName'];
+
+// Close statement and connection
+$stmt->close();
+$wcconn->close();
 
 // Checking for apps folder
 if (is_dir($appsDir)) 
