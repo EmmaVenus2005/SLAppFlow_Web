@@ -18,10 +18,10 @@ if ($functionsDir !== false && is_dir($functionsDir)) {
 }
 
 // Database connection details
-$servername = $config['appflowdb']['servername'];
-$username = $config['appflowdb']['username'];
-$password = $config['appflowdb']['password'];
-$dbname = $config['appflowdb']['dbname'];
+$servername = $_SESSION['config']['appflowdb']['servername'];
+$username = $_SESSION['config']['appflowdb']['username'];
+$password = $_SESSION['config']['appflowdb']['password'];
+$dbname = $_SESSION['config']['appflowdb']['dbname'];
 
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
@@ -40,20 +40,22 @@ unset($servername, $username, $password, $dbname);
 $appid = $_GET['app'];
 $uuid = $_SESSION['uuid'];
 $name = $_SESSION['name'];
-//$session = "";
+$session = "";
 
-// Creating an instance of NonVolatile class
-$nv = new NonVolatile();
-$nv->setApp('DressUp');
-$nv->setUser($_SESSION['uuid'], $_SESSION['name']);
+// Get the app directory
+$appDir = realpath(__DIR__ . "/../apps/$appid/");
 
-// INCLUDE APP FUNCTIONS
+// Including app-specific functions
+if (is_dir("$appDir/functions/")) {
+    // Scan the directory for PHP files
+    foreach (glob("$appDir/functions/*.php") as $filename) {
+        // Include each PHP file
+        require_once $filename;
+    }
+}
 
-
-// APP TO INCLUDE HERE
-
-// Test
-echo $_GET['app'];
+// Including the requested app
+include "$appDir/web/index.php";
 
 // Close the database connection
 $conn->close();

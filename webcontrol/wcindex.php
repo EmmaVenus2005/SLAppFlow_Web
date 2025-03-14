@@ -28,7 +28,7 @@ $dbname = $_SESSION['config']['webcontroldb']['dbname'];
 $wcconn = new mysqli($servername, $username, $password, $dbname);
 
 // Check connection
-if ($rlvconn->connect_error) {
+if ($wcconn->connect_error) {
     die("Connection failed: " . $wcconn->connect_error);
 }
 
@@ -60,24 +60,12 @@ $stmt->close();
 $wcconn->close();
 
 // Checking for apps folder
-if (is_dir($appsDir)) 
-{
-  
-  // Getting all apps available in the folder
-  foreach (scandir($appsDir) as $dir) 
-  {
-      
-    // If the app has a 'web' folder
-    if ($dir !== '.' && $dir !== '..' && is_dir("$appsDir/$dir/web")) 
-    {
-
-      // Adds it to the list
-      $apps[$dir] = $dir;
-
+if (is_dir($appsDir)) {
+    foreach (scandir($appsDir) as $dir) {
+        if ($dir !== '.' && $dir !== '..' && is_dir("$appsDir/$dir/web")) {
+            $apps[$dir] = $dir;
+        }
     }
-  
-  }
-
 }
 
 ?>
@@ -134,6 +122,8 @@ if (is_dir($appsDir))
     .content { 
       margin-top: 50px; 
       padding: 20px; 
+      height: calc(100vh - 60px);
+      overflow-y: auto;
     }
     .user-info {
         margin-left: auto;
@@ -145,76 +135,85 @@ if (is_dir($appsDir))
   </style>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      let menu = document.querySelector(".menu");
-      let dropdown = document.querySelector(".dropdown");
-      let content = document.getElementById("content");
-      let navTitle = document.getElementById("navTitle");
-      
-      // Toggle dropdown menu visibility
-      menu.addEventListener("click", function (event) {
-        event.stopPropagation();
-        dropdown.classList.toggle("show");
-      });
-      
-      // Hide dropdown when clicking outside
-      document.addEventListener("click", function () {
-        dropdown.classList.remove("show");
-      });
-      
-      // Attach click event listeners to app links
-      document.querySelectorAll(".dropdown a").forEach(link => {
-        link.addEventListener("click", function (event) {
-          event.preventDefault();
-          let appName = this.textContent.trim();
-          
-          // Updating title in navigation bar
-          navTitle.textContent = appName;
-          
-          // Chargement du contenu de l'app via AJAX
-          fetch(this.getAttribute("href"))
-            .then(response => response.text())
-            .then(html => {
-              content.innerHTML = html;
-              
-              // Extracting and executing scripts in included app
-              let scripts = content.querySelectorAll("script");
-              scripts.forEach(script => {
-                let newScript = document.createElement("script");
-                if (script.src) {
-                  newScript.src = script.src;
-                } else {
-                  newScript.text = script.textContent;
-                }
-                document.head.appendChild(newScript);
-              });
-            })
-            .catch(error => {
-              content.innerHTML = "<p style='color: red;'>Error while loading app.</p>";
-              console.error(error);
-            });
+        let menu = document.querySelector(".menu");
+        let dropdown = document.querySelector(".dropdown");
+        let content = document.getElementById("app-frame");
+        let navTitle = document.getElementById("navTitle");
+
+        // Toggle dropdown menu visibility
+        menu.addEventListener("click", function (event) {
+            event.stopPropagation();
+            dropdown.classList.toggle("show");
         });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener("click", function () {
+            dropdown.classList.remove("show");
+        });
+
+        /**
+         * Load an app dynamically into an iframe
+         * @param {string} appId - ID of the app to load
+         */
+        function loadApp(appId) {
+          const id = '<?php echo htmlspecialchars($id); ?>';
+          const url = `/webcontrol/wcapp.php?id=${id}&app=${appId}`;
+          
+          // Load into iframe without changing URL
+          const iframe = document.getElementById('app-frame');
+          iframe.src = url;
+
+          // Update navbar title
+          document.getElementById('navTitle').textContent = appId;
+
+          // Wait until the iframe is loaded
+          iframe.onload = () => {
+              // Copy all styles from parent to iframe
+              const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+              const parentStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
+
+              parentStyles.forEach(style => {
+                  const newStyle = style.cloneNode(true);
+                  iframeDocument.head.appendChild(newStyle);
+              });
+
+              console.log(`App ${appId} loaded successfully with parent styles.`);
+          };
+      }
+
+      // Attach event listeners to app links
+      document.querySelectorAll(".dropdown a").forEach(link => {
+          link.addEventListener("click", function (event) {
+              event.preventDefault();
+              let appId = this.getAttribute("data-app");
+              loadApp(appId);
+          });
       });
     });
   </script>
 </head>
 <body>
-  <div class="navbar">
+
+<div class="navbar">
     <div class="menu">
-      <img src="webcontrol/menu-icon.webp" alt="Menu">
-      <div class="dropdown">
-        <?php foreach ($apps as $key => $appName): ?>
-          <a href="apps/<?php echo $key; ?>/web/index.php">
-            <img src="apps/<?php echo $key; ?>/web/icon.webp" alt="<?php echo $appName; ?>">
-            <?php echo $appName; ?>
-          </a>
-        <?php endforeach; ?>
-      </div>
+        <img src="webcontrol/menu-icon.webp" alt="Menu">
+        <div class="dropdown">
+            <?php foreach ($apps as $key => $appName): ?>
+                <a href="#" data-app="<?php echo $key; ?>">
+                    <img src="apps/<?php echo $key; ?>/web/icon.webp" alt="<?php echo $appName; ?>">
+                    <?php echo $appName; ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
     </div>
-    <div id="navTitle" class="title"><- Choose your app</div>
+    <div id="navTitle" class="title">← Choose your app</div>
     <div class="user-info"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
-  </div>
-  <div id="content" class="content">
-    <p>Select an app</p>
-  </div>
+</div>
+
+<!-- Load the app into an iframe -->
+<div class="content">
+    <iframe id="app-frame" style="width: 100%; height: 100%; border: none;"></iframe>
+</div>
+
 </body>
 </html>

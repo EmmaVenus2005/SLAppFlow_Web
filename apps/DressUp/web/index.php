@@ -1,28 +1,3 @@
-<?php
-
-// PHP session (sould already exist from main file)
-session_start();
-
-// If $uuid and $name are not set, someone tries to access to the app without using main menu
-// In this case ALWAYS abort the script for obvious security reason
-if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit(); }
-
-// Get the directory path containing the PHP functions and classes
-$functionsDir = realpath(__DIR__ . '/../../../functions/');
-
-// Including all PHP files
-if ($functionsDir !== false && is_dir($functionsDir)) {
-    foreach (glob($functionsDir . '/*.php') as $filename) {
-        require_once $filename;
-    }
-}
-
-// Creating an instance of NonVolatile class
-$nv = new NonVolatile();
-$nv->setApp('DressUp');
-$nv->setUser($_SESSION['uuid'], $_SESSION['name']);
-
-?>
 <style>
     .tabs {
         display: flex;
@@ -76,7 +51,7 @@ $nv->setUser($_SESSION['uuid'], $_SESSION['name']);
     <div id="complete" class="tab-content active">
         <div class="outfit-list">
             <?php 
-            $outfits = $nv->getLists('Outfit');
+            $outfits = NVGetLists('Outfit');
             if (!empty($outfits)) {
                 foreach ($outfits as $outfit) {
                     echo '<a href="apps/DressUp Control/switch_outfit.php?outfit=' . $outfit . '">' . htmlspecialchars($outfit, ENT_QUOTES, 'UTF-8') . '</a><br>';
