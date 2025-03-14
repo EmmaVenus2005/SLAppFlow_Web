@@ -57,7 +57,7 @@ while ($flowStep != "EXIT")
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
 		
 		switch ($answer) {
 		    case "Indiv.": 	$flowStep = "MAIN/INDIV"; break;
@@ -86,12 +86,13 @@ while ($flowStep != "EXIT")
 		$clothings = new Clothings();
 		
 		// Header of the dialog
-		$dialog = "\nDressUp App / Individual clothings\n\n";
+		$dialog = "\nDressUp App / Individual clothings <<PAGE>>\n";
 
 		// Reading all categories
 		$categories = $clothings->ListCategories();
 
 		// List of choices
+		$choices = [];
 		$options = [];
 
 		// Looping through categories
@@ -100,13 +101,16 @@ while ($flowStep != "EXIT")
 
 			// Checks if the current category is for owner only
 			$isForbidden = ($clothings->HasFlag($category, "owneronly") && $session !== $uuid);
-
+			
 			// If the category is forbidden
 			if ($isForbidden)
 			{
 
 				// Adding interdiction sign instead of the index
-				$dialog .= "⛔" . " - " . $category . "\n";
+				$choices[] = "⛔" . " - " . $category;
+
+				// Adding a X option
+				$options[] = "⛔";
 
 				// Getting to the next category
 				continue;
@@ -114,23 +118,29 @@ while ($flowStep != "EXIT")
 			}
 			
 			// Adding the category to the list, if not forbidden
-			$dialog .= (string)($i + 1) . " - " . $category . "\n";
+			$choices[] = (string)($i + 1) . " - " . $category;
 			$options[] = (string)($i + 1);
 
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
 		{
 
-			// Setting the $category for the next flow step
-			$category = $categories[((int)$answer) - 1];
-			
-			// Jumping to category browsing
-			$flowStep = "MAIN/INDIV/BROWSE";
+			// If a forbidden category has been clicked, opens same dialog again
+			if ($answer != "⛔")
+			{
+
+				// Setting the $category for the next flow step
+				$category = $categories[((int)$answer) - 1];
+				
+				// Jumping to category browsing
+				$flowStep = "MAIN/INDIV/BROWSE";
+
+			}
 
 		}
 
@@ -145,21 +155,22 @@ while ($flowStep != "EXIT")
 		$multiple = $clothings->HasFlag($category, "multiple");
 
 		// Header of the dialog
-		$dialog = "\nDressUp App / Individual clothings / " . $category . "\n\n";
+		$dialog = "\nDressUp App / Individual clothings / " . $category . " <<PAGE>>\n\n";
 
 		if ($multiple)
 		{ 
 
-			$dialog .= "Select or unselect any item, multiple possible for that category :\n\n";
+			$dialog .= "Select or unselect any item, multiple possible for that category :\n";
 
 		} else 
 		{
 
-			$dialog .= "Select the item you want to wear, it will switch automatically :\n\n";
+			$dialog .= "Select the item you want to wear, it will switch automatically :\n";
 
 		}
 
 		// List of choices
+		$choices = [];
 		$options = [];
 
 		// If the category is not flagged as mandatory or multiple, adds the option "NONE"
@@ -167,6 +178,7 @@ while ($flowStep != "EXIT")
 		{
 
 			// Adding the "NONE" option
+			$choices[] = "";
 			$options[] = "NONE";				
 
 		}
@@ -186,7 +198,7 @@ while ($flowStep != "EXIT")
 
 			} else { $multiple === true ? $status = "□" : $status = "○"; }
 			
-			$dialog .= (string)$i . " - " . $status . " " . $key . "\n";
+			$choices[] = (string)$i . " - " . $status . " " . $key;
 			$options[] = (string)$i;
 
 			// Increasing the $i
@@ -195,7 +207,7 @@ while ($flowStep != "EXIT")
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer !== "BACK" && $answer !== null)
@@ -316,27 +328,28 @@ while ($flowStep != "EXIT")
 	{
 	
 		// Header of the dialog
-		$dialog = "\nDressUp App / Complete outfits\n\n";
-		$dialog .= "Choose the outfit to wear :\n\n";
+		$dialog = "\nDressUp App / Complete outfits <<PAGE>>\n\n";
+		$dialog .= "Choose the outfit to wear :\n";
 		
 		// Gets the list of outfits
 		$lists = NVGetLists("Outfit");
 		
 		// List of choices
+		$choices = [];
 		$options = [];
-		
+
 		// Looping through those elements
 		foreach($lists as $i => $list)
 		{
 			
 			// Adding the outfit list in the dialog and options
-			$dialog .= (string)($i + 1) . " - " . $list . "\n";
+			$choices[] = (string)($i + 1) . " - " . $list;
 			$options[] = (string)($i + 1);
 		
 		}
 		
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -443,7 +456,7 @@ while ($flowStep != "EXIT")
 		$options = ["Strip !"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -567,13 +580,14 @@ while ($flowStep != "EXIT")
 	{
 
 		// Header of the dialog
-		$dialog = "\nDressUp App / Delete outfit\n\n";
-		$dialog .= "Choose the outfit to DELETE :\n\n";
+		$dialog = "\nDressUp App / Delete outfit <<PAGE>>\n\n";
+		$dialog .= "Choose the outfit to DELETE :\n";
 		
 		// Gets the list of outfits
 		$lists = NVGetLists("Outfit");
 		
 		// List of choices
+		$choices = [];
 		$options = [];
 		
 		// Looping through those elements
@@ -581,13 +595,13 @@ while ($flowStep != "EXIT")
 		{
 			
 			// Adding the outfit list in the dialog and options
-			$dialog .= (string)($i + 1) . " - " . $list . "\n";
+			$choices[] = (string)($i + 1) . " - " . $list;
 			$options[] = (string)($i + 1);
 		
 		}
 		
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -614,7 +628,7 @@ while ($flowStep != "EXIT")
 		$options = ["Delete !"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -643,9 +657,16 @@ while ($flowStep != "EXIT")
 		$options = ["OK"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, $options);
+		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
 		
-		$flowStep = "EXIT";
+		// If not BACK, timeout or HTTP error...
+		if ($answer != "BACK" && $answer != null)
+		{
+
+			// Exits if the user clicks OK
+			$flowStep = "EXIT";
+		
+		}
 
 	}
 

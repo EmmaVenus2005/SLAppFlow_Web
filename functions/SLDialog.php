@@ -1,6 +1,8 @@
 <?php
 
-function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $needsBack = false) {
+function SLDialog($recipient, $leading, $trailing, $choices, $options, $needsPaging = false, $needsBack = false) {
+    
+    // Context variables
     global $conn, $appid, $uuid, $name, $session;
 
     // 1. Parameter validation
@@ -9,13 +11,13 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
         return null;
     }
 
-    if (empty($prompt) || !is_string($prompt)) {
-        error_log("SLDialogTest: Invalid prompt.");
+    if (!is_string($leading) || !is_string($trailing)) {
+        error_log("SLDialogTest: Invalid leading or trailing text.");
         return null;
     }
 
-    if (empty($options) || !is_array($options)) {
-        error_log("SLDialogTest: Options must be a non-empty array.");
+    if (!is_array($choices) || empty($options) || !is_array($options)) {
+        error_log("SLDialogTest: Choices and options must be non-empty arrays.");
         return null;
     }
 
@@ -37,70 +39,78 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
     set_time_limit(60); // limit execution time to 60 seconds
 
     // 4. Paging configuration
-    $maxButtons = 12;        // llDialog limit
-    $reservedButtons = 0;    // count of reserved navigation/function buttons
+    $maxButtons = 12;
+    $reservedButtons = 0;
 
-    // If paging is needed, reserve 2 buttons (◀ and ▶)
     if ($needsPaging) {
-        $reservedButtons += 2;
+        $reservedButtons += 2; // ◀ and ▶ for pagination
     }
 
-    // If "back" is needed, reserve 1 button
     if ($needsBack) {
-        $reservedButtons += 1;
+        $reservedButtons += 1; // BACK button
     }
 
-    // Number of user options per page
     $optionsPerPage = $maxButtons - $reservedButtons;
-
-    // Edge case: if the number of options per page is below 1, show all
     if ($optionsPerPage < 1) {
         $optionsPerPage = count($options);
     }
 
-    // If paging is disabled, we force only 1 page
     $totalOptions = count($options);
     $totalPages = ($needsPaging) ? ceil($totalOptions / $optionsPerPage) : 1;
 
-    // Current page index
     $currentPage = 1;
 
     // 5. Main loop
-    while (true) {
-        // If paging is enabled, update prompt with page info
-        $pageInfo = $needsPaging ? "[$currentPage / $totalPages]" : "";
-        $promptWithPage = str_replace('<<PAGE>>', $pageInfo, $prompt);
-
-        // If paging is on, slice the options; otherwise show all
+    while (true) 
+    {
+    
+        // Slice the options and choices according to the current page
         if ($needsPaging) {
             $offset = ($currentPage - 1) * $optionsPerPage;
             $optionsForPage = array_slice($options, $offset, $optionsPerPage);
+            $choicesForPage = array_slice($choices, $offset, $optionsPerPage);
         } else {
             $optionsForPage = $options;
+            $choicesForPage = $choices;
         }
 
-        // 6. Build the buttons
-        $buttons = [];
+        // Replace <<PAGE>> in leading and trailing
+        $pageInfo = $needsPaging ? "[$currentPage / $totalPages]" : "";
 
-        // If paging is needed, add previous-page button (◀) or space
+        $leadingWithPage = str_replace('<<PAGE>>', $pageInfo, $leading);
+        $trailingWithPage = str_replace('<<PAGE>>', $pageInfo, $trailing);
+
+        // Throwing empty choices
+        // Useful when there is a 'NONE' button, and an empty string as choice
+        $choicesForPage = array_filter($choicesForPage, function ($value) {
+            return $value !== '';
+        });
+
+        // Build the prompt with leading, choices, and trailing text
+        $promptWithPage = $leadingWithPage . "\n" . implode("\n", $choicesForPage) . "\n" . $trailingWithPage;
+
+        // Add previous page button if paging is enabled
         if ($needsPaging) {
-            $buttons[] = ($currentPage > 1) ? '◀' : ' ';
+            $optionsForPage[] = ($currentPage > 1) ? '◀' : ' ';
         }
 
-        // If back is needed, add BACK button
+        // Add BACK button if needed (along with paging, else will be added further)
         if ($needsBack) {
-            $buttons[] = 'BACK';
+            $optionsForPage[] = 'BACK';
         }
 
-        // If paging is needed, add next-page button (▶) or space
+        // Add next page button if paging is enabled
         if ($needsPaging) {
-            $buttons[] = ($currentPage < $totalPages) ? '▶' : ' ';
+            $optionsForPage[] = ($currentPage < $totalPages) ? '▶' : ' ';
         }
 
-        // Reverse the list so the first appear at the top (comment from original code)
+        // Reverse the list so the first option appears at the top
         $optionsForPage = array_reverse($optionsForPage, false);
 
-        // Group the options in chunks of 3 and reverse each chunk
+        // Build the buttons
+        $buttons = [];
+
+        // Group the options into chunks of 3 and reverse each chunk
         $chunks = array_chunk($optionsForPage, 3);
         foreach ($chunks as &$chunk) {
             $chunk = array_reverse($chunk);
@@ -110,7 +120,7 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
         // Build the comma-separated buttons string
         $buttonsString = implode(',', $buttons);
 
-        // 7. Construct the data string and send the HTTPS POST request
+        // 6. Construct the data string and send the HTTPS POST request
         $data = $command . '|' . $flowToken . '|' . $recipient . '|' . $promptWithPage . '|' . $buttonsString;
         error_log($data);
 
@@ -121,13 +131,10 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: text/plain; charset=UTF-8'
         ]);
-        // SSL checks disabled (not recommended for production)
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        // 60-second timeout
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-        // Execute the request
         $response = curl_exec($ch);
         if ($response === false) {
             error_log("SLDialogTest: cURL error: " . curl_error($ch));
@@ -143,26 +150,21 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
             return null;
         }
 
-        // Retrieve user selection
         $selection = trim($response);
 
-        // 8. Handle user selection
+        // 7. Handle user selection
         if ($needsPaging && $selection === '◀') {
-            // Go to previous page
             $currentPage = max(1, $currentPage - 1);
             continue;
 
         } elseif ($needsPaging && $selection === '▶') {
-            // Go to next page
             $currentPage = min($totalPages, $currentPage + 1);
             continue;
 
         } elseif ($needsBack && $selection === 'BACK') {
-            // "BACK" action
             return 'BACK';
 
         } elseif (in_array($selection, $options)) {
-            // Valid selection
             return $selection;
 
         } else {
@@ -172,4 +174,3 @@ function SLDialogTest($recipient, $prompt, $options, $needsPaging = false, $need
     }
 }
 
-?>
