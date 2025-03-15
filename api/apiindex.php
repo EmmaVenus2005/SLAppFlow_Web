@@ -57,6 +57,9 @@ if ($uuid === null || $reqcheck === null) { ErrBadReq(); }
 // Retrieve the owner name
 $name = $headers['X-SecondLife-Owner-Name'] ?? null;
 
+// Retrieve the object UUID
+$objid = $headers['X-SecondLife-Object-Key'] ?? null;
+
 // The message sent contains :
 // appid|requesttype| ... other items that depend on the request type
 // Splitting it into a table
