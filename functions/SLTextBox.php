@@ -1,24 +1,37 @@
 <?php
 
-function SLOwnerSay($message) {
+function SLTextBox($object, $recipient, $prompt) {
     global $conn, $appid, $uuid, $name, $session;
 
+    // Validate parameters
+    if (empty($prompt) || !is_string($prompt)) {
+        error_log("SLTextBox: Invalid prompt.");
+        return null;
+    }
+    if (empty($recipient) || !preg_match('/^[a-f0-9\-]{36}$/', $recipient)) {
+        error_log("SLTextBox: Invalid recipient UUID.");
+        return null;
+    }
+
     // Retrieve FlowURL and FlowToken via NVGetValue
-    $flowURL = NVGetValue('FlowURL');
-	if (empty($flowURL)) {
-		error_log("SLOwnerSay: Failed to retrieve FlowURL.");
-		return null;
-	}
+    $flowURL = NVGetSessionValue($object, 'FlowURL');
+    if (empty($flowURL)) {
+        error_log("SLTextBox: Failed to retrieve FlowURL.");
+        return null;
+    }
 
-	$flowToken = NVGetValue('FlowToken');
-	if (empty($flowToken)) {
-		error_log("SLOwnerSay: Failed to retrieve FlowToken.");
-		return null;
-	}
+    $flowToken = NVGetSessionValue($object, 'FlowToken');
+    if (empty($flowToken)) {
+        error_log("SLTextBox: Failed to retrieve FlowToken.");
+        return null;
+    }
 
-	// Prepare the command
-    $command = 'owner_say|' . $flowToken . "|" . $message;
+    // Prepare the command
+    $command = 'open_textbox|' . $flowToken . "|" . $recipient . "|" . $prompt;
     
+    // Set the maximum execution time to 60 seconds
+    set_time_limit(60);
+
     // Send HTTPS POST request
     $ch = curl_init($flowURL);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -38,7 +51,7 @@ function SLOwnerSay($message) {
 
     if ($response === false) {
         // Error during communication
-        error_log("SLOwnerSay: cURL error: " . curl_error($ch));
+        error_log("SLTextBox: cURL error: " . curl_error($ch));
         curl_close($ch);
         return null;
     }
@@ -48,13 +61,13 @@ function SLOwnerSay($message) {
 
     if ($httpCode !== 200) {
         // Non-200 HTTP response; interrupt the session
-        error_log("SLOwnerSay: HTTP error code: $httpCode");
+        error_log("SLDialog: HTTP error code: $httpCode");
         return null;
     }
 
-	// If message has been sent successfully, returns true
-    return true;
+    return $response;
 
 }
 
 ?>
+

@@ -1,6 +1,6 @@
 <?php
 
-function SLDialog($recipient, $leading, $trailing, $choices, $options, $needsPaging = false, $needsBack = false) {
+function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, $needsPaging = false, $needsBack = false) {
     
     // Context variables
     global $conn, $appid, $uuid, $name, $session;
@@ -22,13 +22,13 @@ function SLDialog($recipient, $leading, $trailing, $choices, $options, $needsPag
     }
 
     // 2. Retrieve FlowURL and FlowToken
-    $flowURL = NVGetValue('FlowURL');
+    $flowURL = NVGetSessionValue($object, 'FlowURL');
     if (empty($flowURL)) {
         error_log("SLDialogTest: Failed to retrieve FlowURL.");
         return null;
     }
 
-    $flowToken = NVGetValue('FlowToken');
+    $flowToken = NVGetSessionValue($object, 'FlowToken');
     if (empty($flowToken)) {
         error_log("SLDialogTest: Failed to retrieve FlowToken.");
         return null;

@@ -1,18 +1,18 @@
 <?php
 
-function SLMessageLinked($linkset, $num, $message, $key) {
+function SLMessageLinked($object, $linkset, $num, $message, $key) {
     global $conn, $appid, $uuid, $name, $session;
 
 	//llMessageLinked(LINK_SET, iAuth, "menu " + g_sParentMenu, kAv);
 
 	// Retrieve FlowURL and FlowToken via NVGetValue
-    	$flowURL = NVGetValue('FlowURL');
+    	$flowURL = NVGetSessionValue($object, 'FlowURL');
 	if (empty($flowURL)) {
 		error_log("SLMessageLinked: Failed to retrieve FlowURL.");
 		return null;
 	}
 
-	$flowToken = NVGetValue('FlowToken');
+	$flowToken = NVGetSessionValue($object, 'FlowToken');
 	if (empty($flowToken)) {
 		error_log("SLMessageLinked: Failed to retrieve FlowToken.");
 		return null;

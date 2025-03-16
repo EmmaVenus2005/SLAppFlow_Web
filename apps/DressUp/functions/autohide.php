@@ -5,7 +5,7 @@ function DUAutoHide(Clothings $clothings)
 {
 
     // Global session variables
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $objid, $appid, $uuid, $name, $session;
 
     // Initializing variables
     $hideGenitals = false;
@@ -60,7 +60,7 @@ function DUAutoHide(Clothings $clothings)
 
         // For my own plug implementation of hide / unhide script
         $MSG_TO_PLUG = -47832; 
-        SLRegionSayTo($uuid, $MSG_TO_PLUG, ":plug:hide");
+        SLRegionSayTo($objid, $uuid, $MSG_TO_PLUG, ":plug:hide");
         
         // Add any other commands here for different manufacturers
 
@@ -70,7 +70,7 @@ function DUAutoHide(Clothings $clothings)
 
         // For my own plug implementation of hide / unhide script
         $MSG_TO_PLUG = -47832;
-        SLRegionSayTo($uuid, $MSG_TO_PLUG, ":plug:unhide");
+        SLRegionSayTo($objid, $uuid, $MSG_TO_PLUG, ":plug:unhide");
         
         // Add any other commands here for different manufacturers
 
@@ -82,7 +82,7 @@ function DUAutoHide(Clothings $clothings)
 
         // Sapphos vagina hiding
         $MSG_TO_SAPPHOSVAG = 55;
-        SLRegionSayTo($uuid, $MSG_TO_SAPPHOSVAG, "hidevag");
+        SLRegionSayTo($objid, $uuid, $MSG_TO_SAPPHOSVAG, "hidevag");
 
         // Add any other commands here for different manufacturers
 
@@ -92,7 +92,7 @@ function DUAutoHide(Clothings $clothings)
 
         // Sapphos vagina hiding
         $MSG_TO_SAPPHOSVAG = 55;
-        SLRegionSayTo($uuid, $MSG_TO_SAPPHOSVAG, "resetvag");
+        SLRegionSayTo($objid, $uuid, $MSG_TO_SAPPHOSVAG, "resetvag");
 
         // Add any other commands here for different manufacturers
 
@@ -130,7 +130,7 @@ function DUAutoHide(Clothings $clothings)
     }
 
     // Sending RLV commands (if any)
-	if ($rlv) { SLRLVCommand($rlv); }
+	if ($rlv) { SLRLVCommand($objid, $rlv); }
 
 }
 

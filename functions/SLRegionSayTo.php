@@ -1,37 +1,24 @@
 <?php
 
-function SLTextBox($recipient, $prompt) {
+function SLRegionSayTo($object, $recipient, $channel, $message) {
     global $conn, $appid, $uuid, $name, $session;
 
-    // Validate parameters
-    if (empty($prompt) || !is_string($prompt)) {
-        error_log("SLTextBox: Invalid prompt.");
-        return null;
-    }
-    if (empty($recipient) || !preg_match('/^[a-f0-9\-]{36}$/', $recipient)) {
-        error_log("SLTextBox: Invalid recipient UUID.");
-        return null;
-    }
-
     // Retrieve FlowURL and FlowToken via NVGetValue
-    $flowURL = NVGetValue('FlowURL');
-    if (empty($flowURL)) {
-        error_log("SLTextBox: Failed to retrieve FlowURL.");
-        return null;
-    }
+    $flowURL = NVGetSessionValue($object, 'FlowURL');
+	if (empty($flowURL)) {
+		error_log("SLRegionSayTo: Failed to retrieve FlowURL.");
+		return null;
+	}
 
-    $flowToken = NVGetValue('FlowToken');
-    if (empty($flowToken)) {
-        error_log("SLTextBox: Failed to retrieve FlowToken.");
-        return null;
-    }
-
-    // Prepare the command
-    $command = 'open_textbox|' . $flowToken . "|" . $recipient . "|" . $prompt;
+	$flowToken = NVGetSessionValue($object, 'FlowToken');
+	if (empty($flowToken)) {
+		error_log("SLRegionSayTo: Failed to retrieve FlowToken.");
+		return null;
+	}
     
-    // Set the maximum execution time to 60 seconds
-    set_time_limit(60);
-
+	// Prepare the command
+    $command = 'region_say_to|' . $flowToken . "|" . $recipient . "|" . $channel . "|" . $message;
+    
     // Send HTTPS POST request
     $ch = curl_init($flowURL);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -51,7 +38,7 @@ function SLTextBox($recipient, $prompt) {
 
     if ($response === false) {
         // Error during communication
-        error_log("SLTextBox: cURL error: " . curl_error($ch));
+        error_log("SLRegionSayTo: cURL error: " . curl_error($ch));
         curl_close($ch);
         return null;
     }
@@ -61,13 +48,13 @@ function SLTextBox($recipient, $prompt) {
 
     if ($httpCode !== 200) {
         // Non-200 HTTP response; interrupt the session
-        error_log("SLDialog: HTTP error code: $httpCode");
+        error_log("SLRegionSayTo: HTTP error code: $httpCode");
         return null;
     }
 
-    return $response;
+	// If message has been sent successfully, returns true
+    return true;
 
 }
 
 ?>
-

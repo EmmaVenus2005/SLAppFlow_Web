@@ -57,7 +57,7 @@ while ($flowStep != "EXIT")
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
+		$answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
 		
 		switch ($answer) {
 		    case "Indiv.": 	$flowStep = "MAIN/INDIV"; break;
@@ -73,7 +73,7 @@ while ($flowStep != "EXIT")
 		    case "BACK" : 
 		    
 			    // Back to OpenCollar Apps
-			    SLMessageLinked(-1, AUTH_OWNER, "menu Apps", $session);
+			    SLMessageLinked($objid, -1, AUTH_OWNER, "menu Apps", $session);
 			    $flowStep = "EXIT"; break;
 		
 		}
@@ -124,7 +124,7 @@ while ($flowStep != "EXIT")
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
+		$answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
@@ -207,7 +207,7 @@ while ($flowStep != "EXIT")
 		}
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
+		$answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer !== "BACK" && $answer !== null)
@@ -313,7 +313,7 @@ while ($flowStep != "EXIT")
 			}
 
 			// Sending RLV commands
-			SLRLVCommand($rlv);
+			SLRLVCommand($objid, $rlv);
 
 			// Hides plug or genitals if needed
 			DUAutoHide($clothings);
@@ -349,7 +349,7 @@ while ($flowStep != "EXIT")
 		}
 		
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
+		$answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -431,7 +431,7 @@ while ($flowStep != "EXIT")
 			}
 			
 			// Sending RLV commands
-			SLRLVCommand($rlv);
+			SLRLVCommand($objid, $rlv);
 
 			// Hides plug or genitals if needed
 			DUAutoHide($clothings);
@@ -456,7 +456,7 @@ while ($flowStep != "EXIT")
 		$options = ["Strip !"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
+		$answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -492,7 +492,7 @@ while ($flowStep != "EXIT")
 			}
 
 			// Sending RLV commands
-			SLRLVCommand($rlv);
+			SLRLVCommand($objid, $rlv);
 
 			// Hides plug or genitals if needed
 			DUAutoHide($clothings);
@@ -511,7 +511,7 @@ while ($flowStep != "EXIT")
 		$dialog .= "Please enter the name of the outfit";
 
 		// Opening the textbox		
-		$answer = SLTextBox($session, $dialog);
+		$answer = SLTextBox($objid, $session, $dialog);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -570,7 +570,7 @@ while ($flowStep != "EXIT")
 		if (!$uuid == $session) { exit(); }
 
 		// Opens the dialog that gives the object to the user
-		SLGiveInventory($session, "DressUp QuickAccess HUD");
+		SLGiveInventory($objid, $session, "DressUp QuickAccess HUD");
 
 		// Exits the flow (user will have to manage his new HUD)
 		$flowStep = "EXIT";
@@ -601,7 +601,7 @@ while ($flowStep != "EXIT")
 		}
 		
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", $choices, $options, true, true);
+		$answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -628,7 +628,7 @@ while ($flowStep != "EXIT")
 		$options = ["Delete !"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
+		$answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)
@@ -657,7 +657,7 @@ while ($flowStep != "EXIT")
 		$options = ["OK"];
 
 		// Sending the dialog to the avatar
-		$answer = SLDialog($session, $dialog, "", [], $options, false, true);
+		$answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
 		
 		// If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != null)

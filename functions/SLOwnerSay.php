@@ -1,23 +1,23 @@
 <?php
 
-function SLRegionSayTo($recipient, $channel, $message) {
+function SLOwnerSay($object, $message) {
     global $conn, $appid, $uuid, $name, $session;
 
     // Retrieve FlowURL and FlowToken via NVGetValue
-    $flowURL = NVGetValue('FlowURL');
+    $flowURL = NVGetSessionValue($object, 'FlowURL');
 	if (empty($flowURL)) {
-		error_log("SLRegionSayTo: Failed to retrieve FlowURL.");
+		error_log("SLOwnerSay: Failed to retrieve FlowURL.");
 		return null;
 	}
 
-	$flowToken = NVGetValue('FlowToken');
+	$flowToken = NVGetSessionValue($object, 'FlowToken');
 	if (empty($flowToken)) {
-		error_log("SLRegionSayTo: Failed to retrieve FlowToken.");
+		error_log("SLOwnerSay: Failed to retrieve FlowToken.");
 		return null;
 	}
-    
+
 	// Prepare the command
-    $command = 'region_say_to|' . $flowToken . "|" . $recipient . "|" . $channel . "|" . $message;
+    $command = 'owner_say|' . $flowToken . "|" . $message;
     
     // Send HTTPS POST request
     $ch = curl_init($flowURL);
@@ -38,7 +38,7 @@ function SLRegionSayTo($recipient, $channel, $message) {
 
     if ($response === false) {
         // Error during communication
-        error_log("SLRegionSayTo: cURL error: " . curl_error($ch));
+        error_log("SLOwnerSay: cURL error: " . curl_error($ch));
         curl_close($ch);
         return null;
     }
@@ -48,7 +48,7 @@ function SLRegionSayTo($recipient, $channel, $message) {
 
     if ($httpCode !== 200) {
         // Non-200 HTTP response; interrupt the session
-        error_log("SLRegionSayTo: HTTP error code: $httpCode");
+        error_log("SLOwnerSay: HTTP error code: $httpCode");
         return null;
     }
 

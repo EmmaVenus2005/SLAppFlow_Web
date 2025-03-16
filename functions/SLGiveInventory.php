@@ -1,32 +1,23 @@
 <?php
 
-function SLRLVCommand($rlv) 
-{
-    
-    // Global session variables
+function SLGiveInventory($object, string $recipient, string $objectName) {
     global $conn, $appid, $uuid, $name, $session;
 
-    // Return false if $rlv is empty
-    if (empty($rlv) || !is_array($rlv)) { return false; }
-
-    // Remove the "@" at the beginning of each entry, if present
-    $rlv = array_map(function ($entry) { return ltrim($entry, '@'); }, $rlv);
-
     // Retrieve FlowURL and FlowToken via NVGetValue
-    $flowURL = NVGetValue('FlowURL');
+    $flowURL = NVGetSessionValue($object, 'FlowURL');
 	if (empty($flowURL)) {
-		error_log("SLRLVCommand: Failed to retrieve FlowURL.");
+		error_log("SLGiveInventory: Failed to retrieve FlowURL.");
 		return null;
 	}
 
-	$flowToken = NVGetValue('FlowToken');
+	$flowToken = NVGetSessionValue($object, 'FlowToken');
 	if (empty($flowToken)) {
-		error_log("SLRLVCommand: Failed to retrieve FlowToken.");
+		error_log("SLGiveInventory: Failed to retrieve FlowToken.");
 		return null;
 	}
 
 	// Prepare the command
-    $command = 'rlv_command|' . $flowToken . "|" . implode("|", $rlv);
+    $command = 'give_inventory|' . $flowToken . "|" . $recipient . "|" . $objectName;
     
     // Send HTTPS POST request
     $ch = curl_init($flowURL);
@@ -47,7 +38,7 @@ function SLRLVCommand($rlv)
 
     if ($response === false) {
         // Error during communication
-        error_log("SLRLVCommand: cURL error: " . curl_error($ch));
+        error_log("SLGiveInventory: cURL error: " . curl_error($ch));
         curl_close($ch);
         return null;
     }
@@ -57,7 +48,7 @@ function SLRLVCommand($rlv)
 
     if ($httpCode !== 200) {
         // Non-200 HTTP response; interrupt the session
-        error_log("SLRLVCommand: HTTP error code: $httpCode");
+        error_log("SLGiveInventory: HTTP error code: $httpCode");
         return null;
     }
 

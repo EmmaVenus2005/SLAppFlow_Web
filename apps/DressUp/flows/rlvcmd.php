@@ -1,7 +1,7 @@
 <?php
 
     // Ensure necessary variables are available
-    if (!isset($appid, $uuid, $name, $conn, $session)) {
+    if (!isset($appid, $objid, $uuid, $name, $conn, $session)) {
         error_log("Required variables are not set.");
         exit();
     }
@@ -48,7 +48,7 @@
 
                 
         // DEBUG
-        $isAllowed ? SLOwnerSay("Allowed command " . $currentCommand) : null;
+        $isAllowed ? SLOwnerSay($objid, "Allowed command " . $currentCommand) : null;
         //SLOwnerSay("Command : " . $currentCommand);
 
         // If the command has been allowed, goes in toExecute[], otherwise in toIgnore[]
@@ -57,7 +57,7 @@
     }
 
     // Actually sending the command to the viewer
-    SLRLVCommand($toExecute);
+    SLRLVCommand($objid, $toExecute);
 
     // This string will be sent using SLRegionSayTo, to acknowledge the command (ok or ko)
     $regionSayString = "";
@@ -80,7 +80,7 @@
     }
 
     // Sending actual acknowledgement
-    SLRegionSayTo($regionSayString, $RLV_CHANNEL, $senderID);
+    SLRegionSayTo($objid, $regionSayString, $RLV_CHANNEL, $senderID);
 
     // DEBUG
     //SLOwnerSay(str_replace('|', "\n", $regionSayString));
