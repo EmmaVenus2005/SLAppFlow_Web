@@ -9,10 +9,10 @@ The following diagram shows how the gateway works :
 ![SLAppFlow_Overview](https://github.com/user-attachments/assets/0d9acdfb-e213-47aa-8503-0f74f95c420c)
 
 There are standard function types, like :
-CF (Core Functions) : Should NEVER be used outside of other functions. Those allow direct database access or reading environement variables. In the future, I will work on isolating them.
-SL (Second Life) : Used to send commands to Second Life through the object on which the flow runs. For example SLDialog, which opens a dialog box. There is always a first parameter $objectID, which is the object that gets the command. This will allow to find the URL of the object. Of course, it can't use an ID of an object from another user, the user being a context variable that can't be changed by the flow.
-NV (Non Volatile) : Used to store or read data from the database. Those are always User and App specific. A set of NVSession instruction can have an additional layer of distinction, which allows for example multiple objects from the same class owned by the same owner.
-AF (App Flow) : Generic reusable functions.
+<br />CF (Core Functions) : Should NEVER be used outside of other functions. Those allow direct database access or reading environement variables. In the future, I will work on isolating them.
+<br />SL (Second Life) : Used to send commands to Second Life through the object on which the flow runs. For example SLDialog, which opens a dialog box. There is always a first parameter $objectID, which is the object that gets the command. This will allow to find the URL of the object. Of course, it can't use an ID of an object from another user, the user being a context variable that can't be changed by the flow.
+<br />NV (Non Volatile) : Used to store or read data from the database. Those are always User and App specific. A set of NVSession instruction can have an additional layer of distinction, which allows for example multiple objects from the same class owned by the same owner.
+<br />AF (App Flow) : Generic reusable functions.
 
 There is also a "webcontrol" feature I am implementing, allowing external control for the apps. This will have an authentication system, and include the same functions than the API, which will avoid double maintenance.
 
@@ -24,8 +24,8 @@ Explanation if the files content :
 
 ![SLAppFlow_Folders](https://github.com/user-attachments/assets/d80f5af2-7048-4d89-83c1-37a8c338ed26)
 
-index.php is the main file, which redirects depending of the subdomain (www.slappflow.net or api.slappflow.net).
-api/apiindex.php is the main code of the API. Depenting of the request type, it includes "api/request/{requesttype}". In the future, there should only remain "seturl" and "flowstart". The first being used when the object becomes active to register its URL to the server, and the second one to start a "flow", which corresponds to an event on SL side (@touch, ...).
-apps/{AppID}/flows : Contains the flows of an app.
-apps/{AppID}/functions : Contains app-specific functions.
-apps/{AppID}/web : Contains the web control app (index.php), and custom files that might be used by the web app.
+<br />index.php is the main file, which redirects depending of the subdomain (www.slappflow.net or api.slappflow.net).
+<br />api/apiindex.php is the main code of the API. Depenting of the request type, it includes "api/request/{requesttype}". In the future, there should only remain "seturl" and "flowstart". The first being used when the object becomes active to register its URL to the server, and the second one to start a "flow", which corresponds to an event on SL side (@touch, ...).
+<br />apps/{AppID}/flows : Contains the flows of an app.
+<br />apps/{AppID}/functions : Contains app-specific functions.
+<br />apps/{AppID}/web : Contains the web control app (index.php), and custom files that might be used by the web app.
