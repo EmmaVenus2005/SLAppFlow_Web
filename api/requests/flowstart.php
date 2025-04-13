@@ -11,7 +11,9 @@ $session = $msgParts[3] ?? null;
 // What comes after the session becomes parameter for the flow (separated by |)
 $flowParams = array_slice($msgParts, 4) ?: [];
 
-if ($flowName === null || $session === null) {
+// Checking if flowname is existing
+if ($flowName === null) {
+//if ($flowName === null || $session === null) {
     ErrBadReq();
 }
 
