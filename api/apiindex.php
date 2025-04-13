@@ -65,9 +65,45 @@ $objid = $headers['X-SecondLife-Object-Key'] ?? null;
 // Splitting it into a table
 $msgParts = explode('|', $request);
 
-// Getting the app ID
-$appid = $msgParts[0] ?? null;
-if ($appid === null) { ErrBadReq(); }
+// Getting the app ID and optional mode
+$rawApp = $msgParts[0] ?? null;
+if ($rawApp === null) { ErrBadReq(); }
+
+// The part before ; is the actual AppID, part after ; is an optional mode
+// (Like if an app has a controller and devices, add ;Controller or ;Device)
+$parts = explode(';', $rawApp, 2);
+$appid = $parts[0];
+$appmode = $parts[1] ?? null;
+
+// Extract the global coordinates (X, Y) from the header
+if (preg_match('/\((\d+),\s*(\d+)\)/', $headers['X-SecondLife-Region'], $matches)) 
+{
+
+    // Setting the context variable containing the object's SIM
+    $objregion = "{$matches[1]}_{$matches[2]}";
+
+}
+
+// Extract local position (X, Y, Z) from the header
+if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Position'], $matches)) 
+{
+    
+    $objx = (float)$matches[1];
+    $objy = (float)$matches[2];
+    $objz = (float)$matches[3];
+
+}
+
+// Extract local rotation (x, y, z, w) from the header and cast to float
+if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Rotation'], $matches)) 
+{
+
+    $objrx = (float)$matches[1];
+    $objry = (float)$matches[2];
+    $objrz = (float)$matches[3];
+    $objrw = (float)$matches[4];
+
+}
 
 // Getting the request type
 $reqtype = $msgParts[1] ?? null;
