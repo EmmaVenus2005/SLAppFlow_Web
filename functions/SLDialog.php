@@ -16,8 +16,13 @@ function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, 
         return null;
     }
 
-    if (!is_array($choices) || empty($options) || !is_array($options)) {
-        error_log("SLDialogTest: Choices and options must be non-empty arrays.");
+    // if (!is_array($choices) || empty($options) || !is_array($options)) {
+    //     error_log("SLDialogTest: Choices and options must be non-empty arrays.");
+    //     return null;
+    // }
+
+    if (!is_array($choices) || !is_array($options)) {
+        error_log("SLDialogTest: Choices and options must be arrays.");
         return null;
     }
 

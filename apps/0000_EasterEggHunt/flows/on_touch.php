@@ -48,13 +48,10 @@ while ($flowStep != "EXIT")
         {
 
             // Gets the list of found eggs by toucher avatar from the database
-            $foundEggs = NVGetSessionList($objregion, "FoundEggs", $session);
-
-            // Separating egg UUIDs
-            $foundEggsArray = explode("|", $foundEggs);
+            $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
 
             // If the egg was already found
-            if (in_array($objid, $foundEggsArray)) 
+            if (in_array($objid, $foundEggs)) 
             {
             
                 // Egg already found message
@@ -64,14 +61,21 @@ while ($flowStep != "EXIT")
             // This avatar didn't find that egg so far
             } else {
 
-                // The list is imploded again
-                $foundEggs = implode("|", $foundEggsArray);
+                // Creating additional elements for the list
+                $elements = [
+                    'hunterName' => $flowParams[0]  // Name of the hunter
+                ];
 
-                // Adding the current egg to the found list
-                $foundEggs .= "|" . $objid;
+                // Declares the avatar as a hunter in the database
+                NVSetSessionList($objregion, "EggHunter", $session, json_encode($elements));
 
-                // Writes the updated list to the server
-                NVSetSessionList($objregion, "FoundEggs", $session, $foundEggs);
+                // Creating additional elements for the list
+                $elements = [
+                    'foundOn' => date('c')  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
+                ];
+
+                // Adds the egg to the found ones by that avatar
+                NVSetSessionList($session . "@" . $objregion, "FoundEgg", $objid, json_encode($elements));
 
                 // Debug
                 SLOwnerSay($objid, $flowParams[0] . " found an egg !");
@@ -90,8 +94,7 @@ while ($flowStep != "EXIT")
 
             // Nothing more to do
             $flowStep = "EXIT";
-            
-            
+             
         // Touching the board
         } else {    
 
@@ -107,20 +110,329 @@ while ($flowStep != "EXIT")
             $dialog .= "A sweet reward awaits the best egg-hunters.\n\n";
             $dialog .= "Have fun !\n";
 
-            // Options for dialog (just OK for now)
-            $options = ["Rules", "My Score", "Best Hunters", "Close"];
+            // Options for dialog (all users)
+            $options = ["Rules", "My Score", "Best Hunters"];
+
+            // Checking if the user is the owner
+            if ($uuid === $session)
+            {
+
+                // Adding the Admin option
+                $options[] = "Admin";
+
+            }
+
+            // Adding the Close option as last
+            $options[] = "Close";
 
             // Send dialog to the avatar
             $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, false);
 
-            // If not BACK, timeout or HTTP error...
-            if ($answer !== "BACK" && $answer !== null)
+            // Reads the answer
+            switch ($answer) 
             {
+            
+                case "My Score"     :   $flowStep = "MAIN/SCORE"; break;
+                case "Rules"        :   $flowStep = "MAIN/RULES"; break;
+                case "Best Hunters" :   $flowStep = "MAIN/BESTHUNTERS"; break;
+                case "Admin"        :   $flowStep = "MAIN/ADMIN"; break;
+                
+                // If no managed answer found, exits the flow
+                default : $flowStep = "EXIT";
+            
             }
 
         }
 
+    // My Score from board menu selected
+    } else if ($flowStep === "MAIN/SCORE")
+    {
+
+        // Dialog title
+        $dialog = "\n🥚🌷 Easter Egg Hunt / My Score 🌷🥚\n\n";
+        
+        // Getting the list of found eggs
+        $foundEggsList = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
+        
+        // Will contain the date of the first egg
+        $firstFoundDate = null;
+
+        // Looping through all found eggs to find the first date
+        foreach ($foundEggsList as $currentEgg)
+        {
+
+            // Getting the database elements for the current egg
+            $currentEggDate = NVGetSessionList($session . "@" . $objregion, "FoundEgg", $currentEgg);
+            
+            // Extracting the date of found for the current egg
+            $foundOn = json_decode($currentEggDate, true)['foundOn'] ?? null;
+
+            // If a foundOn parameter has been found (should not miss)
+            if ($foundOn) 
+            {
+                
+                // If first date never set or current egg found date older
+                if ($firstFoundDate === null || strtotime($foundOn) < strtotime($firstFoundDate)) 
+                {
+                    
+                    // Setting the older date as first
+                    $firstFoundDate = $foundOn;
+
+                }
+
+            }
+
+        }
+
+        // Formatting the date in US format
+        $firstFoundDateFormatted = (new DateTime($firstFoundDate))->format('Y-m-d H:i');
+
+        // Counting the found eggs
+        $foundEggs = count($foundEggsList);
+
+        // Checking how many eggs are on the SIM
+        $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+
+        // In case the owner didn't add any egg yet
+        if ($totalEggs == 0)
+        {
+
+            $dialog .= "The game didn't start yet, stay tuned !";
+
+        // All eggs have been found
+        } elseif ($totalEggs - $foundEggs == 0)
+        {
+
+            $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
+            $dialog .= "You found all " . $totalEggs . " eggs.\n\n";
+            $dialog .= "Congratulations !";
+
+        } else {
+
+            // Text depending of the number of found eggs
+            switch($foundEggs)
+            {
+
+                case 0:
+                    $dialog .= "You didn't find any egg so far.\n\n";
+                    $dialog .= "Good luck, and have fun !";
+                    break;
+
+                case 1:
+                    $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
+                    $dialog .= "You found 1 egg so far, and there are " . $totalEggs - $foundEggs . " more to find.\n\n";
+                    $dialog .= "Good luck, and have fun !";
+                    break;
+
+                default:
+                    $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
+                    $dialog .= "You found " . $foundEggs . " eggs so far, and there are " . $totalEggs - $foundEggs . " more to find.\n\n";
+                    $dialog .= "Good luck, and have fun !";
+
+            }
+
+        }
+        
+        // Options for dialog
+        $options = ["Close"];
+
+        // Send dialog to the avatar
+        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+
+        // If not BACK, timeout or HTTP error...
+		if ($answer != "BACK" && $answer != NULL)
+		{
+        
+            $flowStep = "EXIT";
+        
+        }
+
+    // If the rules are selected
+    } else if ($flowStep === "MAIN/RULES")
+    {
+
+        // Dialog
+        $dialog = "\n🥚🌷 Easter Egg Hunt / Rules 🌷🥚\n\n";
+        $dialog .= "The timer starts after you found the first egg, and ends when you found the last one. ";
+        $dialog .= "The less time it took you to find them all, the better your score will be.\n\n";
+        $dialog .= "Don't check private places, there are no eggs there !";
+
+        // Options for dialog
+        //$options = ["Close"];
+        $options = [];
+
+        // Send dialog to the avatar
+        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+
+        // If not BACK, timeout or HTTP error...
+		if ($answer != "BACK" && $answer != NULL)
+		{
+        
+            $flowStep = "EXIT";
+        
+        }
+
+    // Displays the best hunters
+    } else if ($flowStep === "MAIN/BESTHUNTERS")
+    {
+
+        // Dialog title
+        $dialog = "\n🥚🌷 Easter Egg Hunt / Best Hunters 🌷🥚\n\n";
+
+        // Get the total number of eggs on the region
+        $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+
+        // Get the list of all players who found at least one egg
+        $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
+
+        // Will hold the stats for each hunter
+        $hunterStats = [];
+
+        // Loop through each hunter
+        foreach ($hunterSessions as $hunter) {
+
+            // Get display name of the hunter
+            $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunter), true);
+            $hunterName = $hunterData['hunterName'] ?? $hunter;
+
+            // Get the list of eggs found by the hunter
+            $eggs = NVGetSessionLists($hunter . "@" . $objregion, "FoundEgg");
+
+            // Initialize stats
+            $count = count($eggs);
+            $first = null;
+            $last = null;
+
+            // Loop through all found eggs to get first and last timestamps
+            foreach ($eggs as $egg) 
+            {
+
+                // Get the found date for the current egg
+                $eggData = json_decode(NVGetSessionList($hunter . "@" . $objregion, "FoundEgg", $egg), true);
+
+                // Skip if no date
+                if (!isset($eggData['foundOn'])) continue;
+
+                // Parse date
+                $t = strtotime($eggData['foundOn']);
+
+                // Update first/last if needed
+                if ($first === null || $t < $first) $first = $t;
+                if ($last === null || $t > $last) $last = $t;
+
+            }
+
+            // Compute the duration between first and last egg
+            $duration = ($last !== null && $first !== null) ? $last - $first : null;
+
+            // Store hunter stats
+            $hunterStats[] = [
+                'name' => $hunterName,
+                'count' => $count,
+                'duration' => $duration
+            ];
+
+        }
+
+        // Sort hunters :
+        // 1. Those who found all eggs, by ascending duration
+        // 2. Others by descending count, then ascending duration
+        usort($hunterStats, function ($a, $b) use ($totalEggs) {
+            if ($a['count'] === $b['count']) {
+                return ($a['duration'] ?? PHP_INT_MAX) <=> ($b['duration'] ?? PHP_INT_MAX);
+            }
+            if ($a['count'] === $totalEggs) return -1;
+            if ($b['count'] === $totalEggs) return 1;
+            return $b['count'] <=> $a['count'];
+        });
+
+        // Build the leaderboard (only top 10)
+        foreach (array_slice($hunterStats, 0, 10) as $h) {
+            $dialog .= $h['name'] . " [" . $h['count'] . "/" . $totalEggs . "]";
+            if ($h['duration'] !== null) {
+                $dialog .= " " . gmdate("H:i:s", $h['duration']);
+            }
+            $dialog .= "\n";
+        }
+
+        // Options for dialog
+        $options = ["Close"];
+
+        // Show the leaderboard to the user
+        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+
+        // Exit if no BACK or null
+        if ($answer != "BACK" && $answer != NULL) {
+            $flowStep = "EXIT";
+        }
+
+
+    // Displays admin options
+    } else if ($flowStep === "MAIN/ADMIN")
+    {
+
+        // Dialog title and options inline
+        $dialog  = "\n🥚🌷 Easter Egg Hunt / Admin 🌷🥚\n\n";
+        $dialog .= "[Rename] : Change the name of one of the eggs from this game\n";
+        $dialog .= "[Ping] : Check if there are deleted eggs in the game (allows you to remove them)\n";
+
+        // Available options
+        $options = ["Rename", "Ping", "Close"];
+
+        // Show dialog without paging
+        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+
+        // Handle valid user choices only
+        if ($answer != "BACK" && $answer != NULL) {
+
+            if ($answer === "Rename") { $flowStep = "MAIN/ADMIN/RENAME"; } 
+            else if ($answer === "Ping") { $flowStep = "MAIN/ADMIN/PING"; }
+        }
+
+    // Displays a paginated list of eggs for renaming
+    } else if ($flowStep === "MAIN/ADMIN/RENAME")
+    {
+
+        // Header of the dialog
+        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Rename <<PAGE>> 🌷🥚\n\n";
+        $dialog .= "Choose the egg you want to rename :\n";
+
+        // Get the list of all eggs on the region
+        $eggList = NVGetSessionLists($objregion, "EasterEgg");
+
+        // Initialize arrays for choices and options
+        $choices = [];
+        $options = [];
+
+        // Loop through eggs to build the selection list
+        foreach ($eggList as $i => $eggId) 
+        {
+
+            // Retrieve the egg metadata
+            $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
+
+            // Extract the name or use a fallback if not set
+            $eggName = $eggData['name'] ?? ("Egg #" . substr($eggId, 0, 8));
+
+            // Add the formatted name to the list
+            $choices[] = ($i + 1) . " - " . $eggName;
+            $options[] = (string)($i + 1);
+            
+        }
+
+        // Send the dialog to the user with paging and BACK support
+        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+
+        // Placeholder for rename logic
+        // -> The logic for renaming the selected egg will be implemented here later
+
+        // Exit if valid response (other than BACK or timeout)
+        if ($answer != "BACK" && $answer != NULL) {
+            $flowStep = "EXIT";
+        }
+
     }
+
 
     // Manage BACK or null responses (timeout, errors, etc.)
     if (!isset($answer) || $answer === null) {

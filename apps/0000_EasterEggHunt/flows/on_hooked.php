@@ -24,8 +24,24 @@
 if ($appmode === "Egg")
 {
 
+    // Header of the dialog
+    $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
+    $dialog .= "Please enter the location of this egg (default is Unnamed location) :";
+
+    // Opening the textbox		
+	$answer = SLTextBox($objid, $uuid, $dialog);
+
+    // Creating additional elements for the list
+    $elements = [
+        'addedOn' => date('c'),  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
+        'posX'    => $objx,
+        'posY'    => $objy,
+        'posZ'    => $objz,
+        'name'    => $answer ?? 'Unnamed location'
+    ];
+
     // The egg registers itself in the database
-    NVSetSessionList($objregion, "EasterEgg", $objid, "EggName|EggPosition");
+    NVSetSessionList($objregion, "EasterEgg", $objid, json_encode($elements));
 
     SLOwnerSay($objid, "The egg has been added to the game !");
 
