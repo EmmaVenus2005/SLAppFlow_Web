@@ -450,51 +450,103 @@ while ($flowStep != "EXIT")
         }
 
     // Admin feature to ping all the eggs
-    } else if ($flowStep === "MAIN/ADMIN/PING") 
-    {
+    } else if ($flowStep === "MAIN/ADMIN/PING") {
 
-        // Dialog title with page placeholder
+        // Dialog header
         $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping <<PAGE>> 🌷🥚\n\n";
-        $dialog .= "Legend:\n■ Responding\n□ No response\n\n";
+        $dialog .= "Legend:\n■ Responding\n□ No response\n\nSelect an egg to check its status:\n";
 
-        // Get the list of all eggs on the region
+        // Get all eggs
         $eggList = NVGetSessionLists($objregion, "EasterEgg");
-
-        // Perform parallel ping
         $pingResults = SLPingMulti($eggList);
 
-        // Arrays for display
+        // Build choices
         $choices = [];
         $options = [];
 
-        // Loop through eggs
-        foreach ($eggList as $i => $eggId) {
-
-            // Retrieve the egg metadata
+        // Looping through the eggs
+        foreach ($eggList as $i => $eggId) 
+        {
+            
             $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
             $eggName = $eggData['name'] ?? ("Egg #" . substr($eggId, 0, 8));
-
-            // Get ping result
-            $isOnline = $pingResults[$eggId] ?? false;
-            $status = $isOnline ? "■" : "□";
-
-            // Build display line
+            $status = !empty($pingResults[$eggId]) ? "■" : "□";
             $choices[] = "$status " . ($i + 1) . " - " . $eggName;
             $options[] = (string)($i + 1);
+
         }
 
-        // Show the result with pagination
+        // Show dialog with paging
         $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
-    
-        // No action on selection, just go back or exit
-        if ($answer != "BACK" && $answer != NULL) 
-        {
-        
-            $flowStep = "EXIT";
-        
-        }    
 
+        // If valid response (other than BACK or timeout)
+        if ($answer != "BACK" && $answer != NULL) {
+
+            // Determine selected egg
+            $eggIndex = intval($answer) - 1;
+            $eggId = $eggList[$eggIndex] ?? null;
+
+            // If the egg exists (should ever happen)
+            if ($eggId !== null) 
+            {
+
+                // True if responds to ping, false if not
+                $isOnline = $pingResults[$eggId] ?? false;
+
+                // The selected egg is still online
+                if ($isOnline) 
+                {
+
+                    // Responding → cannot delete
+                    $dialog = "\n🥚🌷 Ping Result 🌷🥚\n\n";
+                    $dialog .= "This egg is still responding to HTTP ping and cannot be deleted. ";
+                    $dialog .= "If you want to remove it from the game, delete or derezz it inworld first.";
+
+                    SLDialog($objid, $session, $dialog, "", [], [], false, true);
+
+                // The selected egg doesn't respond to ping
+                } else {
+
+                    // Unreachable → offer deletion
+                    $dialog = "\n🥚🌷 Ping Result 🌷🥚\n\n";
+                    $dialog .= "This egg does not respond anymore. It was likely deleted or derezzed.\n\n";
+                    $dialog .= "If you delete it:\n";
+                    $dialog .= "- It will be removed from the list of eggs.\n";
+                    $dialog .= "- Hunters who only found this egg will be removed as well.\n\n";
+                    $dialog .= "Are you sure you want to delete it ?";
+
+                    $answer = SLDialog($objid, $session, $dialog, "", [], ["Delete"], false, true);
+
+                    if ($answer === "Delete") 
+                    {
+
+                        // 1. Remove from EasterEgg list
+                        NVDelSessionList($objregion, "EasterEgg", $eggId);
+
+                        // 2. Remove from FoundEgg of all hunters
+                        $hunters = NVGetSessionLists($objregion, "EggHunter");
+
+                        foreach ($hunters as $hunterSession) {
+                            $foundEggs = NVGetSessionLists($hunterSession . "@" . $objregion, "FoundEgg");
+
+                            if (in_array($eggId, $foundEggs)) {
+                                NVDelSessionList($hunterSession . "@" . $objregion, "FoundEgg", $eggId);
+                            }
+
+                            // Remove hunter if no eggs left (the first egg being the start of his hunt)
+                            $stillFound = NVGetSessionLists($hunterSession . "@" . $objregion, "FoundEgg");
+                            if (count($stillFound) === 0) {
+                                NVDelSessionList($objregion, "EggHunter", $hunterSession);
+                            }
+                            
+                        }
+
+                    }
+                }
+            }
+        }
     }
+
 
 
     // Manage BACK or null responses (timeout, errors, etc.)
