@@ -21,28 +21,39 @@
  * 
  */
 
+// Only relevant when a egg is hooked
 if ($appmode === "Egg")
 {
 
     // Header of the dialog
     $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
-    $dialog .= "Please enter the location of this egg (default is Unnamed location) :";
+    $dialog .= "Please enter the name of this egg (default is Unnamed) :\n";
 
-    // Opening the textbox		
-	$answer = SLTextBox($objid, $uuid, $dialog);
+    // Checks if data already exist
+    $entryExists = NVGetSessionList($objregion, "EasterEgg", $objid);
 
-    // Creating additional elements for the list
-    $elements = [
-        'addedOn' => date('c'),  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
-        'posX'    => $objx,
-        'posY'    => $objy,
-        'posZ'    => $objz,
-        'name'    => $answer ?? 'Unnamed location'
-    ];
+    // If didn't exist, the egg has been rezzed
+    if ($entryExists == "")
+    {
 
-    // The egg registers itself in the database
-    NVSetSessionList($objregion, "EasterEgg", $objid, json_encode($elements));
+        // Opening the textbox		
+        $answer = SLTextBox($objid, $uuid, $dialog);
 
-    SLOwnerSay($objid, "The egg has been added to the game !");
+        // Creating additional elements for the list
+        $elements = [
+            'addedOn' => date('c'),  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
+            'posX'    => $objx,
+            'posY'    => $objy,
+            'posZ'    => $objz,
+            'name'    => $answer ?? 'Unnamed'
+        ];
 
+        // The egg registers itself in the database
+        NVSetSessionList($objregion, "EasterEgg", $objid, json_encode($elements));
+
+        // Console output to ensure the egg has been added
+        SLOwnerSay($objid, "The egg has been added to the game !");
+
+    } 
+    
 }

@@ -122,9 +122,6 @@ while ($flowStep != "EXIT")
 
             }
 
-            // Adding the Close option as last
-            $options[] = "Close";
-
             // Send dialog to the avatar
             $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, false);
 
@@ -233,11 +230,8 @@ while ($flowStep != "EXIT")
 
         }
         
-        // Options for dialog
-        $options = ["Close"];
-
         // Send dialog to the avatar
-        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
 
         // If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
@@ -257,12 +251,8 @@ while ($flowStep != "EXIT")
         $dialog .= "The less time it took you to find them all, the better your score will be.\n\n";
         $dialog .= "Don't check private places, there are no eggs there !";
 
-        // Options for dialog
-        //$options = ["Close"];
-        $options = [];
-
         // Send dialog to the avatar
-        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
 
         // If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
@@ -355,11 +345,8 @@ while ($flowStep != "EXIT")
             $dialog .= "\n";
         }
 
-        // Options for dialog
-        $options = ["Close"];
-
         // Show the leaderboard to the user
-        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
 
         // Exit if no BACK or null
         if ($answer != "BACK" && $answer != NULL) {
@@ -377,7 +364,7 @@ while ($flowStep != "EXIT")
         $dialog .= "[Ping] : Check if there are deleted eggs in the game (allows you to remove them)\n";
 
         // Available options
-        $options = ["Rename", "Ping", "Close"];
+        $options = ["Rename", "Ping"];
 
         // Show dialog without paging
         $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
@@ -423,12 +410,41 @@ while ($flowStep != "EXIT")
         // Send the dialog to the user with paging and BACK support
         $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
 
-        // Placeholder for rename logic
-        // -> The logic for renaming the selected egg will be implemented here later
-
         // Exit if valid response (other than BACK or timeout)
-        if ($answer != "BACK" && $answer != NULL) {
-            $flowStep = "EXIT";
+        if ($answer != "BACK" && $answer != NULL)
+        {
+            
+            // Header of the dialog
+            $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Rename 🌷🥚\n\n";
+            $dialog .= "Please enter the new name of this egg (default is Unnamed) :\n";
+
+            // Opening the textbox		
+            $newName = SLTextBox($objid, $session, $dialog);
+
+            // Exit if valid response (other than BACK or timeout)
+            if ($newName != "BACK" && $newName != NULL) 
+            {
+
+                // Retrieve the selected egg ID from the list
+                $eggIndex = intval($answer) - 1;
+                $eggId = $eggList[$eggIndex] ?? null;
+
+                if ($eggId !== null)
+                {
+                    
+                    // Retrieve the existing metadata for the egg
+                    $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
+
+                    // Update the name field with the new value
+                    $eggData['name'] = $newName;
+
+                    // Save the updated metadata back to the database
+                    NVSetSessionList($objregion, "EasterEgg", $eggId, json_encode($eggData));
+
+                }
+
+            }
+
         }
 
     }
