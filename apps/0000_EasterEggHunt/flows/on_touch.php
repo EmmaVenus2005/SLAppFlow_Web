@@ -370,10 +370,12 @@ while ($flowStep != "EXIT")
         $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
 
         // Handle valid user choices only
-        if ($answer != "BACK" && $answer != NULL) {
+        if ($answer != "BACK" && $answer != NULL) 
+        {
 
             if ($answer === "Rename") { $flowStep = "MAIN/ADMIN/RENAME"; } 
             else if ($answer === "Ping") { $flowStep = "MAIN/ADMIN/PING"; }
+
         }
 
     // Displays a paginated list of eggs for renaming
@@ -446,6 +448,51 @@ while ($flowStep != "EXIT")
             }
 
         }
+
+    // Admin feature to ping all the eggs
+    } else if ($flowStep === "MAIN/ADMIN/PING") 
+    {
+
+        // Dialog title with page placeholder
+        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping <<PAGE>> 🌷🥚\n\n";
+        $dialog .= "Legend:\n■ Responding\n□ No response\n\n";
+
+        // Get the list of all eggs on the region
+        $eggList = NVGetSessionLists($objregion, "EasterEgg");
+
+        // Perform parallel ping
+        $pingResults = SLPingMulti($eggList);
+
+        // Arrays for display
+        $choices = [];
+        $options = [];
+
+        // Loop through eggs
+        foreach ($eggList as $i => $eggId) {
+
+            // Retrieve the egg metadata
+            $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
+            $eggName = $eggData['name'] ?? ("Egg #" . substr($eggId, 0, 8));
+
+            // Get ping result
+            $isOnline = $pingResults[$eggId] ?? false;
+            $status = $isOnline ? "■" : "□";
+
+            // Build display line
+            $choices[] = "$status " . ($i + 1) . " - " . $eggName;
+            $options[] = (string)($i + 1);
+        }
+
+        // Show the result with pagination
+        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+    
+        // No action on selection, just go back or exit
+        if ($answer != "BACK" && $answer != NULL) 
+        {
+        
+            $flowStep = "EXIT";
+        
+        }    
 
     }
 
