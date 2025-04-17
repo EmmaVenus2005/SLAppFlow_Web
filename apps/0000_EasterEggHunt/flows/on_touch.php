@@ -47,6 +47,9 @@ while ($flowStep != "EXIT")
         if ($appmode === "Egg")
         {
 
+            // Test
+            //SLOwnerSay($objid, json_encode(SLObjectInfo($objid)));
+
             // Gets the list of found eggs by toucher avatar from the database
             $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
 
@@ -538,15 +541,59 @@ while ($flowStep != "EXIT")
                             if (count($stillFound) === 0) {
                                 NVDelSessionList($objregion, "EggHunter", $hunterSession);
                             }
-                            
+
                         }
 
                     }
+
                 }
+
             }
+
         }
+
     }
 
+    // Admin menu to eliminate a player
+    // } else if ($flowStep === "MAIN/ADMIN/ELIMINATE") {
+
+    //     // Dialog header
+    //     $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate <<PAGE>> 🌷🥚\n\n";
+    //     $dialog .= "Choose a player to eliminate from the hunt:\n";
+
+    //     // Get all hunter sessions
+    //     $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
+
+    //     // Build display list
+    //     $choices = [];
+    //     $options = [];
+
+    //     foreach ($hunterSessions as $i => $hunterUUID) {
+    //         $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
+    //         $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
+    //         $choices[] = ($i + 1) . " - " . $hunterName;
+    //         $options[] = (string)($i + 1);
+    //     }
+
+    //     // Show list with paging
+    //     $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+
+    //     if ($answer != "BACK" && $answer != NULL) {
+
+    //         $hunterIndex = intval($answer) - 1;
+    //         $hunterUUID = $hunterSessions[$hunterIndex] ?? null;
+
+    //         if ($hunterUUID !== null) {
+
+    //             // 1. Remove the hunter from the EggHunter list
+    //             NVDelSessionList($objregion, "EggHunter", $hunterUUID);
+
+    //             // 2. Remove all lists associated with this hunter session
+    //             NVDelSessionLists($hunterUUID . "@" . $objregion);
+
+    //         }
+    //     }
+    // }
 
 
     // Manage BACK or null responses (timeout, errors, etc.)
