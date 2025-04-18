@@ -47,9 +47,6 @@ while ($flowStep != "EXIT")
         if ($appmode === "Egg")
         {
 
-            // Test
-            //SLOwnerSay($objid, json_encode(SLObjectInfo($objid)));
-
             // Gets the list of found eggs by toucher avatar from the database
             $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
 
@@ -80,12 +77,40 @@ while ($flowStep != "EXIT")
                 // Adds the egg to the found ones by that avatar
                 NVSetSessionList($session . "@" . $objregion, "FoundEgg", $objid, json_encode($elements));
 
-                // Debug
-                SLOwnerSay($objid, $flowParams[0] . " found an egg !");
+                // Retrieve egg metadata from the database (for debug only)
+                $eggMeta = json_decode(NVGetSessionList($objregion, "EasterEgg", $objid), true);
+                $eggName = $eggMeta['name'] ?? ("Egg #" . substr($objid, 0, 8));
 
-                // Egg already found message
+                // Debug
+                SLRegionSayTo($objid, $uuid, 0, $flowParams[0] . " found an egg : " . $eggName);
+
+                // Explicit UUID for notifications, I will have to introdice an admin feature to add ppl to notif list
+                SLRegionSayTo($objid, "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, $flowParams[0] . " found an egg : " . $eggName);
+                
+                // New egg found message
                 $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
                 $dialog .= "Congratulations, you found a new egg !\n";
+
+                // Total number of eggs on the region
+                $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+
+                // List of eggs found by this avatar
+                $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
+
+                // Compute how many are left
+                $eggsLeft = $totalEggs - count($foundEggs);
+
+                // Message
+                $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
+                $dialog .= "Congratulations, you found a new egg !\n";
+
+                if ($eggsLeft === 0) {
+                    $dialog .= "You found all the eggs !\n";
+                } elseif ($eggsLeft === 1) {
+                    $dialog .= "Just 1 egg left to find, keep going !\n";
+                } else {
+                    $dialog .= "Only $eggsLeft eggs left to find !\n";
+                }
 
             }
 
@@ -101,7 +126,7 @@ while ($flowStep != "EXIT")
         // Touching the board
         } else {    
 
-            SLOwnerSay($objid, $flowParams[0] . " touched the board !");
+            //SLOwnerSay($objid, $flowParams[0] . " touched the board !");
 
             // Egg Hunt welcome message
             $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
@@ -365,9 +390,10 @@ while ($flowStep != "EXIT")
         $dialog  = "\n🥚🌷 Easter Egg Hunt / Admin 🌷🥚\n\n";
         $dialog .= "[Rename] : Change the name of one of the eggs from this game\n";
         $dialog .= "[Ping] : Check if there are deleted eggs in the game (allows you to remove them)\n";
+        $dialog .= "[Eliminate] : Eliminates a player from the game\n";
 
         // Available options
-        $options = ["Rename", "Ping"];
+        $options = ["Rename", "Ping", "Eliminate"];
 
         // Show dialog without paging
         $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
@@ -378,6 +404,7 @@ while ($flowStep != "EXIT")
 
             if ($answer === "Rename") { $flowStep = "MAIN/ADMIN/RENAME"; } 
             else if ($answer === "Ping") { $flowStep = "MAIN/ADMIN/PING"; }
+            else if ($answer === "Eliminate") { $flowStep = "MAIN/ADMIN/ELIMINATE"; }
 
         }
 
@@ -501,17 +528,17 @@ while ($flowStep != "EXIT")
                 {
 
                     // Responding → cannot delete
-                    $dialog = "\n🥚🌷 Ping Result 🌷🥚\n\n";
+                    $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping 🌷🥚\n\n";
                     $dialog .= "This egg is still responding to HTTP ping and cannot be deleted. ";
                     $dialog .= "If you want to remove it from the game, delete or derezz it inworld first.";
 
-                    SLDialog($objid, $session, $dialog, "", [], [], false, true);
+                    $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
 
                 // The selected egg doesn't respond to ping
                 } else {
 
                     // Unreachable → offer deletion
-                    $dialog = "\n🥚🌷 Ping Result 🌷🥚\n\n";
+                    $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping 🌷🥚\n\n";
                     $dialog .= "This egg does not respond anymore. It was likely deleted or derezzed.\n\n";
                     $dialog .= "If you delete it:\n";
                     $dialog .= "- It will be removed from the list of eggs.\n";
@@ -552,48 +579,67 @@ while ($flowStep != "EXIT")
 
         }
 
+    // To eliminate a player from the game
+    } else if ($flowStep === "MAIN/ADMIN/ELIMINATE") 
+    {
+
+        // Dialog header
+        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate <<PAGE>> 🌷🥚\n\n";
+        $dialog .= "Choose a player to eliminate from the hunt:\n";
+
+        // Get all hunter sessions
+        $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
+
+        // Build display list
+        $choices = [];
+        $options = [];
+
+        foreach ($hunterSessions as $i => $hunterUUID) {
+            $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
+            $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
+            $choices[] = ($i + 1) . " - " . $hunterName;
+            $options[] = (string)($i + 1);
+        }
+
+        // Show list with paging
+        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+
+        if ($answer != "BACK" && $answer != NULL) {
+
+            $hunterIndex = intval($answer) - 1;
+            $hunterUUID = $hunterSessions[$hunterIndex] ?? null;
+
+            if ($hunterUUID !== null) {
+
+                $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
+                $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
+
+                // Confirmation dialog
+                $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate 🌷🥚\n\n";
+                $dialog .= "Are you sure you want to eliminate \n";
+                $dialog .= $hunterName . " from the hunt?\n\n";
+                $dialog .= "This action is irreversible !";
+
+                $answer = SLDialog($objid, $session, $dialog, "", [], ["Eliminate"], false, true);
+
+                if ($answer === "Eliminate") {
+
+                    // 1. Remove the hunter from the EggHunter list
+                    NVDelSessionList($objregion, "EggHunter", $hunterUUID);
+
+                    // 2. Remove all lists associated with this hunter session
+                    NVDelSessionLists($hunterUUID . "@" . $objregion, "FoundEgg");
+
+                    // Optional feedback
+                    //SLDialog($objid, $session, "\n" . $hunterName . " has been eliminated from the hunt.", "", [], [], false, true);
+
+                }
+
+            }
+            
+        }
+
     }
-
-    // Admin menu to eliminate a player
-    // } else if ($flowStep === "MAIN/ADMIN/ELIMINATE") {
-
-    //     // Dialog header
-    //     $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate <<PAGE>> 🌷🥚\n\n";
-    //     $dialog .= "Choose a player to eliminate from the hunt:\n";
-
-    //     // Get all hunter sessions
-    //     $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
-
-    //     // Build display list
-    //     $choices = [];
-    //     $options = [];
-
-    //     foreach ($hunterSessions as $i => $hunterUUID) {
-    //         $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
-    //         $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
-    //         $choices[] = ($i + 1) . " - " . $hunterName;
-    //         $options[] = (string)($i + 1);
-    //     }
-
-    //     // Show list with paging
-    //     $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
-
-    //     if ($answer != "BACK" && $answer != NULL) {
-
-    //         $hunterIndex = intval($answer) - 1;
-    //         $hunterUUID = $hunterSessions[$hunterIndex] ?? null;
-
-    //         if ($hunterUUID !== null) {
-
-    //             // 1. Remove the hunter from the EggHunter list
-    //             NVDelSessionList($objregion, "EggHunter", $hunterUUID);
-
-    //             // 2. Remove all lists associated with this hunter session
-    //             NVDelSessionLists($hunterUUID . "@" . $objregion);
-
-    //         }
-    //     }
-    // }
 
 
     // Manage BACK or null responses (timeout, errors, etc.)
