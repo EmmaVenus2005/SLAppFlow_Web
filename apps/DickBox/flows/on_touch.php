@@ -26,4 +26,4 @@
  *                      [10] = touchPos            (vector as string)
  */
 
-SLOwnerSay($objid, $flowParams[0]);
+SLOwnerSay($objid, AFGetOwnerName());

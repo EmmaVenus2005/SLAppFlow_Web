@@ -112,7 +112,7 @@ if ($reqtype === null || !preg_match('/^[a-zA-Z0-9_]+$/', $reqtype)) { ErrBadReq
 // Checking the request validity
 // This is NOT shared, but you can implement your own function to check the validity
 // Use globals, dynamic parameters, secrets, all you want ^^
-include 'secret.php';
+include $homeDir . '/secret.php';
 if (!CheckValidity()) { ErrAuthFail(); }
 
 // Database connection details
