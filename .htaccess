@@ -1,7 +1,4 @@
-<Files "config.ini">
-    Require all denied
-</Files>
-
-<Files "secret.php">
-    Require all denied
-</Files>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\.git - [F,L]
+</IfModule>

@@ -26,9 +26,6 @@
  *                      [10] = touchPos            (vector as string)
  */
 
-$result = SLRLVRequest(AFGetFlowObjectID(), ["getinvworn:~wearings/Dresses=#"]);
+$dresses = SLRLVRequest(AFGetFlowObjectID(), ["getinvworn:~wearings/Dresses=#"]);
+SLOwnerSay(AFGetFlowObjectID(), $dresses[0]); 
 
-//$result = SLRLVRequest(AFGetFlowObjectID(), ["clear"]);
-
-SLOwnerSay(AFGetFlowObjectID(), $result[0]); 
-SLOwnerSay(AFGetFlowObjectID(), "end"); 

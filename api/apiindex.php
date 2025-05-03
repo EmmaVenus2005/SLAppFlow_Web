@@ -39,7 +39,7 @@ $headers = getallheaders();
 // Log the incoming request
 // $logData = date('Y-m-d H:i:s') . " - Request Data: " . json_encode($_REQUEST) . "\n";
 // $logData .= "Headers: " . json_encode($headers) . "\n";
-// file_put_contents('request_log.txt', $logData, FILE_APPEND);
+// file_put_contents($logDir . 'request_log.txt', $logData, FILE_APPEND);
 
 // Checking if request ID available
 $reqid = $_POST['reqid'] ?? null;
@@ -112,7 +112,7 @@ if ($reqtype === null || !preg_match('/^[a-zA-Z0-9_]+$/', $reqtype)) { ErrBadReq
 // Checking the request validity
 // This is NOT shared, but you can implement your own function to check the validity
 // Use globals, dynamic parameters, secrets, all you want ^^
-include $homeDir . '/secret.php';
+include $configDir . '/secret.php';
 if (!CheckValidity()) { ErrAuthFail(); }
 
 // Database connection details

@@ -3,8 +3,14 @@
 // Using this variable to define paths from here
 $homeDir = __DIR__;
 
+// 'config' directory, containing sensitive data, outside of the web root
+$configDir = dirname($homeDir) . '/config';
+
+// 'log' directory, containing log files, outside of the web root
+$logDir = dirname($homeDir) . '/log';
+
 // Reading the config file that contains confidential data
-$config = parse_ini_file($homeDir . '/config.ini', true);
+$config = parse_ini_file($configDir . '/config.ini', true);
 
 // Get the host from the server variables
 $host = $_SERVER['HTTP_HOST'];
