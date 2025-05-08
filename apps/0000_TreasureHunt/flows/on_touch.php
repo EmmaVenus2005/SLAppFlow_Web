@@ -1,18 +1,24 @@
 <?php
 
 /**
- * Contextual variables used during flow execution
+ * Contextual functions used during flow execution
  * -----------------------------------------------
  * 
  * - AFGetAppID()               → Application identifier (unique per app instance)
  * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetOwnerID()             → UUID of the avatar who owns the object
- * - AFGetFlowSession()         → UUID of the avatar who initiated the touch interaction
+ * - AFGetOwnerName()           → Display name of the object owner
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
+ * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
+ * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
+ * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
+ * - AFGetFlowRegionName()      → Name of the region in the world
  * 
  * Touch-specific additional parameters are accessible using:
- * - AFGetFlowParam(index)  → Indexed array of touch data:
+ *
+ * - AFGetFlowSession()         → UUID of the avatar who touched the object
+ * - AFGetFlowParam(index)      → Indexed array of touch data:
  *      [0] = toucherName          (string)
  *      [1] = toucherOwner UUID    (string)
  *      [2] = toucherPos           (vector as string)
@@ -24,10 +30,18 @@
  *      [8] = touchNormal          (vector as string)
  *      [9] = touchBinormal        (vector as string)
  *      [10] = touchPos            (vector as string)
+ * 
  */
 
 // Flow control variable
 $flowStep = "MAIN";
+
+// Constants depending of the game (Egg Hunt, Treasure Hunt, etc.)
+$gameName = "Treasure Hunt";
+$treasureNameSingular = "treasure";
+$treasureNamePlural = "treasures";
+$titleSurroundingLeft = "✨";
+$titleSurroundingRight = "✨";
 
 // Main loop
 while ($flowStep != "EXIT")
@@ -36,73 +50,73 @@ while ($flowStep != "EXIT")
     if ($flowStep === "MAIN")
     {
         
-        // If the touched object is an egg
-        if ($appmode === "Egg")
+        // If the touched object is a treasure
+        if ($appmode === "Treasure")
         {
 
-            // Gets the list of found eggs by toucher avatar from the database
-            $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
+            // Gets the list of found treasures by toucher avatar from the database
+            $foundTreasures = NVGetSessionLists(AFGetFlowSession() . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
-            // If the egg was already found
-            if (in_array($objid, $foundEggs)) 
+            // If the treasure was already found
+            if (in_array(AFGetFlowObjectID(), $foundTreasures)) 
             {
             
-                // Egg already found message
-                $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
-                $dialog .= "You already found this egg, good luck to find them all !";
+                // Treasure already found message
+                $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
+                $dialog .= "You already found this $treasureNameSingular, good luck to find them all !";
 
-            // This avatar didn't find that egg so far
+            // This avatar didn't find that treasure so far
             } else {
 
                 // Creating additional elements for the list
                 $elements = [
-                    'hunterName' => $flowParams[0]  // Name of the hunter
+                    'hunterName' => AFGetFlowParam()[0]  // Name of the hunter
                 ];
 
                 // Declares the avatar as a hunter in the database
-                NVSetSessionList($objregion, "EggHunter", $session, json_encode($elements));
+                NVSetSessionList(AFGetFlowRegionPosition(), "Hunter", AFGetFlowSession(), json_encode($elements));
 
                 // Creating additional elements for the list
                 $elements = [
                     'foundOn' => date('c')  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
                 ];
 
-                // Adds the egg to the found ones by that avatar
-                NVSetSessionList($session . "@" . $objregion, "FoundEgg", $objid, json_encode($elements));
+                // Adds the treasure to the found ones by that avatar
+                NVSetSessionList(AFGetFlowSession() . "@" . AFGetFlowRegionPosition(), "FoundTreasure", AFGetFlowObjectID(), json_encode($elements));
 
-                // Retrieve egg metadata from the database (for debug only)
-                $eggMeta = json_decode(NVGetSessionList($objregion, "EasterEgg", $objid), true);
-                $eggName = $eggMeta['name'] ?? ("Egg #" . substr($objid, 0, 8));
+                // Retrieve the treasure metadata from the database (for debug only)
+                $treasureMeta = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", AFGetFlowObjectID()), true);
+                $treasureName =treasure['name'] ?? ("Treasure #" . substr(AFGetFlowObjectID(), 0, 8));
 
                 // Debug
-                SLRegionSayTo($objid, $uuid, 0, $flowParams[0] . " found an egg : " . $eggName);
+                SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, AFGetFlowParam()[0] . " found a $treasureNameSingular : $treasureName");
 
                 // Explicit UUID for notifications, I will have to introdice an admin feature to add ppl to notif list
-                SLRegionSayTo($objid, "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, $flowParams[0] . " found an egg : " . $eggName);
+                SLRegionSayTo(AFGetFlowObjectID(), "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, AFGetFlowParam()[0] . " found a $treasureNameSingular : $treasureName");
                 
-                // New egg found message
-                $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
-                $dialog .= "Congratulations, you found a new egg !\n";
+                // New treasure found message
+                $dialog .= "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
+                $dialog .= "Congratulations, you found a new $treasureNameSingular !\n";
 
-                // Total number of eggs on the region
-                $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+                // Total number of treasures on the region
+                $totalTreasures = count(NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure"));
 
-                // List of eggs found by this avatar
-                $foundEggs = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
+                // List of treasures found by this avatar
+                $foundTreasures = NVGetSessionLists(AFGetFlowSession() . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
                 // Compute how many are left
-                $eggsLeft = $totalEggs - count($foundEggs);
+                $treasuresLeft = $totalTreasures - count($foundTreasures);
 
                 // Message
-                $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
-                $dialog .= "Congratulations, you found a new egg !\n";
+                $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
+                $dialog .= "Congratulations, you found a new $treasureNameSingular !\n";
 
-                if ($eggsLeft === 0) {
-                    $dialog .= "You found all the eggs !\n";
-                } elseif ($eggsLeft === 1) {
-                    $dialog .= "Just 1 egg left to find, keep going !\n";
+                if ($treasuresLeft === 0) {
+                    $dialog .= "You found all the $treasureNamePlurial !\n";
+                } elseif ($treasuresLeft === 1) {
+                    $dialog .= "Just 1 $treasureNameSingular left to find, keep going !\n";
                 } else {
-                    $dialog .= "Only $eggsLeft eggs left to find !\n";
+                    $dialog .= "Only $treasuresLeft $treasureNamePlurial left to find !\n";
                 }
 
             }
@@ -111,7 +125,7 @@ while ($flowStep != "EXIT")
             $options = ["Close"];
 
             // Send dialog to the avatar
-            $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, false);
+            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, false);
 
             // Nothing more to do
             $flowStep = "EXIT";
@@ -119,23 +133,22 @@ while ($flowStep != "EXIT")
         // Touching the board
         } else {    
 
-            //SLOwnerSay($objid, $flowParams[0] . " touched the board !");
+            //SLOwnerSay(AFGetFlowObjectID(), AFGetFlowParam()[0] . " touched the board !");
 
-            // Egg Hunt welcome message
-            $dialog = "\n🥚🌷 Easter Egg Hunt 🌷🥚\n\n";
-            $dialog .= "Welcome to the most egg-citing challenge of the season!\n\n";
-            $dialog .= "Your mission is to hunt down all the eggs hidden across this SIM. ";
-            $dialog .= "They're scattered everywhere — behind trees, under benches... Keep your eyes peeled !\n\n";
-            $dialog .= "Walk around and click on the eggs to collect them.\n";
-            $dialog .= "You can check how many eggs you still need by touching this board anytime.\n\n";
-            $dialog .= "A sweet reward awaits the best egg-hunters.\n\n";
-            $dialog .= "Have fun !\n";
+            // Treasure Hunt welcome message
+            $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
+            $dialog .= "Your mission is to discover all the hidden $treasureNamePlural scattered across this SIM. ";
+            $dialog .= "They could be anywhere — behind rocks, inside caves, or even under water... Stay sharp and explore every corner!\n\n";
+            $dialog .= "Walk around and click on the $treasureNamePlural to collect them.";
+            $dialog .= "You can check your progress anytime by touching this board.\n\n";
+            $dialog .= "A grand reward awaits the most dedicated treasure hunters.\n\n";
+            $dialog .= "Good luck and have fun!\n";
 
             // Options for dialog (all users)
             $options = ["Rules", "My Score", "Best Hunters"];
 
             // Checking if the user is the owner
-            if ($uuid === $session)
+            if (AFGetOwnerID() === AFGetFlowSession())
             {
 
                 // Adding the Admin option
@@ -144,7 +157,7 @@ while ($flowStep != "EXIT")
             }
 
             // Send dialog to the avatar
-            $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, false);
+            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, false);
 
             // Reads the answer
             switch ($answer) 
@@ -167,29 +180,29 @@ while ($flowStep != "EXIT")
     {
 
         // Dialog title
-        $dialog = "\n🥚🌷 Easter Egg Hunt / My Score 🌷🥚\n\n";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / My Score " . $titleSurroundingRight . "\n\n";
         
-        // Getting the list of found eggs
-        $foundEggsList = NVGetSessionLists($session . "@" . $objregion, "FoundEgg");
+        // Getting the list of found treasures
+        $foundTreasuresList = NVGetSessionLists(AFGetFlowSession() . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
         
-        // Will contain the date of the first egg
+        // Will contain the date of the first treasure found
         $firstFoundDate = null;
 
-        // Looping through all found eggs to find the first date
-        foreach ($foundEggsList as $currentEgg)
+        // Looping through all found treasures to find the first date
+        foreach ($foundTreasuresList as $currentTreasure)
         {
 
-            // Getting the database elements for the current egg
-            $currentEggDate = NVGetSessionList($session . "@" . $objregion, "FoundEgg", $currentEgg);
+            // Getting the database elements for the current treasure
+            $currentTreasureData = NVGetSessionList(AFGetFlowSession() . "@" . AFGetFlowRegionPosition(), "FoundTreasure", $currentTreasure);
             
-            // Extracting the date of found for the current egg
-            $foundOn = json_decode($currentEggDate, true)['foundOn'] ?? null;
+            // Extracting the date of found for the current treasure
+            $foundOn = json_decode($currentTreasureData, true)['foundOn'] ?? null;
 
             // If a foundOn parameter has been found (should not miss)
             if ($foundOn) 
             {
                 
-                // If first date never set or current egg found date older
+                // If first date never set or current treasure found date older
                 if ($firstFoundDate === null || strtotime($foundOn) < strtotime($firstFoundDate)) 
                 {
                     
@@ -205,46 +218,46 @@ while ($flowStep != "EXIT")
         // Formatting the date in US format
         $firstFoundDateFormatted = (new DateTime($firstFoundDate))->format('Y-m-d H:i');
 
-        // Counting the found eggs
-        $foundEggs = count($foundEggsList);
+        // Counting the found treasures
+        $foundTreasures = count($foundTreasuresList);
 
-        // Checking how many eggs are on the SIM
-        $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+        // Checking how many treasures are on the SIM
+        $totalTreasures = count(NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure"));
 
-        // In case the owner didn't add any egg yet
-        if ($totalEggs == 0)
+        // In case the owner didn't add any treasure yet
+        if ($totalTreasures == 0)
         {
 
             $dialog .= "The game didn't start yet, stay tuned !";
 
-        // All eggs have been found
-        } elseif ($totalEggs - $foundEggs == 0)
+        // All treasures have been found
+        } elseif ($totalTreasures - $foundTreasures == 0)
         {
 
-            $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
-            $dialog .= "You found all " . $totalEggs . " eggs.\n\n";
+            $dialog .= "You found your first $treasureNameSingular on $firstFoundDateFormatted.\n";
+            $dialog .= "You found all $totalTreasures $treasureNameSingular.\n\n";
             $dialog .= "Congratulations !";
 
         } else {
 
-            // Text depending of the number of found eggs
-            switch($foundEggs)
+            // Text depending of the number of found treasures
+            switch($foundTreasures)
             {
 
                 case 0:
-                    $dialog .= "You didn't find any egg so far.\n\n";
+                    $dialog .= "You didn't find any $treasureNameSingular so far.\n\n";
                     $dialog .= "Good luck, and have fun !";
                     break;
 
                 case 1:
-                    $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
-                    $dialog .= "You found 1 egg so far, and there are " . $totalEggs - $foundEggs . " more to find.\n\n";
+                    $dialog .= "You found your first $treasureNameSingular on $firstFoundDateFormatted.\n";
+                    $dialog .= "You found 1 $treasureNameSingular so far, and there are " . $totalTreasures - $foundTreasures . " more to find.\n\n";
                     $dialog .= "Good luck, and have fun !";
                     break;
 
                 default:
-                    $dialog .= "You found your first egg on " . $firstFoundDateFormatted . "\n";
-                    $dialog .= "You found " . $foundEggs . " eggs so far, and there are " . $totalEggs - $foundEggs . " more to find.\n\n";
+                    $dialog .= "You found your first $treasureNameSingular on $firstFoundDateFormatted.\n";
+                    $dialog .= "You found $foundTreasures $treasureNamePlurial so far, and there are " . $totalTreasures - $foundTreasures . " more to find.\n\n";
                     $dialog .= "Good luck, and have fun !";
 
             }
@@ -252,7 +265,7 @@ while ($flowStep != "EXIT")
         }
         
         // Send dialog to the avatar
-        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], [], false, true);
 
         // If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
@@ -267,13 +280,13 @@ while ($flowStep != "EXIT")
     {
 
         // Dialog
-        $dialog = "\n🥚🌷 Easter Egg Hunt / Rules 🌷🥚\n\n";
-        $dialog .= "The timer starts after you found the first egg, and ends when you found the last one. ";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Rules " . $titleSurroundingRight . "\n\n";
+        $dialog .= "The timer starts after you found the first $treasureNameSingular, and ends when you found the last one. ";
         $dialog .= "The less time it took you to find them all, the better your score will be.\n\n";
-        $dialog .= "Don't check private places, there are no eggs there !";
+        $dialog .= "Don't check private places, there is no $reasureNameSingular there !";
 
         // Send dialog to the avatar
-        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], [], false, true);
 
         // If not BACK, timeout or HTTP error...
 		if ($answer != "BACK" && $answer != NULL)
@@ -288,13 +301,13 @@ while ($flowStep != "EXIT")
     {
 
         // Dialog title
-        $dialog = "\n🥚🌷 Easter Egg Hunt / Best Hunters 🌷🥚\n\n";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Best Hunters " . $titleSurroundingRight . "\n\n";
 
-        // Get the total number of eggs on the region
-        $totalEggs = count(NVGetSessionLists($objregion, "EasterEgg"));
+        // Get the total number of treasures on the region
+        $totalTreasures = count(NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure"));
 
-        // Get the list of all players who found at least one egg
-        $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
+        // Get the list of all players who found at least one treasure
+        $hunterSessions = NVGetSessionLists(AFGetFlowRegionPosition(), "Hunter");
 
         // Will hold the stats for each hunter
         $hunterStats = [];
@@ -303,29 +316,29 @@ while ($flowStep != "EXIT")
         foreach ($hunterSessions as $hunter) {
 
             // Get display name of the hunter
-            $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunter), true);
+            $hunterData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Hunter", $hunter), true);
             $hunterName = $hunterData['hunterName'] ?? $hunter;
 
-            // Get the list of eggs found by the hunter
-            $eggs = NVGetSessionLists($hunter . "@" . $objregion, "FoundEgg");
+            // Get the list of treasures found by the hunter
+            $treasures = NVGetSessionLists($hunter . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
             // Initialize stats
-            $count = count($eggs);
+            $count = count($treasures);
             $first = null;
             $last = null;
 
-            // Loop through all found eggs to get first and last timestamps
-            foreach ($eggs as $egg) 
+            // Loop through all found treasures to get first and last timestamps
+            foreach ($treasures as $treasure) 
             {
 
-                // Get the found date for the current egg
-                $eggData = json_decode(NVGetSessionList($hunter . "@" . $objregion, "FoundEgg", $egg), true);
+                // Get the found date for the current treasure
+                $treasureData = json_decode(NVGetSessionList($hunter . "@" . AFGetFlowRegionPosition(), "FoundTreasure", $treasure), true);
 
                 // Skip if no date
-                if (!isset($eggData['foundOn'])) continue;
+                if (!isset($treasureData['foundOn'])) continue;
 
                 // Parse date
-                $t = strtotime($eggData['foundOn']);
+                $t = strtotime($treasureData['foundOn']);
 
                 // Update first/last if needed
                 if ($first === null || $t < $first) $first = $t;
@@ -333,7 +346,7 @@ while ($flowStep != "EXIT")
 
             }
 
-            // Compute the duration between first and last egg
+            // Compute the duration between first and last treasure
             $duration = ($last !== null && $first !== null) ? $last - $first : null;
 
             // Store hunter stats
@@ -346,20 +359,20 @@ while ($flowStep != "EXIT")
         }
 
         // Sort hunters :
-        // 1. Those who found all eggs, by ascending duration
+        // 1. Those who found all treasures, by ascending duration
         // 2. Others by descending count, then ascending duration
-        usort($hunterStats, function ($a, $b) use ($totalEggs) {
+        usort($hunterStats, function ($a, $b) use ($totalTreasures) {
             if ($a['count'] === $b['count']) {
                 return ($a['duration'] ?? PHP_INT_MAX) <=> ($b['duration'] ?? PHP_INT_MAX);
             }
-            if ($a['count'] === $totalEggs) return -1;
-            if ($b['count'] === $totalEggs) return 1;
+            if ($a['count'] === $totalTreasures) return -1;
+            if ($b['count'] === $totalTreasures) return 1;
             return $b['count'] <=> $a['count'];
         });
 
         // Build the leaderboard (only top 10)
         foreach (array_slice($hunterStats, 0, 10) as $h) {
-            $dialog .= $h['name'] . " [" . $h['count'] . "/" . $totalEggs . "]";
+            $dialog .= $h['name'] . " [" . $h['count'] . "/" . $totalTreasures . "]";
             if ($h['duration'] !== null) {
                 $dialog .= " " . gmdate("H:i:s", $h['duration']);
             }
@@ -367,7 +380,7 @@ while ($flowStep != "EXIT")
         }
 
         // Show the leaderboard to the user
-        $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], [], false, true);
 
         // Exit if no BACK or null
         if ($answer != "BACK" && $answer != NULL) {
@@ -379,17 +392,17 @@ while ($flowStep != "EXIT")
     } else if ($flowStep === "MAIN/ADMIN")
     {
 
-        // Dialog title and options inline
-        $dialog  = "\n🥚🌷 Easter Egg Hunt / Admin 🌷🥚\n\n";
-        $dialog .= "[Rename] : Change the name of one of the eggs from this game\n";
-        $dialog .= "[Ping] : Check if there are deleted eggs in the game (allows you to remove them)\n";
+        // Dialog title and options
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin " . $titleSurroundingRight . "\n\n";
+        $dialog .= "[Rename] : Change the name of one of the $treasureNamePlurial from this game\n";
+        $dialog .= "[Ping] : Check if there are deleted treasures in the game (allows you to remove them)\n";
         $dialog .= "[Eliminate] : Eliminates a player from the game\n";
 
         // Available options
         $options = ["Rename", "Ping", "Eliminate"];
 
         // Show dialog without paging
-        $answer = SLDialog($objid, $session, $dialog, "", [], $options, false, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, true);
 
         // Handle valid user choices only
         if ($answer != "BACK" && $answer != NULL) 
@@ -401,70 +414,70 @@ while ($flowStep != "EXIT")
 
         }
 
-    // Displays a paginated list of eggs for renaming
+    // Displays a paginated list of treasures for renaming
     } else if ($flowStep === "MAIN/ADMIN/RENAME")
     {
 
         // Header of the dialog
-        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Rename <<PAGE>> 🌷🥚\n\n";
-        $dialog .= "Choose the egg you want to rename :\n";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Rename <<PAGE>> " . $titleSurroundingRight . "\n\n";
+        $dialog .= "Choose the $treasureNameSingular you want to rename :\n";
 
-        // Get the list of all eggs on the region
-        $eggList = NVGetSessionLists($objregion, "EasterEgg");
+        // Get the list of all treasures on the region
+        $treasuresList = NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure");
 
         // Initialize arrays for choices and options
         $choices = [];
         $options = [];
 
-        // Loop through eggs to build the selection list
-        foreach ($eggList as $i => $eggId) 
+        // Loop through treasures to build the selection list
+        foreach ($treasuresList as $i => $treasureId) 
         {
 
-            // Retrieve the egg metadata
-            $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
+            // Retrieve the treasure metadata
+            $treasureData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId), true);
 
             // Extract the name or use a fallback if not set
-            $eggName = $eggData['name'] ?? ("Egg #" . substr($eggId, 0, 8));
+            $treasureName = $treasureData['name'] ?? ("Treasure #" . substr($treasureId, 0, 8));
 
             // Add the formatted name to the list
-            $choices[] = ($i + 1) . " - " . $eggName;
+            $choices[] = ($i + 1) . " - " .treasure;
             $options[] = (string)($i + 1);
             
         }
 
         // Send the dialog to the user with paging and BACK support
-        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
 
         // Exit if valid response (other than BACK or timeout)
         if ($answer != "BACK" && $answer != NULL)
         {
             
             // Header of the dialog
-            $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Rename 🌷🥚\n\n";
-            $dialog .= "Please enter the new name of this egg (default is Unnamed) :\n";
+            $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Rename " . $titleSurroundingRight . "\n\n";
+            $dialog .= "Please enter the new name of this $treasureNameSingular (default is Unnamed) :\n";
 
             // Opening the textbox		
-            $newName = SLTextBox($objid, $session, $dialog);
+            $newName = SLTextBox(AFGetFlowObjectID(), AFGetFlowSession(), $dialog);
 
             // Exit if valid response (other than BACK or timeout)
             if ($newName != "BACK" && $newName != NULL) 
             {
 
-                // Retrieve the selected egg ID from the list
-                $eggIndex = intval($answer) - 1;
-                $eggId = $eggList[$eggIndex] ?? null;
+                // Retrieve the selected treasure ID from the list
+                $treasureIndex = intval($answer) - 1;
+                $treasureId = $treasuresList[$treasureIndex] ?? null;
 
-                if ($eggId !== null)
+                if ($treasureId !== null)
                 {
                     
-                    // Retrieve the existing metadata for the egg
-                    $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
+                    // Retrieve the existing metadata for the treasure
+                    $treasureData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId), true);
 
                     // Update the name field with the new value
-                    $eggData['name'] = $newName;
+                    $treasureData['name'] = $newName;
 
                     // Save the updated metadata back to the database
-                    NVSetSessionList($objregion, "EasterEgg", $eggId, json_encode($eggData));
+                    NVSetSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId, json_encode($treasureData));
 
                 }
 
@@ -472,94 +485,94 @@ while ($flowStep != "EXIT")
 
         }
 
-    // Admin feature to ping all the eggs
+    // Admin feature to ping all the treasures
     } else if ($flowStep === "MAIN/ADMIN/PING") {
 
         // Dialog header
-        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping <<PAGE>> 🌷🥚\n\n";
-        $dialog .= "Legend:\n■ Responding\n□ No response\n\nSelect an egg to check its status:\n";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Ping <<PAGE>> " . $titleSurroundingRight . "\n\n";
+        $dialog .= "Legend:\n■ Responding\n□ No response\n\nSelect a $treasureNameSingular to check its status :\n";
 
-        // Get all eggs
-        $eggList = NVGetSessionLists($objregion, "EasterEgg");
-        $pingResults = SLPingMulti($eggList);
+        // Get all treasures
+        $treasuresList = NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure");
+        $pingResults = SLPingMulti($treasuresList);
 
         // Build choices
         $choices = [];
         $options = [];
 
-        // Looping through the eggs
-        foreach ($eggList as $i => $eggId) 
+        // Looping through the treasures
+        foreach ($treasuresList as $i => $treasureId) 
         {
             
-            $eggData = json_decode(NVGetSessionList($objregion, "EasterEgg", $eggId), true);
-            $eggName = $eggData['name'] ?? ("Egg #" . substr($eggId, 0, 8));
-            $status = !empty($pingResults[$eggId]) ? "■" : "□";
-            $choices[] = "$status " . ($i + 1) . " - " . $eggName;
+            $treasureData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId), true);
+            $treasureName = $treasureData['name'] ?? ("Treasure #" . substr($treasureId, 0, 8));
+            $status = !empty($pingResults[$treasureId]) ? "■" : "□";
+            $choices[] = "$status " . ($i + 1) . " - " .treasure;
             $options[] = (string)($i + 1);
 
         }
 
         // Show dialog with paging
-        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
 
         // If valid response (other than BACK or timeout)
         if ($answer != "BACK" && $answer != NULL) {
 
-            // Determine selected egg
-            $eggIndex = intval($answer) - 1;
-            $eggId = $eggList[$eggIndex] ?? null;
+            // Determine selected treasure
+            $treasureIndex = intval($answer) - 1;
+            $treasureId = $treasuresList[$treasureIndex] ?? null;
 
-            // If the egg exists (should ever happen)
-            if ($eggId !== null) 
+            // If the treasure exists (should ever happen)
+            if ($treasureId !== null) 
             {
 
                 // True if responds to ping, false if not
-                $isOnline = $pingResults[$eggId] ?? false;
+                $isOnline = $pingResults[$treasureId] ?? false;
 
-                // The selected egg is still online
+                // The selected treasure is still online
                 if ($isOnline) 
                 {
 
                     // Responding → cannot delete
-                    $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping 🌷🥚\n\n";
-                    $dialog .= "This egg is still responding to HTTP ping and cannot be deleted. ";
+                    $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Ping " . $titleSurroundingRight . "\n\n";
+                    $dialog .= "This $treasureNameSingular is still responding to HTTP ping and cannot be deleted. ";
                     $dialog .= "If you want to remove it from the game, delete or derezz it inworld first.";
 
-                    $answer = SLDialog($objid, $session, $dialog, "", [], [], false, true);
+                    $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], [], false, true);
 
-                // The selected egg doesn't respond to ping
+                // The selected treasure doesn't respond to ping
                 } else {
 
                     // Unreachable → offer deletion
-                    $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Ping 🌷🥚\n\n";
-                    $dialog .= "This egg does not respond anymore. It was likely deleted or derezzed.\n\n";
+                    $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Ping " . $titleSurroundingRight . "\n\n";
+                    $dialog .= "This $treasureNameSingular does not respond anymore. It was likely deleted or derezzed.\n\n";
                     $dialog .= "If you delete it:\n";
-                    $dialog .= "- It will be removed from the list of eggs.\n";
-                    $dialog .= "- Hunters who only found this egg will be removed as well.\n\n";
+                    $dialog .= "- It will be removed from the list of $treasureNamePlurial.\n";
+                    $dialog .= "- Hunters who only found this $treasureNameSingular will be removed as well.\n\n";
                     $dialog .= "Are you sure you want to delete it ?";
 
-                    $answer = SLDialog($objid, $session, $dialog, "", [], ["Delete"], false, true);
+                    $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], ["Delete"], false, true);
 
                     if ($answer === "Delete") 
                     {
 
-                        // 1. Remove from EasterEgg list
-                        NVDelSessionList($objregion, "EasterEgg", $eggId);
+                        // 1. Remove from treasures list
+                        NVDelSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId);
 
-                        // 2. Remove from FoundEgg of all hunters
-                        $hunters = NVGetSessionLists($objregion, "EggHunter");
+                        // 2. Remove from FoundTreasures of all hunters
+                        $hunters = NVGetSessionLists(AFGetFlowRegionPosition(), "Hunter");
 
                         foreach ($hunters as $hunterSession) {
-                            $foundEggs = NVGetSessionLists($hunterSession . "@" . $objregion, "FoundEgg");
+                            $foundTreasures = NVGetSessionLists($hunterSession . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
-                            if (in_array($eggId, $foundEggs)) {
-                                NVDelSessionList($hunterSession . "@" . $objregion, "FoundEgg", $eggId);
+                            if (in_array($treasureId, $foundTreasures)) {
+                                NVDelSessionList($hunterSession . "@" . AFGetFlowRegionPosition(), "FoundTreasure", $treasureId);
                             }
 
-                            // Remove hunter if no eggs left (the first egg being the start of his hunt)
-                            $stillFound = NVGetSessionLists($hunterSession . "@" . $objregion, "FoundEgg");
+                            // Remove hunter if no treasures left (the first treasure being the start of his hunt)
+                            $stillFound = NVGetSessionLists($hunterSession . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
                             if (count($stillFound) === 0) {
-                                NVDelSessionList($objregion, "EggHunter", $hunterSession);
+                                NVDelSessionList(AFGetFlowRegionPosition(), "Hunter", $hunterSession);
                             }
 
                         }
@@ -577,25 +590,25 @@ while ($flowStep != "EXIT")
     {
 
         // Dialog header
-        $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate <<PAGE>> 🌷🥚\n\n";
-        $dialog .= "Choose a player to eliminate from the hunt:\n";
+        $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Eliminate <<PAGE>> " . $titleSurroundingRight . "\n\n";
+        $dialog .= "Choose a player to eliminate from the hunt :\n";
 
         // Get all hunter sessions
-        $hunterSessions = NVGetSessionLists($objregion, "EggHunter");
+        $hunterSessions = NVGetSessionLists(AFGetFlowRegionPosition(), "Hunter");
 
         // Build display list
         $choices = [];
         $options = [];
 
         foreach ($hunterSessions as $i => $hunterUUID) {
-            $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
+            $hunterData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Hunter", $hunterUUID), true);
             $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
             $choices[] = ($i + 1) . " - " . $hunterName;
             $options[] = (string)($i + 1);
         }
 
         // Show list with paging
-        $answer = SLDialog($objid, $session, $dialog, "", $choices, $options, true, true);
+        $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
 
         if ($answer != "BACK" && $answer != NULL) {
 
@@ -604,27 +617,27 @@ while ($flowStep != "EXIT")
 
             if ($hunterUUID !== null) {
 
-                $hunterData = json_decode(NVGetSessionList($objregion, "EggHunter", $hunterUUID), true);
+                $hunterData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Hunter", $hunterUUID), true);
                 $hunterName = $hunterData['hunterName'] ?? $hunterUUID;
 
                 // Confirmation dialog
-                $dialog = "\n🥚🌷 Easter Egg Hunt / Admin / Eliminate 🌷🥚\n\n";
-                $dialog .= "Are you sure you want to eliminate \n";
-                $dialog .= $hunterName . " from the hunt?\n\n";
+                $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Eliminate " . $titleSurroundingRight . "\n\n";
+                $dialog .= "Are you sure you want to eliminate ";
+                $dialog .= "$hunterName from the hunt ?\n\n";
                 $dialog .= "This action is irreversible !";
 
-                $answer = SLDialog($objid, $session, $dialog, "", [], ["Eliminate"], false, true);
+                $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], ["Eliminate"], false, true);
 
                 if ($answer === "Eliminate") {
 
-                    // 1. Remove the hunter from the EggHunter list
-                    NVDelSessionList($objregion, "EggHunter", $hunterUUID);
+                    // 1. Remove the hunter from the Hunter list
+                    NVDelSessionList(AFGetFlowRegionPosition(), "Hunter", $hunterUUID);
 
                     // 2. Remove all lists associated with this hunter session
-                    NVDelSessionLists($hunterUUID . "@" . $objregion, "FoundEgg");
+                    NVDelSessionLists($hunterUUID . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
                     // Optional feedback
-                    //SLDialog($objid, $session, "\n" . $hunterName . " has been eliminated from the hunt.", "", [], [], false, true);
+                    //SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), "\n" . $hunterName . " has been eliminated from the hunt.", "", [], [], false, true);
 
                 }
 
