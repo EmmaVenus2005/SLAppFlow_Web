@@ -106,7 +106,7 @@
             $rlvCommand = trim($_POST['rlv-command']);
 
             // Reading the config file that contains confidential data two levels up
-            $configFilePath = realpath(__DIR__ . '/../../config.ini');
+            $configFilePath = realpath(__DIR__ . '/../../../config/config.ini');
             if ($configFilePath && file_exists($configFilePath)) {
                 $config = parse_ini_file($configFilePath, true);
 

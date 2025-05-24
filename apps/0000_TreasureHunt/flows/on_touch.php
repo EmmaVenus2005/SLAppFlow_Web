@@ -38,8 +38,9 @@ $flowStep = "MAIN";
 
 // Constants depending of the game (Egg Hunt, Treasure Hunt, etc.)
 $gameName = "Treasure Hunt";
+$treasureArticle = "a";
 $treasureNameSingular = "treasure";
-$treasureNamePlural = "treasures";
+$treasureNamePlurial = "treasures";
 $titleSurroundingLeft = "✨";
 $titleSurroundingRight = "✨";
 
@@ -86,17 +87,17 @@ while ($flowStep != "EXIT")
 
                 // Retrieve the treasure metadata from the database (for debug only)
                 $treasureMeta = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", AFGetFlowObjectID()), true);
-                $treasureName =treasure['name'] ?? ("Treasure #" . substr(AFGetFlowObjectID(), 0, 8));
+                $treasureName = $treasureMeta['name'] ?? ("Treasure #" . substr(AFGetFlowObjectID(), 0, 8));
 
                 // Debug
-                SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, AFGetFlowParam()[0] . " found a $treasureNameSingular : $treasureName");
+                SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, AFGetFlowParam()[0] . " found $treasureArticle $treasureNameSingular : $treasureName");
 
                 // Explicit UUID for notifications, I will have to introdice an admin feature to add ppl to notif list
-                SLRegionSayTo(AFGetFlowObjectID(), "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, AFGetFlowParam()[0] . " found a $treasureNameSingular : $treasureName");
+                SLRegionSayTo(AFGetFlowObjectID(), "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, AFGetFlowParam()[0] . " found $treasureArticle $treasureNameSingular : $treasureName");
                 
                 // New treasure found message
                 $dialog .= "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
-                $dialog .= "Congratulations, you found a new $treasureNameSingular !\n";
+                $dialog .= "Congratulations, you found $treasureArticle new $treasureNameSingular !\n";
 
                 // Total number of treasures on the region
                 $totalTreasures = count(NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure"));
@@ -137,9 +138,9 @@ while ($flowStep != "EXIT")
 
             // Treasure Hunt welcome message
             $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " " . $titleSurroundingRight . "\n\n";
-            $dialog .= "Your mission is to discover all the hidden $treasureNamePlural scattered across this SIM. ";
+            $dialog .= "Your mission is to discover all the hidden $treasureNamePlurial scattered across this SIM. ";
             $dialog .= "They could be anywhere — behind rocks, inside caves, or even under water... Stay sharp and explore every corner!\n\n";
-            $dialog .= "Walk around and click on the $treasureNamePlural to collect them.";
+            $dialog .= "Walk around and click on the $treasureNamePlurial to collect them.";
             $dialog .= "You can check your progress anytime by touching this board.\n\n";
             $dialog .= "A grand reward awaits the most dedicated treasure hunters.\n\n";
             $dialog .= "Good luck and have fun!\n";
@@ -283,7 +284,7 @@ while ($flowStep != "EXIT")
         $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Rules " . $titleSurroundingRight . "\n\n";
         $dialog .= "The timer starts after you found the first $treasureNameSingular, and ends when you found the last one. ";
         $dialog .= "The less time it took you to find them all, the better your score will be.\n\n";
-        $dialog .= "Don't check private places, there is no $reasureNameSingular there !";
+        $dialog .= "Don't check private places, there is no $treasureNameSingular there !";
 
         // Send dialog to the avatar
         $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], [], false, true);
@@ -395,7 +396,7 @@ while ($flowStep != "EXIT")
         // Dialog title and options
         $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin " . $titleSurroundingRight . "\n\n";
         $dialog .= "[Rename] : Change the name of one of the $treasureNamePlurial from this game\n";
-        $dialog .= "[Ping] : Check if there are deleted treasures in the game (allows you to remove them)\n";
+        $dialog .= "[Ping] : Check if there are deleted $treasureNamePlurial in the game (allows you to remove them)\n";
         $dialog .= "[Eliminate] : Eliminates a player from the game\n";
 
         // Available options
@@ -440,7 +441,7 @@ while ($flowStep != "EXIT")
             $treasureName = $treasureData['name'] ?? ("Treasure #" . substr($treasureId, 0, 8));
 
             // Add the formatted name to the list
-            $choices[] = ($i + 1) . " - " .treasure;
+            $choices[] = ($i + 1) . " - " . $treasureName;
             $options[] = (string)($i + 1);
             
         }
@@ -490,7 +491,7 @@ while ($flowStep != "EXIT")
 
         // Dialog header
         $dialog = "\n" . $titleSurroundingLeft . " " . $gameName . " / Admin / Ping <<PAGE>> " . $titleSurroundingRight . "\n\n";
-        $dialog .= "Legend:\n■ Responding\n□ No response\n\nSelect a $treasureNameSingular to check its status :\n";
+        $dialog .= "Legend:\n■ Responding\n□ No response\n\nSelect $treasureArticle $treasureNameSingular to check its status :\n";
 
         // Get all treasures
         $treasuresList = NVGetSessionLists(AFGetFlowRegionPosition(), "Treasure");
@@ -507,7 +508,7 @@ while ($flowStep != "EXIT")
             $treasureData = json_decode(NVGetSessionList(AFGetFlowRegionPosition(), "Treasure", $treasureId), true);
             $treasureName = $treasureData['name'] ?? ("Treasure #" . substr($treasureId, 0, 8));
             $status = !empty($pingResults[$treasureId]) ? "■" : "□";
-            $choices[] = "$status " . ($i + 1) . " - " .treasure;
+            $choices[] = "$status " . ($i + 1) . " - " . $treasureName;
             $options[] = (string)($i + 1);
 
         }
