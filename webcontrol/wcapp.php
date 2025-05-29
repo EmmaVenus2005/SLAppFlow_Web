@@ -3,7 +3,7 @@
 // PHP session (sould already exist from main file)
 session_start();
 
-// If $uuid and $name are not set, someone tries to access to the app without using main menu
+// If $uuid and $name are not set, someone tries to access to the page without using main menu
 // In this case ALWAYS abort the script for obvious security reason
 if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit(); }
 
