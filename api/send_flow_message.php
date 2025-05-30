@@ -11,20 +11,16 @@ if (php_sapi_name() !== 'cli') {
     exit;
 }
 
-// --- Input validation ---
-if ($argc >= 2 && file_exists($argv[1])) {
-    $contextData = file_get_contents($argv[1]);
-} else {
-    // Read from STDIN
-    $contextData = stream_get_contents(STDIN);
-}
+// Read from STDIN
+$contextData = stream_get_contents(STDIN);
 
+// Decode the JSON context data
 $context = json_decode($contextData, true);
 
-// --- Extract context into local variables ---
+// Extract context into local variables
 extract($context);
 
-// --- Ensure required keys exist ---
+// Ensure required keys exist
 $required = ['config', 'appid', 'uuid', 'name', 'session', 'sender_appid', 'sender_uuid', 'sender_name', 'message', 'homeDir'];
 foreach ($required as $key) {
     if (!isset($context[$key])) {
@@ -44,10 +40,11 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 
 // Check connection
 if ($conn->connect_error) {
-    //ErrDbConn($conn->connect_error);
+    fwrite(STDERR, "Database connection failed: " . $conn->connect_error . "\n");
+    exit(1);
 }
 
-// --- Include all utility functions ---
+// Include all utility functions
 $functionsDir = $homeDir . '/functions/';
 if (is_dir($functionsDir)) {
     foreach (glob($functionsDir . '*.php') as $filename) {
@@ -55,21 +52,33 @@ if (is_dir($functionsDir)) {
     }
 }
 
-// --- Execute the flow ---
+// Execute the flow
 $flowPath = $homeDir . '/apps/' . $appid . '/flows/on_message.php';
 
+// Initialize reply variable
 $reply = null;
 
-if (file_exists($flowPath)) {
+// Check if the flow file exists
+if (!file_exists($flowPath)) 
+{
     
-    include $flowPath;
+    // Close the database connection
+    $conn->close();
 
-} else {
+    // Flow file not found
     fwrite(STDERR, "Flow file not found at $flowPath\n");
     exit(1);
+
 }
 
-// --- Output result ---
-echo $reply;
+// Execute the flow
+include $flowPath;
 
+// Close the database connection
+$conn->close();
+
+// Output result
+echo is_array($reply) ? json_encode($reply) : (string)$reply;
+
+// Exit with success
 exit(0);
