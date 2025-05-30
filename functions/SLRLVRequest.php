@@ -75,5 +75,3 @@ function SLRLVRequest($object, $rlvCommands)
     return $results;
     
 }
-
-?>

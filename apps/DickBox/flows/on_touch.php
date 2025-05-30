@@ -1,31 +1,55 @@
 <?php
 
 /**
- * Contextual variables used during flow execution
+ * Contextual functions used during flow execution
  * -----------------------------------------------
- * These variables are automatically populated when a flow is triggered,
- * especially from a touch interaction in Second Life.
- *
- * $appid       string   Application identifier (unique per app instance)
- * $uuid        string   UUID of the avatar who owns the object (object owner)
- * $name        string   Display name of the object owner (avatar name)
- * $objid       string   UUID of the object that triggered the flow
- * $session     string   UUID of the avatar who initiated the interaction (toucher)
  * 
- * $flowParams  array    Additional parameters from the touch interaction, in order:
- *                      [0] = toucherName          (string)
- *                      [1] = toucherOwner UUID    (string)
- *                      [2] = toucherPos           (vector as string)
- *                      [3] = toucherRot           (rotation as string)
- *                      [4] = toucherType          (integer)
- *                      [5] = surfaceST            (vector as string)
- *                      [6] = surfaceUV            (vector as string)
- *                      [7] = touchedFace          (integer)
- *                      [8] = touchNormal          (vector as string)
- *                      [9] = touchBinormal        (vector as string)
- *                      [10] = touchPos            (vector as string)
+ * - AFGetAppID()               → Application identifier (unique per app instance)
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
+ * - AFGetOwnerID()             → UUID of the avatar who owns the object
+ * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
+ * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
+ * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
+ * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
+ * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
+ * - AFGetFlowRegionName()      → Name of the region in the world
+ * 
+ * Touch-specific additional parameters are accessible using:
+ *
+ * - AFGetFlowSession()         → UUID of the avatar who touched the object
+ * - AFGetFlowParam(index)      → Indexed array of touch data:
+ *      [0] = toucherName          (string)
+ *      [1] = toucherOwner UUID    (string)
+ *      [2] = toucherPos           (vector as string)
+ *      [3] = toucherRot           (rotation as string)
+ *      [4] = toucherType          (integer)
+ *      [5] = surfaceST            (vector as string)
+ *      [6] = surfaceUV            (vector as string)
+ *      [7] = touchedFace          (integer)
+ *      [8] = touchNormal          (vector as string)
+ *      [9] = touchBinormal        (vector as string)
+ *      [10] = touchPos            (vector as string)
+ * 
  */
 
-$dresses = SLRLVRequest(AFGetFlowObjectID(), ["getinvworn:~wearings/Dresses=#"]);
-SLOwnerSay(AFGetFlowObjectID(), $dresses[0]); 
+// $flowTokens = NVEnumerateValues("FlowToken");
+
+// foreach ($flowTokens as $token) {
+//     // If the token is not empty, it means it has been set by the flow
+//     if ($token !== "") {
+//         // Display the token value in the owner's chat
+//         SLOwnerSay(AFGetFlowObjectID(), "Token: " . $token["Value"]);
+//     }
+// }
+
+
+$resp = AFSendFlowMessage(AFGetAppID(), AFGetOwnerID(), "test message from on_touch.php");
+SLOwnerSay(AFGetFlowObjectID(), $resp); 
+
+//SLOwnerSay(AFGetFlowObjectID(), AFGetAppID()); 
+
+// $dresses = SLRLVRequest(AFGetFlowObjectID(), ["getinvworn:~wearings/Dresses=#"]);
+// SLOwnerSay(AFGetFlowObjectID(), $dresses[0]); 
+
 

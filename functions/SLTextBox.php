@@ -68,6 +68,3 @@ function SLTextBox($object, $recipient, $prompt) {
     return $response;
 
 }
-
-?>
-
