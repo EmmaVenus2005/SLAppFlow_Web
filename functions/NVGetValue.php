@@ -2,9 +2,9 @@
 
 // Function to retrieve a value from the Parameter table based on $appid, $uuid, and $valueName
 function NVGetValue($valueName) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
     
-    if (!isset($conn, $appid, $uuid, $name, $session)) {
+    if (!isset($conn, $appid, $uuid, $name)) {
         error_log("NVGetValue: Required variables are not set.");
         return false;
     }

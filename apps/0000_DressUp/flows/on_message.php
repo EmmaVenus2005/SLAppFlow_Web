@@ -27,11 +27,7 @@ if (AFGetSenderAppID() !== AFGetAppID()) { return; }
 if (AFGetSenderID() !== AFGetOwnerID()) { return; }
 
 // ... your code here ...
-//$reply = NVGetValue("FlowToken"); // This is just an example, replace with your actual logic
-//$reply = AFGetMessage(); // Example: Get the sender's display name
-//$reply = "Name : " . AFGetOwnerName(); // Example: Get the owner's display name
 
-// Anything that needs to be returned to the sender
-//$reply = [];
 
-return AFGetMessage();
+// Always return explicitely, because if not, PHP returns 1
+return;

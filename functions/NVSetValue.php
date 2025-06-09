@@ -2,9 +2,9 @@
 
 // Function to set a value in the Parameter table based on $appid, $uuid, and $valueName
 function NVSetValue($valueName, $value) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
     
-    if (!isset($conn, $appid, $uuid, $name, $session)) {
+    if (!isset($conn, $appid, $uuid, $name)) {
         error_log("NVSetValue: Required variables are not set.");
         return false;
     }

@@ -2,9 +2,9 @@
 
 // Function to enumerate lists from List table based on $appid, $uuid, $listClass
 function NVGetLists($listClass) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
     
-    if (!isset($conn, $appid, $uuid, $name, $session)) {
+    if (!isset($conn, $appid, $uuid, $name)) {
         error_log("SetValue: Required variables are not set.");
         return false;
     }

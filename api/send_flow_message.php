@@ -56,7 +56,7 @@ if (is_dir($functionsDir)) {
 $flowPath = $homeDir . '/apps/' . $appid . '/flows/on_message.php';
 
 // Initialize reply variable
-$reply = null;
+//$reply = null;
 
 // Check if the flow file exists
 if (!file_exists($flowPath)) 
@@ -71,11 +71,17 @@ if (!file_exists($flowPath))
 
 }
 
-// Execute the flow
-include $flowPath;
+// Execute the flow and get the return value
+try {
 
-// Close the database connection
-$conn->close();
+    $reply = include $flowPath;
+
+} finally {
+    
+    // Close the database connection in all cases
+    $conn->close();
+
+}
 
 // Output result
 echo is_array($reply) ? json_encode($reply) : (string)$reply;

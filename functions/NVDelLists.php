@@ -2,9 +2,9 @@
 
 // Function to delete all lists of a given class
 function NVDelLists($listClass) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
 
-    if (!isset($conn, $appid, $uuid, $name, $session)) {
+    if (!isset($conn, $appid, $uuid, $name)) {
         error_log("NVDelLists: Required variables are not set.");
         return false;
     }

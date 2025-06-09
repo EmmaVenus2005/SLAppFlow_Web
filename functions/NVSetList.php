@@ -2,9 +2,9 @@
 
 // Function that allows to update a list
 function NVSetList($listClass, $listName, $listElements) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
     
-    if (!isset($conn, $appid, $uuid, $name, $session)) {
+    if (!isset($conn, $appid, $uuid, $name)) {
         error_log("NVSetList: Required variables are not set.");
         return false;
     }
