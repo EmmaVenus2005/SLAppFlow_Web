@@ -53,7 +53,7 @@ if (is_dir($functionsDir)) {
 }
 
 // Execute the flow
-$flowPath = $homeDir . '/apps/' . $appid . '/flows/on_message.php';
+$flowPath = $homeDir . '/apps/' . $appid . '/flows/on_flow_message.php';
 
 // Initialize reply variable
 //$reply = null;

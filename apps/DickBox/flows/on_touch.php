@@ -44,8 +44,10 @@
 // }
 
 
-$resp = AFSendFlowMessage(AFGetAppID(), AFGetOwnerID(), "test message from on_touch.php");
-SLOwnerSay(AFGetFlowObjectID(), $resp); 
+SLOwnerSay(AFGetFlowObjectID(), RLVGetCommandInfo("@clear")); 
+
+//$resp = AFSendFlowMessage(AFGetAppID(), AFGetOwnerID(), "test message from on_touch.php");
+//SLOwnerSay(AFGetFlowObjectID(), $resp); 
 
 //SLOwnerSay(AFGetFlowObjectID(), AFGetAppID()); 
 
