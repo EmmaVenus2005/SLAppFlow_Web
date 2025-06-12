@@ -1,7 +1,7 @@
 <?php
 
 function SLMessageLinked($object, $linkset, $num, $message, $key) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
 
 	//llMessageLinked(LINK_SET, iAuth, "menu " + g_sParentMenu, kAv);
 

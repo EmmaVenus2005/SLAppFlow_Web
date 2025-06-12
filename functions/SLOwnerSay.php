@@ -1,7 +1,7 @@
 <?php
 
 function SLOwnerSay($object, $message) {
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
 
     // Retrieve FlowURL and FlowToken via NVGetValue
     $flowURL = NVGetSessionValue($object, 'FlowURL');

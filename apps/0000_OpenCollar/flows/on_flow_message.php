@@ -20,17 +20,14 @@
 // If the message is not from the same app, ignore it
 // (If you handle messages from other apps, you can remove this check)
 // BE CAREFUL: You don't control the sender app, carefully implement the logic to avoid security issues 
-//if (AFGetSenderAppID() !== AFGetAppID()) { return; }
+if (AFGetSenderAppID() !== AFGetAppID()) { return; }
 
 // If the message is not from the same owner, ignore it
 // (If you handle messages from other owners, you can remove this check)
 if (AFGetSenderID() !== AFGetOwnerID()) { return; }
 
 // ... your code here ...
-
-$lastHUD = NVGetValue("LastActiveHUD");
-
-SLOwnerSay($lastHUD, AFGetSenderName() . " says : " . AFGetMessage());	
+SLOwnerSay(AFGetOwnerID(), AFGetSenderName() . " says : " . AFGetMessage());
 
 // Always return explicitely, because if not, PHP returns 1
 return;

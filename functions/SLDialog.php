@@ -3,7 +3,7 @@
 function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, $needsPaging = false, $needsBack = false) {
     
     // Context variables
-    global $conn, $appid, $uuid, $name, $session;
+    global $conn, $appid, $uuid, $name;
 
     // 1. Parameter validation
     if (empty($recipient) || !preg_match('/^[a-f0-9\-]{36}$/', $recipient)) {
