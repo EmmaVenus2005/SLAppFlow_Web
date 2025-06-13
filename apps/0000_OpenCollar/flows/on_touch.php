@@ -5,9 +5,9 @@
  * -----------------------------------------------
  * 
  * - AFGetAppID()               → Application identifier (unique per app instance)
- * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetOwnerID()             → UUID of the avatar who owns the object
  * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
  * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
@@ -35,7 +35,7 @@
 
 // Test attach leash to 80413ca8-777f-dec6-65e1-965af2c01ceb
 
-//SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, AFGetFlowParameter(0) . " touched the collar !");
+SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, $msgParts[2]);
 
 AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), AFGetFlowParameter(0) . " touched the collar !");
 

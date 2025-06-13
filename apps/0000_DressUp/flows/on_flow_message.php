@@ -28,8 +28,22 @@ if (AFGetSenderID() !== AFGetOwnerID()) { return; }
 
 // ... your code here ...
 
+// Add here all the apps that are allowed to send messages to this app
+const allowedApps = [
+  "0000_DressUp",
+  "0000_OpenCollar"
+  // ...
+];
+
+// Ignore messages from disallowed apps
+if (!in_array(AFGetSenderAppID(), allowedApps)) {
+    return; 
+}
+
+// Get the last active HUD from the database
 $lastHUD = NVGetValue("LastActiveHUD");
 
+// Debugging: Log the message received
 SLOwnerSay($lastHUD, AFGetSenderName() . " says : " . AFGetMessage());	
 
 // Always return explicitely, because if not, PHP returns 1

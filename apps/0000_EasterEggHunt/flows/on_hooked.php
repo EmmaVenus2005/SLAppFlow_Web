@@ -3,21 +3,21 @@
 /**
  * Contextual variables used during flow execution
  * -----------------------------------------------
- * These variables are automatically populated when a flow is triggered,
- * especially from a touch interaction in Second Life.
  *
- * $appid        string   Application identifier (unique per app instance)
- * $appmode      string   Application mode (optional, to distinguish multiple objects from a same app)
- * $uuid         string   UUID of the avatar who owns the object (object owner)
- * $name         string   Display name of the object owner (avatar name)
- * $objid        string   UUID of the object that triggered the flow
- * $objregion    string   In which region the object is located
- * $objx[y,z]    float    Position x, y and z of the object
- * $objrx[y,z,w] float    Rotation quaternion components of the object
+ * - AFGetAppID()               → Application identifier (unique per app instance)
+ * - AFGetOwnerID()             → UUID of the avatar who owns the object
+ * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
+ * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
+ * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
+ * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
+ * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
+ * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
+ * - AFGetFlowRegionName()      → Name of the region in the world
  * 
- * Specific variables for on_hooked event :
+ * Specific functions for on_hooked event :
  * 
- * $session      string   Not relevant in this case
+ * - AFGetFlowSession()   Not relevant in this case
  * 
  */
 

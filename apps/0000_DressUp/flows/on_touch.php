@@ -5,9 +5,9 @@
  * -----------------------------------------------
  * 
  * - AFGetAppID()               → Application identifier (unique per app instance)
- * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetOwnerID()             → UUID of the avatar who owns the object
  * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
  * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
@@ -18,7 +18,7 @@
  * Touch-specific additional parameters are accessible using:
  *
  * - AFGetFlowSession()         → UUID of the avatar who touched the object
- * - AFGetFlowParam(index)      → Indexed array of touch data:
+ * - AFGetFlowParameter(index)  → Indexed array of touch data:
  *      [0] = toucherName          (string)
  *      [1] = toucherOwner UUID    (string)
  *      [2] = toucherPos           (vector as string)

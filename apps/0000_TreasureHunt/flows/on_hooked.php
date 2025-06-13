@@ -3,12 +3,11 @@
 /**
  * Contextual variables used during flow execution
  * -----------------------------------------------
- * These functiuons are automatically populated when a flow is triggered :
  *
  * - AFGetAppID()               → Application identifier (unique per app instance)
- * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetOwnerID()             → UUID of the avatar who owns the object
  * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
  * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region

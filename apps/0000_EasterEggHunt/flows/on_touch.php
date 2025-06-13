@@ -1,36 +1,36 @@
 <?php
 
 /**
- * Contextual variables used during flow execution
+ * Contextual functions used during flow execution
  * -----------------------------------------------
  * 
- * These variables are automatically populated when a flow is triggered :
- *
- * $appid        string   Application identifier (unique per app instance)
- * $appmode      string   Application mode (optional, to distinguish multiple objects from a same app)
- * $uuid         string   UUID of the avatar who owns the object (object owner)
- * $name         string   Display name of the object owner (avatar name)
- * $objid        string   UUID of the object that triggered the flow
- * $objregion    string   In which region the object is located
- * $objx[y,z]    float    Position x, y and z of the object
- * $objrx[y,z,w] float    Rotation quaternion components of the object
- *
- * Specific variables for on_touch event :
+ * - AFGetAppID()               → Application identifier (unique per app instance)
+ * - AFGetOwnerID()             → UUID of the avatar who owns the object
+ * - AFGetOwnerName()           → Display name of the object owner
+ * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
+ * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
+ * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
+ * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
+ * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
+ * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
+ * - AFGetFlowRegionName()      → Name of the region in the world
  * 
- * $session      string   UUID of the avatar who initiated the interaction (toucher)
+ * Touch-specific additional parameters are accessible using:
+ *
+ * - AFGetFlowSession()         → UUID of the avatar who touched the object
+ * - AFGetFlowParameter(index)  → Indexed array of touch data:
+ *      [0] = toucherName          (string)
+ *      [1] = toucherOwner UUID    (string)
+ *      [2] = toucherPos           (vector as string)
+ *      [3] = toucherRot           (rotation as string)
+ *      [4] = toucherType          (integer)
+ *      [5] = surfaceST            (vector as string)
+ *      [6] = surfaceUV            (vector as string)
+ *      [7] = touchedFace          (integer)
+ *      [8] = touchNormal          (vector as string)
+ *      [9] = touchBinormal        (vector as string)
+ *      [10] = touchPos            (vector as string)
  * 
- * $flowParams   array    Additional parameters from the touch interaction, in order:
- *                      [0] = toucherName          (string)
- *                      [1] = toucherOwner UUID    (string)
- *                      [2] = toucherPos           (vector as string)
- *                      [3] = toucherRot           (rotation as string)
- *                      [4] = toucherType          (integer)
- *                      [5] = surfaceST            (vector as string)
- *                      [6] = surfaceUV            (vector as string)
- *                      [7] = touchedFace          (integer)
- *                      [8] = touchNormal          (vector as string)
- *                      [9] = touchBinormal        (vector as string)
- *                      [10] = touchPos            (vector as string)
  */
 
 // Flow control variable
