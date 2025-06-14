@@ -43,5 +43,5 @@ $appConstants["TitleSurroundingLeft"] = "✨";
 $appConstants["TitleSurroundingRight"] = "✨";
 
 // If the touched object is a treasure
-if ($appmode === "Treasure") { MainTreasure($appConstants, AFGetFlowObjectID(), AFGetFlowSession()); }
+if (AFGetFlowAppMode() === "Treasure") { MainTreasure($appConstants, AFGetFlowObjectID(), AFGetFlowSession()); }
 else { MainBoard($appConstants, AFGetFlowObjectID(), AFGetFlowSession()); }

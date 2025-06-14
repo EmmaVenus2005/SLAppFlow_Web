@@ -12,7 +12,7 @@ function MainTreasure($p_appConstants, $p_obj_id, $p_toucher)
         
         if ($flowStep === "MAIN")
         {
-
+            
             // Gets the list of found treasures by toucher avatar from the database
             $foundTreasures = NVGetSessionLists($p_toucher . "@" . AFGetFlowRegionPosition(), "FoundTreasure");
 
@@ -29,7 +29,7 @@ function MainTreasure($p_appConstants, $p_obj_id, $p_toucher)
 
                 // Creating additional elements for the list
                 $elements = [
-                    'hunterName' => AFGetFlowParam()[0]  // Name of the hunter
+                    'hunterName' => AFGetFlowParameter(0)  // Name of the hunter
                 ];
 
                 // Declares the avatar as a hunter in the database
@@ -48,10 +48,10 @@ function MainTreasure($p_appConstants, $p_obj_id, $p_toucher)
                 $treasureName = $treasureMeta['name'] ?? ("Treasure #" . substr($p_obj_id, 0, 8));
 
                 // Debug
-                SLRegionSayTo($p_obj_id, AFGetOwnerID(), 0, AFGetFlowParam()[0] . " found " . $p_appConstants["TreasureArticle"] . " " . $p_appConstants["TreasureNameSingular"] . " : " . $treasureName);
+                SLRegionSayTo($p_obj_id, AFGetOwnerID(), 0, AFGetFlowParameter(0) . " found " . $p_appConstants["TreasureArticle"] . " " . $p_appConstants["TreasureNameSingular"] . " : " . $treasureName);
 
                 // Explicit UUID for notifications, I will have to introdice an admin feature to add ppl to notif list
-                SLRegionSayTo($p_obj_id, "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, AFGetFlowParam()[0] . " found " . $p_appConstants["TreasureArticle"] . " " . $p_appConstants["TreasureNameSingular"] . " : " . $treasureName);
+                SLRegionSayTo($p_obj_id, "ab866cf8-abbb-4e31-a109-72c75839dbf9", 0, AFGetFlowParameter(0) . " found " . $p_appConstants["TreasureArticle"] . " " . $p_appConstants["TreasureNameSingular"] . " : " . $treasureName);
                 
                 // New treasure found message
                 $dialog .= "\n" . $p_appConstants["TitleSurroundingLeft"] . " " . $p_appConstants["GameName"] . " " . $p_appConstants["TitleSurroundingRight"] . "\n\n";
@@ -73,7 +73,7 @@ function MainTreasure($p_appConstants, $p_obj_id, $p_toucher)
                 if ($treasuresLeft === 0) {
                     $dialog .= "You found all the " . $p_appConstants["TreasureNamePlurial"] . " !\n";
                 } elseif ($treasuresLeft === 1) {
-                    $dialog .= "Just 1 " . $p_appConstants["TreasureNameSingular"] . " left to find, keep going !\n";
+                    $dialog .= "Only 1 " . $p_appConstants["TreasureNameSingular"] . " left to find, keep going !\n";
                 } else {
                     $dialog .= "Only $treasuresLeft " . $p_appConstants["TreasureNamePlurial"] . " left to find !\n";
                 }

@@ -75,35 +75,35 @@ $parts = explode(';', $rawApp, 2);
 $appid = $parts[0];
 $appmode = $parts[1] ?? null;
 
-// Extract the global coordinates (X, Y) from the header
-if (preg_match('/\((\d+),\s*(\d+)\)/', $headers['X-SecondLife-Region'], $matches)) 
-{
+// // Extract the global coordinates (X, Y) from the header
+// if (preg_match('/\((\d+),\s*(\d+)\)/', $headers['X-SecondLife-Region'], $matches)) 
+// {
 
-    // Setting the context variable containing the object's SIM
-    $objregion = "{$matches[1]}_{$matches[2]}";
+//     // Setting the context variable containing the object's SIM
+//     $objregion = "{$matches[1]}_{$matches[2]}";
 
-}
+// }
 
-// Extract local position (X, Y, Z) from the header
-if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Position'], $matches)) 
-{
+// // Extract local position (X, Y, Z) from the header
+// if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Position'], $matches)) 
+// {
     
-    $objx = (float)$matches[1];
-    $objy = (float)$matches[2];
-    $objz = (float)$matches[3];
+//     $objx = (float)$matches[1];
+//     $objy = (float)$matches[2];
+//     $objz = (float)$matches[3];
 
-}
+// }
 
-// Extract local rotation (x, y, z, w) from the header and cast to float
-if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Rotation'], $matches)) 
-{
+// // Extract local rotation (x, y, z, w) from the header and cast to float
+// if (preg_match('/\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/', $headers['X-SecondLife-Local-Rotation'], $matches)) 
+// {
 
-    $objrx = (float)$matches[1];
-    $objry = (float)$matches[2];
-    $objrz = (float)$matches[3];
-    $objrw = (float)$matches[4];
+//     $objrx = (float)$matches[1];
+//     $objry = (float)$matches[2];
+//     $objrz = (float)$matches[3];
+//     $objrw = (float)$matches[4];
 
-}
+// }
 
 // Getting the request type
 $reqtype = $msgParts[1] ?? null;
