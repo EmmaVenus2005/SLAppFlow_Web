@@ -2,20 +2,20 @@
 
 // Retrieve all parameter rows matching a specific key and current AppID
 function NVEnumerateValues($key) {
-    global $conn, $appid;
+    global $conn, $appid, $uuid;
 
-    if (!isset($conn, $appid)) {
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVEnumerateValues: Required variables are not set.");
         return false;
     }
 
-    $stmt = $conn->prepare("SELECT * FROM Parameter WHERE AppID = ? AND `Key` = ?");
+    $stmt = $conn->prepare("SELECT * FROM Parameter WHERE AppID = ? AND `Key` = ? AND UserID = ?");
     if (!$stmt) {
         error_log("NVEnumerateValues: Statement preparation failed: " . $conn->error);
         return false;
     }
 
-    $stmt->bind_param("ss", $appid, $key);
+    $stmt->bind_param("sss", $appid, $key, $uuid);
 
     if (!$stmt->execute()) {
         error_log("NVEnumerateValues: Execution failed: " . $stmt->error);

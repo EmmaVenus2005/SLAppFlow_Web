@@ -34,4 +34,4 @@ if (AFGetSenderID() !== AFGetOwnerID()) { return; }
 // Anything that needs to be returned to the sender
 //$reply = [];
 
-return AFGetMessage();
+return AFGetOwnerName();
