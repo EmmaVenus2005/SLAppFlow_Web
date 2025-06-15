@@ -1,13 +1,19 @@
 <?php
 
 // Set a session-specific parameter value
-function NVSetSessionValue($session, $valueName, $value) {
-    global $conn, $appid, $uuid, $name;
+function NVSetSessionValue($session, $valueName, $value) 
+{
 
-    if (!isset($conn, $appid, $uuid, $session)) {
+    // Ensure that the required global variables are set
+    global $conn, $appid, $uuid;
+
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVSetSessionValue: Required variables are not set.");
         return false;
     }
+
+    // Get the owner name using the dedicated function
+    $name = AFGetOwnerName();
 
     $stmt = $conn->prepare("INSERT INTO Parameter (AppID, UserID, UserName, SessionID, `Key`, `Value`) 
                             VALUES (?, ?, ?, ?, ?, ?) 
@@ -27,4 +33,5 @@ function NVSetSessionValue($session, $valueName, $value) {
 
     $stmt->close();
     return true;
+    
 }

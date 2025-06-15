@@ -1,10 +1,13 @@
 <?php
 
 // Function to retrieve elements from a list in the List table based on $appid, $uuid, $listClass and $listName
-function NVGetList($listClass, $listName) {
-    global $conn, $appid, $uuid, $name;
+function NVGetList($listClass, $listName) 
+{
     
-    if (!isset($conn, $appid, $uuid, $name)) {
+	// Ensure that the required global variables are set
+	global $conn, $appid, $uuid;
+    
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVGetList: Required variables are not set.");
         return false;
     }

@@ -35,7 +35,7 @@
 
 // Test attach leash to 80413ca8-777f-dec6-65e1-965af2c01ceb
 
-SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, $msgParts[2]);
+//SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, $msgParts[2]);
 
 AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), AFGetFlowParameter(0) . " touched the collar !");
 

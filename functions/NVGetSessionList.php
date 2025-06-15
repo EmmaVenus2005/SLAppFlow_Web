@@ -2,9 +2,11 @@
 
 // Retrieve a session-specific list value
 function NVGetSessionList($session, $listClass, $listName) {
+    
+    // Ensure that the required global variables are set
     global $conn, $appid, $uuid;
 
-    if (!isset($conn, $appid, $uuid, $session)) {
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVGetSessionList: Required variables are not set.");
         return false;
     }
@@ -28,4 +30,5 @@ function NVGetSessionList($session, $listClass, $listName) {
     $stmt->close();
 
     return $result ? $elements : null;
+
 }

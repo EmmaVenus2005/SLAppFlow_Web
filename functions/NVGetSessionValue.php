@@ -1,10 +1,13 @@
 <?php
 
 // Retrieve a session-specific parameter value
-function NVGetSessionValue($session, $valueName) {
+function NVGetSessionValue($session, $valueName) 
+{
+    
+    // Ensure that the required global variables are set
     global $conn, $appid, $uuid;
 
-    if (!isset($conn, $appid, $uuid, $session)) {
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVGetSessionValue: Required variables are not set.");
         return false;
     }
@@ -28,4 +31,5 @@ function NVGetSessionValue($session, $valueName) {
     $stmt->close();
 
     return $result ? $value : null;
+    
 }

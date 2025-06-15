@@ -1,13 +1,19 @@
 <?php
 
 // Function to set a value in the Parameter table based on $appid, $uuid, and $valueName
-function NVSetValue($valueName, $value) {
-    global $conn, $appid, $uuid, $name;
+function NVSetValue($valueName, $value) 
+{
     
-    if (!isset($conn, $appid, $uuid, $name)) {
+    // Ensure that the required global variables are set
+    global $conn, $appid, $uuid;
+    
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVSetValue: Required variables are not set.");
         return false;
     }
+
+    // Get the owner name using the dedicated function
+    $name = AFGetOwnerName();
     
     $stmt = $conn->prepare("INSERT INTO Parameter (AppID, UserID, UserName, SessionID, `Key`, `Value`)
                             VALUES (?, ?, ?, 'DefaultSession', ?, ?)
@@ -27,4 +33,5 @@ function NVSetValue($valueName, $value) {
     
     $stmt->close();
     return true;
+
 }

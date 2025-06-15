@@ -2,6 +2,8 @@
 
 // Retrieve all parameter rows matching a specific key and current AppID
 function NVEnumerateValues($key) {
+    
+    // Ensure that the required global variables are set
     global $conn, $appid, $uuid;
 
     if (!isset($conn, $appid, $uuid)) {

@@ -1,7 +1,10 @@
 <?php
 
 // Function to retrieve a value from the Parameter table based on $appid, $uuid, and $valueName
-function NVGetValue($valueName) {
+function NVGetValue($valueName) 
+{
+    
+    // Ensure that the required global variables are set
     global $conn, $appid, $uuid, $name;
     
     if (!isset($conn, $appid, $uuid, $name)) {
@@ -33,4 +36,5 @@ function NVGetValue($valueName) {
         // Value not found
         return null;
     }
+    
 }

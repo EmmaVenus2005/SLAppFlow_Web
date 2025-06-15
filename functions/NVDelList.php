@@ -1,10 +1,13 @@
 <?php
 
 // Function to delete a specific list based on $listClass and $listName
-function NVDelList($listClass, $listName) {
-    global $conn, $appid, $uuid, $name;
+function NVDelList($listClass, $listName) 
+{
+    
+    // Ensure that the required global variables are set
+    global $conn, $appid, $uuid;
 
-    if (!isset($conn, $appid, $uuid, $name)) {
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVDelList: Required variables are not set.");
         return false;
     }
@@ -25,4 +28,5 @@ function NVDelList($listClass, $listName) {
 
     $stmt->close();
     return true;
+    
 }

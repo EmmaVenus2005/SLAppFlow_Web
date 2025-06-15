@@ -1,7 +1,10 @@
 <?php
 
 // Delete all session-specific list values
-function NVDelSessionLists($session, $listClass) {
+function NVDelSessionLists($session, $listClass) 
+{
+
+    // Ensure that the required global variables are set
     global $conn, $appid, $uuid;
 
     $stmt = $conn->prepare("DELETE FROM List WHERE AppID = ? AND UserID = ? AND SessionID = ? AND Class = ?");
@@ -10,4 +13,5 @@ function NVDelSessionLists($session, $listClass) {
     $stmt->execute();
     $stmt->close();
     return true;
+    
 }
