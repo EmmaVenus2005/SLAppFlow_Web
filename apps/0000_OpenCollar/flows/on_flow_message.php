@@ -29,7 +29,7 @@ if (AFGetSenderAppID() !== AFGetAppID()) { return; }
 // ... your code here ...
 
 // Here the sender sets the owner as a trusted or owner (owner in BDSM terms, not the object). 
-// In order to be able to list the avatars who trust me or own me, we add it to the trustee or owning list.
+// In order to be able to list the avatars who trust me or own me, we add it to my own trustee or owning list.
 
 // Checking the first part of the message (ADDTRUSTED|, ADDOWNER|, etc.)
 $message = AFGetMessage();

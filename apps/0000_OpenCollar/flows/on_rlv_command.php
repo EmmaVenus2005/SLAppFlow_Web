@@ -10,6 +10,7 @@
  * - AFGetOwnerName()           → Display name of the object owner
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
  * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
+ * - AFGetFlowGatewayVersion()  → Version of the gateway (as a float)
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
  * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
  * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world

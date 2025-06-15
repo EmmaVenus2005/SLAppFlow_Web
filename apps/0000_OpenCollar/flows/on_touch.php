@@ -10,6 +10,7 @@
  * - AFGetFlowAppMode()         → Application mode (to distinguish objects of the same app)
  * - AFGetFlowObjectID()        → UUID of the object that triggered the flow
  * - AFGetFlowObjectName()      → Display name of the object that triggered the flow
+ * - AFGetFlowGatewayVersion()  → Version of the gateway (as a float)
  * - AFGetFlowObjectPosition()  → Position (vector) of the object in the region
  * - AFGetFlowObjectRotation()  → Rotation (quaternion) of the object in the region
  * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
@@ -45,6 +46,9 @@ if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trust
     // NVSetList("Trusted", "ab866cf8-abbb-4e31-a109-72c75839dbf9", json_encode([
     //     "Name" => "EleTest"
     // ]));
+
+    // Testing the gateway version
+    //SLOwnerSay(AFGetFlowObjectID(), "Gateway version: " . AFGetFlowGatewayVersion());
 
     Main(AFGetFlowObjectID(), AFGetFlowSession(), AFGetFlowParameter(0));
 
