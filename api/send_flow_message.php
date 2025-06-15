@@ -52,11 +52,18 @@ if (is_dir($functionsDir)) {
     }
 }
 
+// Include app-specific functions
+$functionsDir = $homeDir . '/apps/' . $appid . '/functions/';
+if (is_dir($functionsDir)) {
+    // Scan the directory for PHP files
+    foreach (glob($functionsDir . '*.php') as $filename) {
+        // Include each PHP file
+        require_once $filename;
+    }
+}
+
 // Execute the flow
 $flowPath = $homeDir . '/apps/' . $appid . '/flows/on_flow_message.php';
-
-// Initialize reply variable
-//$reply = null;
 
 // Check if the flow file exists
 if (!file_exists($flowPath)) 

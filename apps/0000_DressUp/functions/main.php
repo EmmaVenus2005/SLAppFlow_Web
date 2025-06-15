@@ -1,6 +1,6 @@
 <?php
 
-function Main($p_obj_id, $p_session)
+function Main($p_obj_id, $p_session, $p_toucherName)
 {
 
     // Constants for authenticating the user that navigates in the collar ($session)
@@ -11,7 +11,7 @@ function Main($p_obj_id, $p_session)
 
     // Navigation variables
     $flowStep = "MAIN";
-
+    
     while ($flowStep != "EXIT")
     {
 
@@ -20,7 +20,7 @@ function Main($p_obj_id, $p_session)
         {
 
             // Checking if the session is from wearer
-            $isWearer = AFGetFlowSession() === AFGetOwnerID();
+            $isWearer = $p_session === AFGetOwnerID();
 
             // Adding dialog for everyone
             $dialog = "\nDressUp App [0.90]\n\n";
@@ -54,7 +54,7 @@ function Main($p_obj_id, $p_session)
             }
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", [], $options, false, true);
             
             switch ($answer) {
                 case "Indiv.": 	$flowStep = "MAIN/INDIV"; break;
@@ -70,7 +70,7 @@ function Main($p_obj_id, $p_session)
                 case "BACK" : 
                 
                     // Back to OpenCollar Apps
-                    SLMessageLinked(AFGetFlowObjectID(), -1, AUTH_OWNER, "menu Apps", AFGetFlowSession());
+                    SLMessageLinked($p_obj_id, -1, AUTH_OWNER, "menu Apps", $p_session);
                     $flowStep = "EXIT"; break;
             
             }
@@ -97,7 +97,7 @@ function Main($p_obj_id, $p_session)
             {
 
                 // Checks if the current category is for owner only
-                $isForbidden = ($clothings->HasFlag($category, "owneronly") && AFGetFlowSession() !== AFGetOwnerID());
+                $isForbidden = ($clothings->HasFlag($category, "owneronly") && $p_session !== AFGetOwnerID());
 
                 // If the category is forbidden
                 if ($isForbidden)
@@ -121,7 +121,7 @@ function Main($p_obj_id, $p_session)
             }
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", $choices, $options, true, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != NULL)
@@ -204,7 +204,7 @@ function Main($p_obj_id, $p_session)
             }
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", $choices, $options, true, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer !== "BACK" && $answer !== null)
@@ -310,7 +310,7 @@ function Main($p_obj_id, $p_session)
                 }
 
                 // Sending RLV commands
-                SLRLVCommand(AFGetFlowObjectID(), $rlv);
+                SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
                 DUAutoHide($clothings);
@@ -346,7 +346,7 @@ function Main($p_obj_id, $p_session)
             }
             
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", $choices, $options, true, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)
@@ -428,7 +428,7 @@ function Main($p_obj_id, $p_session)
                 }
                 
                 // Sending RLV commands
-                SLRLVCommand(AFGetFlowObjectID(), $rlv);
+                SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
                 DUAutoHide($clothings);
@@ -453,7 +453,7 @@ function Main($p_obj_id, $p_session)
             $options = ["Strip !"];
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", [], $options, false, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)
@@ -489,7 +489,7 @@ function Main($p_obj_id, $p_session)
                 }
 
                 // Sending RLV commands
-                SLRLVCommand(AFGetFlowObjectID(), $rlv);
+                SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
                 DUAutoHide($clothings);
@@ -508,7 +508,7 @@ function Main($p_obj_id, $p_session)
             $dialog .= "Please enter the name of the outfit";
 
             // Opening the textbox		
-            $answer = SLTextBox(AFGetFlowObjectID(), AFGetFlowSession(), $dialog);
+            $answer = SLTextBox($p_obj_id, $p_session, $dialog);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)
@@ -564,10 +564,10 @@ function Main($p_obj_id, $p_session)
 
             // Avoids anyone else than me can get the HUD 
             // (still a beta version, don't want to share it as it is)
-            if (AFGetFlowSession() !== AFGetOwnerID()) { exit(); }
+            if ($p_session !== AFGetOwnerID()) { exit(); }
 
             // Opens the dialog that gives the object to the user
-            SLGiveInventory(AFGetFlowObjectID(), AFGetFlowSession(), "DressUp QuickAccess HUD");
+            SLGiveInventory($p_obj_id, $p_session, "DressUp QuickAccess HUD");
 
             // Exits the flow (user will have to manage his new HUD)
             $flowStep = "EXIT";
@@ -598,7 +598,7 @@ function Main($p_obj_id, $p_session)
             }
             
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", $choices, $options, true, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", $choices, $options, true, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)
@@ -625,7 +625,7 @@ function Main($p_obj_id, $p_session)
             $options = ["Delete !"];
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", [], $options, false, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)
@@ -654,7 +654,7 @@ function Main($p_obj_id, $p_session)
             $options = ["OK"];
 
             // Sending the dialog to the avatar
-            $answer = SLDialog(AFGetFlowObjectID(), AFGetFlowSession(), $dialog, "", [], $options, false, true);
+            $answer = SLDialog($p_obj_id, $p_session, $dialog, "", [], $options, false, true);
             
             // If not BACK, timeout or HTTP error...
             if ($answer != "BACK" && $answer != null)

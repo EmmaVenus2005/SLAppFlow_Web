@@ -34,4 +34,4 @@
  */
 
 // Triggering the main dialog flow through the function
-Main(AFGetFlowObjectID(), AFGetFlowSession());
+Main(AFGetFlowObjectID(), AFGetFlowSession(), AFGetFlowParameter(0));

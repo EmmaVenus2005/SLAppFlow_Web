@@ -33,11 +33,34 @@
  * 
  */
 
+// Gets the list of trusted avatars
+$trusteds = NVGetLists("Trusted");
+
+// Triggering the main dialog flow through the function
+if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trusteds["Name"])) 
+{
+
+    // // Test add Ele as trusted
+    // AFSendFlowMessage(AFGetAppID(), "ab866cf8-abbb-4e31-a109-72c75839dbf9", "ADDTRUSTED");
+    // NVSetList("Trusted", "ab866cf8-abbb-4e31-a109-72c75839dbf9", json_encode([
+    //     "Name" => "EleTest"
+    // ]));
+
+    Main(AFGetFlowObjectID(), AFGetFlowSession(), AFGetFlowParameter(0));
+
+} else {
+
+    // Sends a message to the DressUp app prefixed with SAY|, so will be sent to the owner
+    AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), "SAY|" . AFGetFlowParameter(0) . " touched the collar !");
+
+}
+
+
 // Test attach leash to 80413ca8-777f-dec6-65e1-965af2c01ceb
 
 //SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, $msgParts[2]);
 
-AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), AFGetFlowParameter(0) . " touched the collar !");
+//AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), AFGetFlowParameter(0) . " touched the collar !");
 
 
 // Triggering the main dialog flow through the function

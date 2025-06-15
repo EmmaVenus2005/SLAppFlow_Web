@@ -43,8 +43,26 @@ if (!in_array(AFGetSenderAppID(), allowedApps)) {
 // Get the last active HUD from the database
 $lastHUD = NVGetValue("LastActiveHUD");
 
+// Gets the message sent by the sender
+$message = AFGetMessage();
+
 // Debugging: Log the message received
-SLOwnerSay($lastHUD, AFGetSenderName() . " says : " . AFGetMessage());	
+//SLOwnerSay($lastHUD, $message);
+
+// Used to check the first part of the message (SAY|, OPEN|, etc.)
+$messageParts = explode("|", $message);
+
+if ($messageParts[0] === "SAY") {
+    
+  // Debugging: Log the message received
+  SLOwnerSay($lastHUD, $messageParts[1]);	
+
+} elseif ($messageParts[0] === "OPEN")  {
+   
+  // Opens DressUp app
+  Main($lastHUD, $messageParts[1], $messageParts[2]);
+
+}
 
 // Always return explicitely, because if not, PHP returns 1
 return;
