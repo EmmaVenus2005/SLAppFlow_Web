@@ -1,7 +1,7 @@
 <?php
 
 // Function that belongs to DressUp app and hides genitals and plug when needed
-function DUAutoHide(Clothings $clothings)
+function DUAutoHide($p_obj_id, Clothings $p_clothings)
 {
 
     // Initializing variables
@@ -14,11 +14,11 @@ function DUAutoHide(Clothings $clothings)
     $rlv = [];
 
     // Looping through all categories to check their flags
-    foreach ($clothings->ListCategories() as $category) 
+    foreach ($p_clothings->ListCategories() as $category) 
     {
         
         // If the category has flag "hideplug" and at least one item is worn
-        if ($clothings->HasFlag($category, "hideplug") && $clothings->CategoryWorn($category))
+        if ($p_clothings->HasFlag($category, "hideplug") && $p_clothings->CategoryWorn($category))
         {
 
             $hidePlug = true;
@@ -26,7 +26,7 @@ function DUAutoHide(Clothings $clothings)
         }
 
         // If the category has flag "hidegenitals" and at least one item is worn
-        if ($clothings->HasFlag($category, "hidegenitals") && $clothings->CategoryWorn($category))
+        if ($p_clothings->HasFlag($category, "hidegenitals") && $p_clothings->CategoryWorn($category))
         {
 
             $hideGenitals = true;
@@ -34,7 +34,7 @@ function DUAutoHide(Clothings $clothings)
         }
 
         // If the category has flag "hidenipples" and at least one item is worn
-        if ($clothings->HasFlag($category, "hidenipples") && $clothings->CategoryWorn($category))
+        if ($p_clothings->HasFlag($category, "hidenipples") && $p_clothings->CategoryWorn($category))
         {
 
             $hideNipples = true;
@@ -42,7 +42,7 @@ function DUAutoHide(Clothings $clothings)
         }
 
         // If the category has flag "resetfeet" and at least one item is worn
-        if ($clothings->HasFlag($category, "resetfeet") && $clothings->CategoryWorn($category))
+        if ($p_clothings->HasFlag($category, "resetfeet") && $p_clothings->CategoryWorn($category))
         {
 
             $resetFeet = false;
@@ -57,7 +57,7 @@ function DUAutoHide(Clothings $clothings)
 
         // For my own plug implementation of hide / unhide script
         $MSG_TO_PLUG = -47832; 
-        SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), $MSG_TO_PLUG, ":plug:hide");
+        SLRegionSayTo($p_obj_id, AFGetOwnerID(), $MSG_TO_PLUG, ":plug:hide");
         
         // Add any other commands here for different manufacturers
 
@@ -67,7 +67,7 @@ function DUAutoHide(Clothings $clothings)
 
         // For my own plug implementation of hide / unhide script
         $MSG_TO_PLUG = -47832;
-        SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), $MSG_TO_PLUG, ":plug:unhide");
+        SLRegionSayTo($p_obj_id, AFGetOwnerID(), $MSG_TO_PLUG, ":plug:unhide");
         
         // Add any other commands here for different manufacturers
 
@@ -79,7 +79,7 @@ function DUAutoHide(Clothings $clothings)
 
         // Sapphos vagina hiding
         $MSG_TO_SAPPHOSVAG = 55;
-        SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), $MSG_TO_SAPPHOSVAG, "hidevag");
+        SLRegionSayTo($p_obj_id, AFGetOwnerID(), $MSG_TO_SAPPHOSVAG, "hidevag");
 
         // Add any other commands here for different manufacturers
 
@@ -89,7 +89,7 @@ function DUAutoHide(Clothings $clothings)
 
         // Sapphos vagina hiding
         $MSG_TO_SAPPHOSVAG = 55;
-        SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), $MSG_TO_SAPPHOSVAG, "resetvag");
+        SLRegionSayTo($p_obj_id, AFGetOwnerID(), $MSG_TO_SAPPHOSVAG, "resetvag");
 
         // Add any other commands here for different manufacturers
 
@@ -127,7 +127,7 @@ function DUAutoHide(Clothings $clothings)
     }
 
     // Sending RLV commands (if any)
-	if ($rlv) { SLRLVCommand(AFGetFlowObjectID(), $rlv); }
+	if ($rlv) { SLRLVCommand($p_obj_id, $rlv); }
 
 }
 

@@ -38,7 +38,7 @@
 $trusteds = NVGetLists("Trusted");
 
 // Triggering the main dialog flow through the function
-if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trusteds["Name"])) 
+if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trusteds)) 
 {
 
     // // Test add Ele as trusted
@@ -49,6 +49,9 @@ if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trust
 
     // Testing the gateway version
     //SLOwnerSay(AFGetFlowObjectID(), "Gateway version: " . AFGetFlowGatewayVersion());
+
+    //SLOwnerSay(AFGetFlowObjectID(), json_encode($trusteds));
+
 
     Main(AFGetFlowObjectID(), AFGetFlowSession(), AFGetFlowParameter(0));
 

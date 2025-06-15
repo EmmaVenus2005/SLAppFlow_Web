@@ -1,6 +1,6 @@
 <?php
 
-function Main($p_obj_id, $p_session, $p_toucherName)
+function Main($p_obj_id, $p_session, $p_toucher_name)
 {
 
     // Constants for authenticating the user that navigates in the collar ($session)
@@ -11,7 +11,7 @@ function Main($p_obj_id, $p_session, $p_toucherName)
 
     // Navigation variables
     $flowStep = "MAIN";
-    
+
     while ($flowStep != "EXIT")
     {
 
@@ -313,7 +313,7 @@ function Main($p_obj_id, $p_session, $p_toucherName)
                 SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
-                DUAutoHide($clothings);
+                DUAutoHide($p_obj_id, $clothings);
 
                 // Back to individual clothing root
                 $flowStep = "MAIN/INDIV";
@@ -431,7 +431,7 @@ function Main($p_obj_id, $p_session, $p_toucherName)
                 SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
-                DUAutoHide($clothings);
+                DUAutoHide($p_obj_id, $clothings);
 
                 // Back to the main menu
                 $flowStep = "MAIN";
@@ -492,7 +492,7 @@ function Main($p_obj_id, $p_session, $p_toucherName)
                 SLRLVCommand($p_obj_id, $rlv);
 
                 // Hides plug or genitals if needed
-                DUAutoHide($clothings);
+                DUAutoHide($p_obj_id, $clothings);
 
                 // Back to the main menu
                 $flowStep = "MAIN";
