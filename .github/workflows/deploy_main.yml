@@ -1,0 +1,27 @@
+name: Manual Deployment to Production (Apps excluded)
+
+on:
+  workflow_dispatch:  # Manual trigger via GitHub interface
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Clean /var/www/html except /apps
+        run: |
+          find /var/www/html -mindepth 1 -maxdepth 1 \
+            ! -name 'apps' \
+            -exec sudo rm -rf {} +
+
+      - name: Deploy Files to /var/www/html (excluding .git, .gitignore, and /apps)
+        run: |
+          sudo rsync -a \
+            --exclude='.git' \
+            --exclude='.gitignore' \
+            --exclude='apps' \
+            ./ /var/www/html/
