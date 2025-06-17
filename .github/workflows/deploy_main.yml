@@ -6,7 +6,7 @@ on:
 jobs:
   deploy:
     name: Deploy to Production Server
-    runs-on: self-hosted
+    runs-on: [self-hosted, vm010]  # SLAppFlow production server
 
     steps:
       - name: Checkout Repository
@@ -18,7 +18,7 @@ jobs:
             ! -name 'apps' \
             -exec rm -rf {} +
 
-      - name: Deploy Files to /var/www/html (excluding .git, .gitignore, and /apps)
+      - name: Deploy Files to /var/www/html (excluding .git, .gitignore, .github, and /apps)
         run: |
           rsync -a \
             --exclude='.git' \
@@ -26,3 +26,6 @@ jobs:
             --exclude='.gitignore' \
             --exclude='apps' \
             "$GITHUB_WORKSPACE"/ /var/www/html/
+
+      - name: List deployed content (verification)
+        run: ls -la /var/www/html
