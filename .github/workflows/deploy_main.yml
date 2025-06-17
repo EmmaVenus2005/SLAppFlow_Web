@@ -18,12 +18,13 @@ jobs:
         run: |
           find /var/www/html -mindepth 1 -maxdepth 1 \
             ! -name 'apps' \
-            -exec sudo rm -rf {} +
+            -exec rm -rf {} +
 
       - name: Deploy Files to /var/www/html (excluding .git, .gitignore, and /apps)
         run: |
-          sudo rsync -a \
+          rsync -a \
             --exclude='.git' \
+            --exclude='.github' \
             --exclude='.gitignore' \
             --exclude='apps' \
-            ./ /var/www/html/
+            "$GITHUB_WORKSPACE"/ /var/www/html/
