@@ -101,6 +101,7 @@
         display: block;
     }
   </style>
+  <script src="/webcontrol/include_functions.js"></script>
   <script>
   // Wait for the DOM to be fully loaded
   document.addEventListener("DOMContentLoaded", function () {

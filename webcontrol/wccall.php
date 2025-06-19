@@ -1,11 +1,10 @@
 <?php
 
-// wcapp.php
+// wccall.php
 //
-// Creates the context for the app to be run.
+// Creates the context for a function to be run (E.g. NVGetParam()).
 //
-// It is called from wchome.php when the user selects an app from the menu
-// app is given as GET parameter 'app'.
+// It is called from the app page when a function is called (back-end functions provided by SLAppFlow)
 
 // Setting the session token length and bits per character for higher security
 ini_set('session.sid_length', 64); // 64 characters
@@ -39,9 +38,10 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 
 // Check connection
 if ($conn->connect_error) {
-    //sErrDbConn($conn->connect_error);
+  
     echo $conn->connect_error;
     exit;
+
 }
 
 // Unsetting DB variables once connection done
@@ -53,20 +53,31 @@ $uuid = $_SESSION['uuid'];
 $name = $_SESSION['name'];
 $session = "";
 
-// Get the app directory
-$appDir = realpath(__DIR__ . "/../apps/$appid/");
+// Calling the function sent by GET parameter 'function'
+$function = isset($_GET['function']) ? $_GET['function'] : '';
 
-// Including app-specific functions
-if (is_dir("$appDir/functions/")) {
-    // Scan the directory for PHP files
-    foreach (glob("$appDir/functions/*.php") as $filename) {
-        // Include each PHP file
-        require_once $filename;
+// Trying to call the function with the given parameters
+if (function_exists($function)) 
+{
+
+    // Get the parameters from the GET request (param1, param2, etc.)
+    $params = [];
+    foreach ($_GET as $key => $value) {
+        if (strpos($key, 'param') === 0) {
+            $params[] = $value;
+        }
+    } 
+
+    // Call the function with the parameters (try)
+    try {
+
+        // Call the function with the parameters
+        $result = call_user_func_array($function, $params);
+        echo json_encode(['Status' => 'OK', 'Return' => $result, 'Message' => 'Function executed']);
+    
+    // If the function does not exist or fails, catch the exception
+    } catch (Exception $e) {
+        echo json_encode(['Status' => 'ERROR', 'Return' => null, 'Message' => $e->getMessage()]);
     }
+
 }
-
-// Including the requested app
-include "$appDir/web/index.php";
-
-// Close the database connection
-$conn->close();

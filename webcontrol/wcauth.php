@@ -1,11 +1,11 @@
 <?php
 
 // wcauth.php
+//
 // This script is responsible for authenticating the user based on
-// posted 'username' and 'password'
-
-// PHP session (sould already exist from main file)
-session_start();
+// posted 'username' and 'password'.
+//
+// Included from wbindex.php when 'username' and 'password' are sent via POST.
 
 // Database connection details
 $servername = $_SESSION['config']['webcontroldb']['servername'];

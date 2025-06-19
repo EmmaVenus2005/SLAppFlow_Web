@@ -1,5 +1,7 @@
 <?php
 
+// wcindex.php
+//
 // This is called when opening the webpage. It will display the navigation bar, authenticate the user
 // with its key (given in URL using id GET property).
 // Once authenticated, sets 'uuid' and 'name' as PHP session variables, used to know if the user is 
@@ -23,9 +25,6 @@ if (isset($_POST['username']) && isset($_POST['password']))
   // Includes the authentication script 
   // (is actually setting the session variables if the authentication is successful)
   include "webcontrol/wcauth.php";
-
-  // Nothing further to do, the authentication script will handle the rest
-  //exit(); 
 
 }
 
