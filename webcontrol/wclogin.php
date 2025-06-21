@@ -44,7 +44,8 @@
         }
         input[type="text"], input[type="password"] {
             width: 100%;
-            padding: 0.7rem 1rem;
+            padding: 0.7rem 0.8rem;
+            box-sizing: border-box;
             border: none;
             border-radius: 8px;
             background: #1c1f25;
@@ -104,7 +105,13 @@
         <div class="info">
             Your username is your Second Life name, and the password is the one you created specifically for SLAppFlow.<br>
             <b>This is <u>not</u> your Second Life account password</b>
-            (although you may have chosen to use the same one, which is <u>not recommended</u> for security reasons).
+            (although you may have chosen to use the same one, which is <u>not recommended</u> for security reasons).<br><br>
+
+            To subscribe, please join the kiosk located inworld at 
+            <a href="http://maps.secondlife.com/secondlife/HomeOfTheProdigies/118/10/24"
+            target="_blank" rel="noopener">
+            The Home of The Prodigies
+            </a>
         </div>
     </form>
 </body>

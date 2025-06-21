@@ -15,7 +15,7 @@ ini_set('session.sid_bits_per_character', 6); // base64 (highest entropy per cha
 // Starting a new PHP session
 session_start();
 
-// Reading the config file that contains confidential data
+// Setting config file to be used by the webcontrol
 $_SESSION['config'] = $config;
 
 // If the username and password have been sent via POST, it means the user is trying to authenticate
