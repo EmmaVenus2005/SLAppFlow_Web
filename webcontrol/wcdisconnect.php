@@ -19,6 +19,10 @@ if (ini_get("session.use_cookies")) {
 // Clear the session variables used for authentication
 unset($_SESSION['uuid'], $_SESSION['name']);
 
+// Clear the 'app' session variable if it exists,
+// avoiding further public command calls
+unset($_SESSION['app']);
+
 // API response: return JSON
 header('Content-Type: application/json');
 echo json_encode(['status' => 'ok', 'message' => 'Logged out']);
