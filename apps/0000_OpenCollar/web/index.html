@@ -44,6 +44,7 @@
     <!-- Loading public SLAppFlow commands -->
     <script src="/webcontrol/include_functions.js"></script>
     <script>
+        // Static documentation entries for known labels
         const documentation = {
             "DressUp Override": "When a force undress command is received for a specific body part...",
             "DressUp Priority": "If DressUp recognizes the body part to undress...",
@@ -63,14 +64,33 @@
             "Mouth": "Includes items attached to the mouth.",
             "Nose": "Includes items attached to the nose.",
             "Ears": "Includes items attached to the ears.",
-            "Eyes": "Includes items attached to the eyes."
+            "Eyes": "Includes items attached to the eyes.",
+
+            "Add/Remove Owners": "Allows adding or removing users with owner-level permissions.",
+            "Permissions": "Manage the permissions granted to users.",
+            "Add/Remove Trusted Users": "Allows adding or removing trusted users.",
+            "Change Color": "Change the color of the collar to customize its appearance.",
+            "Change Texture": "Apply different textures to the collar.",
+            "Adjust Size": "Resize the collar to fit the avatar.",
+            "Apply Styles": "Apply predefined visual styles.",
+            "Attach/Detach Leash": "Attach or detach a leash for roleplay purposes.",
+            "Set Leash Length": "Define the maximum length of the leash.",
+            "Select Anchor Point": "Choose where the leash is anchored.",
+            "Login/Logout Alerts": "Get notified when the avatar logs in or out.",
+            "Movement Alerts": "Receive alerts when the avatar moves.",
+            "Automatic Responses": "Configure automatic replies to commands.",
+            "Enable/Disable Password": "Enable or disable access control via password.",
+            "Set Password": "Define a password to access settings.",
+            "Session Timeout": "Specify how long the session remains active."
         };
 
+        // Utility function to show/hide collapsible elements
         function toggleElement(id) {
             const elem = document.getElementById(id);
             elem.style.display = elem.style.display === 'none' ? 'block' : 'none';
         }
 
+        // Creates a documentation panel element
         function createDocPanel(id, label) {
             const panel = document.createElement('div');
             panel.className = 'doc-panel';
@@ -85,6 +105,7 @@
             return panel;
         }
 
+        // Creates a row for a checkbox group (Owner, Trusted, Group)
         function createCheckboxRow(command) {
             const li = document.createElement('li');
             const title = document.createElement('p');
@@ -109,6 +130,7 @@
             return li;
         }
 
+        // Creates a collapsible category block with its commands
         function createCategoryBlock(category, commands) {
             const li = document.createElement('li');
             const toggleId = 'cat_' + category.ShortName;
@@ -116,51 +138,77 @@
             const container = document.createElement('div');
             container.id = toggleId;
             container.style.display = 'none';
-
             const ul = document.createElement('ul');
             commands.forEach(cmd => ul.appendChild(createCheckboxRow(cmd)));
-
             container.appendChild(ul);
             li.appendChild(container);
             return li;
         }
 
+        // Loads RLV categories and builds the dynamic UI panel
         WebControlReady.then(async () => {
             const panel = document.getElementById("settings-panel");
             panel.innerHTML = "";
             const ul = document.createElement('ul');
+
+            const rlvRelayWrapper = document.createElement('li');
+            rlvRelayWrapper.innerHTML = `<span class="toggle-category" onclick="toggleElement('rlv_relay_block')">[+]</span> <strong>RLV Relay</strong>`;
+            const rlvRelayBlock = document.createElement('div');
+            rlvRelayBlock.id = 'rlv_relay_block';
+            rlvRelayBlock.style.display = 'none';
+            rlvRelayBlock.style.marginLeft = '20px';
+
+            // Add Force Undress section
+            addForceUndressSection(rlvRelayBlock);
+
+            // Add dynamic RLV commands under "Allow Restrictions"
+            const allowRestrictionsLI = document.createElement('li');
+            allowRestrictionsLI.innerHTML = `<span class="toggle-category" onclick="toggleElement('allow_restrictions_block')">[+]</span> <strong>Allow Restrictions</strong>`;
+            const allowRestrictionsBlock = document.createElement('div');
+            allowRestrictionsBlock.id = 'allow_restrictions_block';
+            allowRestrictionsBlock.style.display = 'none';
+            allowRestrictionsBlock.style.marginLeft = '20px';
 
             try {
                 const categories = await RLVListCategories();
                 for (const category of categories) {
                     const commands = await RLVListCommandsByCategory(category.ShortName);
                     if (commands.length > 0) {
-                        ul.appendChild(createCategoryBlock(category, commands));
+                        allowRestrictionsBlock.appendChild(createCategoryBlock(category, commands));
                     }
                 }
-                panel.appendChild(ul);
             } catch (err) {
-                console.error("Failed to load RLV settings:", err);
-                panel.innerHTML = "<p style='color:red;'>Error loading settings.</p>";
+                console.error("Failed to load RLV commands:", err);
+                allowRestrictionsBlock.innerHTML = "<p style='color:red;'>Error loading RLV commands.</p>";
             }
 
-            // Force Undress Section
+            allowRestrictionsLI.appendChild(allowRestrictionsBlock);
+            rlvRelayBlock.appendChild(allowRestrictionsLI);
+            rlvRelayWrapper.appendChild(rlvRelayBlock);
+            ul.appendChild(rlvRelayWrapper);
+
+            // Add static settings
+            addStaticSettings(staticSettings, ul);
+
+            panel.appendChild(ul);
+            toggleBodyParts('DressUp Override');
+        });
+
+        // Force Undress section: Modes + Body Parts
+        function addForceUndressSection(parentUL) {
             const forceUndressWrapper = document.createElement('li');
             forceUndressWrapper.innerHTML = `<span class="toggle-category" onclick="toggleElement('force_undress_block')">[+]</span> <strong>Force Undress</strong>`;
-
             const forceUndressBlock = document.createElement('div');
             forceUndressBlock.id = 'force_undress_block';
             forceUndressBlock.style.display = 'none';
             forceUndressBlock.style.marginLeft = '20px';
 
-            // Mode Selection (radio)
             const modeSelectionTitle = document.createElement('p');
             modeSelectionTitle.innerHTML = '<strong>Mode Selection</strong>';
             forceUndressBlock.appendChild(modeSelectionTitle);
 
-            ['DressUp Override', 'DressUp Priority', 'Ignore DressUp'].forEach((mode, index) => {
+            ['DressUp Override', 'DressUp Priority', 'Ignore DressUp'].forEach(mode => {
                 const div = document.createElement('div');
-
                 const radio = document.createElement('input');
                 radio.type = 'radio';
                 radio.name = 'force_undress_mode';
@@ -180,13 +228,11 @@
                 label.appendChild(info);
 
                 const doc = createDocPanel(docId, mode);
-
                 div.appendChild(label);
                 div.appendChild(doc);
                 forceUndressBlock.appendChild(div);
             });
 
-            // Body Parts (checkboxes)
             const bodyPartsTitle = document.createElement('p');
             bodyPartsTitle.innerHTML = '<strong>Body Parts</strong>';
             forceUndressBlock.appendChild(bodyPartsTitle);
@@ -197,7 +243,6 @@
                 "Back", "Pelvis", "Mouth", "Nose", "Ears", "Eyes"
             ].forEach(part => {
                 const div = document.createElement('div');
-
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.name = 'body_parts[]';
@@ -217,30 +262,62 @@
                 label.appendChild(info);
 
                 const doc = createDocPanel(docId, part);
-
                 div.appendChild(label);
                 div.appendChild(doc);
                 forceUndressBlock.appendChild(div);
             });
 
-            const rlvRelayWrapper = document.createElement('li');
-            rlvRelayWrapper.innerHTML = `<span class="toggle-category" onclick="toggleElement('rlv_relay_block')">[+]</span> <strong>RLV Relay</strong>`;
-            const rlvRelayBlock = document.createElement('div');
-            rlvRelayBlock.id = 'rlv_relay_block';
-            rlvRelayBlock.style.display = 'none';
-            rlvRelayBlock.style.marginLeft = '20px';
+            forceUndressWrapper.appendChild(forceUndressBlock);
+            parentUL.appendChild(forceUndressWrapper);
+        }
 
-            // Force Undress Section
-            rlvRelayBlock.appendChild(forceUndressWrapper);
-        
+        // Recursive rendering of static settings tree with full checkbox paths
+        function addStaticSettings(obj, parentUL, path = []) {
+            Object.entries(obj).forEach(([key, value]) => {
+                const li = document.createElement('li');
+                const id = 'static_' + Math.random().toString(36).substr(2, 8);
+                li.innerHTML = `<span class="toggle-category" onclick="toggleElement('${id}')">[+]</span> <strong>${key}</strong>`;
+                const container = document.createElement('div');
+                container.id = id;
+                container.style.display = 'none';
+                container.style.marginLeft = '20px';
 
-            ul.appendChild(rlvRelayWrapper);
-            rlvRelayWrapper.appendChild(rlvRelayBlock);
+                if (Array.isArray(value)) {
+                    const innerUL = document.createElement('ul');
+                    value.forEach(label => {
+                        const docId = 'doc_' + Math.random().toString(36).substr(2, 8);
+                        const itemLI = document.createElement('li');
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = `settings[${[...path, label].join('][')}]`;
+                        checkbox.value = '1';
 
-            toggleBodyParts('DressUp Override');
+                        const info = document.createElement('span');
+                        info.className = 'info-icon';
+                        info.textContent = '(i)';
+                        info.onclick = () => toggleElement(docId);
 
-        });
+                        const docPanel = createDocPanel(docId, label);
 
+                        itemLI.appendChild(checkbox);
+                        itemLI.appendChild(document.createTextNode(' ' + label));
+                        itemLI.appendChild(info);
+                        itemLI.appendChild(docPanel);
+                        innerUL.appendChild(itemLI);
+                    });
+                    container.appendChild(innerUL);
+                } else if (typeof value === 'object') {
+                    const subUL = document.createElement('ul');
+                    addStaticSettings(value, subUL, [...path, key]);
+                    container.appendChild(subUL);
+                }
+
+                li.appendChild(container);
+                parentUL.appendChild(li);
+            });
+        }
+
+        // Enables/disables body part checkboxes depending on mode
         function toggleBodyParts(selectedMode) {
             const checkboxes = document.querySelectorAll('.body-part-checkbox');
             checkboxes.forEach(cb => {
@@ -248,6 +325,43 @@
                 if (selectedMode !== 'Ignore DressUp') cb.checked = false;
             });
         }
+
+        // Static section definitions
+        const staticSettings = {
+                "Access Control": {
+                    "Groups": {
+                        "Owners": [
+                            "Add/Remove Owners",
+                            "Permissions"
+                        ],
+                        "Trusted": [
+                            "Add/Remove Trusted Users",
+                            "Permissions"
+                        ]
+                    }
+                },
+                "Appearance Settings": [
+                    "Change Color",
+                    "Change Texture",
+                    "Adjust Size",
+                    "Apply Styles"
+                ],
+                "Leash Settings": [
+                    "Attach/Detach Leash",
+                    "Set Leash Length",
+                    "Select Anchor Point"
+                ],
+                "Notifications": [
+                    "Login/Logout Alerts",
+                    "Movement Alerts",
+                    "Automatic Responses"
+                ],
+                "Security Settings": [
+                    "Enable/Disable Password",
+                    "Set Password",
+                    "Session Timeout"
+                ]
+            };
 
     </script>
 </body>
