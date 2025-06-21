@@ -60,11 +60,6 @@
         } else {
             listContainer.innerHTML = "<p>No outfits available.</p>";
         }
-
-        // 2. Load categories
-            const categories = await RLVListCommandsByCategory("misc");
-            console.log("[WebControl] RLVListCategories result:", categories);
-
     } catch (err) {
         console.error("[WebControl] Failed to load outfits:", err);
         document.getElementById("outfit-list").innerHTML = "<p>Error loading outfits.</p>";

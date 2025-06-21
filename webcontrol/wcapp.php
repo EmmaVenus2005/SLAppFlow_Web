@@ -53,6 +53,9 @@ $uuid = $_SESSION['uuid'];
 $name = $_SESSION['name'];
 $session = "";
 
+// The selected app is stored in the session
+$_SESSION['app'] = $_GET['app'];
+
 // Get the app directory
 $appDir = realpath(__DIR__ . "/../apps/$appid/");
 
@@ -66,7 +69,8 @@ if (is_dir("$appDir/functions/")) {
 }
 
 // Including the requested app
-include "$appDir/web/index.php";
+//include "$appDir/web/index.php";
+echo file_get_contents("$appDir/web/index.html");
 
 // Close the database connection
 $conn->close();

@@ -1,5 +1,5 @@
 // Self-executing async function to avoid global scope pollution
-(async function () {
+window.WebControlReady = (async function () {
 
     // API that returns list of available PHP functions
     const endpoint = '/webcontrol/wcfunctions.php';
@@ -21,14 +21,17 @@
                     console.warn(`[WebControl] Function ${functionName} expects ${paramCount} parameter(s), but got ${args.length}.`);
                 }
 
-                // Build the query string with param1, param2, ...
-                const query = new URLSearchParams({ function: functionName });
-                args.forEach((arg, index) => {
-                    query.append(`param${index + 1}`, arg);
-                });
-
                 // Call the backend API
-                const res = await fetch(`/webcontrol/call.php?${query.toString()}`);
+                const res = await fetch('/webcontrol/wccall.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        Function: functionName,
+                        Params: args
+                    })
+                });
                 const json = await res.json();
 
                 // Handle API response

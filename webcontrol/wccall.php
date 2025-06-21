@@ -17,14 +17,35 @@ session_start();
 // In this case ALWAYS abort the script for obvious security reason
 if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit(); }
 
+// If the app is not set in the context, functions cannot be called
+if (!isset($_SESSION['app'])) { exit; }
+
+// Read POST JSON input
+$rawInput = file_get_contents('php://input');
+$data = json_decode($rawInput, true);
+
+// Getting the function name and parameters from the input
+$function = $data['Function'] ?? null;
+$params = $data['Params'] ?? [];
+
 // Get the directory path containing the PHP functions and classes
 $functionsDir = realpath(__DIR__ . '/../functions/');
 
-// Including all PHP files
-if ($functionsDir !== false && is_dir($functionsDir)) {
-    foreach (glob($functionsDir . '/*.php') as $filename) {
-        require_once $filename;
-    }
+// Sanitize function name to avoid directory traversal, etc.
+if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $function)) {
+    echo json_encode(['Success' => 'False', 'Return' => null, 'Message' => 'Illegal function name.']);
+    exit;
+}
+
+// Check if the function file exists (avoids calling functions outside the functions directory)
+if (!file_exists($functionsDir . '/' . $function . '.php')) {
+    echo json_encode(['Success' => 'False', 'Return' => null, 'Message' => 'Function file not found.']);
+    exit;
+}
+
+// Including all PHP files from the functions directory
+foreach (glob($functionsDir . '/*.php') as $filename) {
+    require_once $filename;
 }
 
 // Database connection details
@@ -48,36 +69,20 @@ if ($conn->connect_error) {
 unset($servername, $username, $password, $dbname);
 
 // Creating "session" context as it is for an API flow
-$appid = $_GET['app'];
+$config = $_SESSION['config'];
+$appid = $_SESSION['app'];
 $uuid = $_SESSION['uuid'];
 $name = $_SESSION['name'];
 $session = "";
 
-// Calling the function sent by GET parameter 'function'
-$function = isset($_GET['function']) ? $_GET['function'] : '';
+// Call the function with the parameters (try)
+try {
 
-// Trying to call the function with the given parameters
-if (function_exists($function)) 
-{
+    // Call the function with the parameters
+    $result = call_user_func_array($function, $params);
+    echo json_encode(['Success' => 'True', 'Return' => $result, 'Message' => 'Function executed']);
 
-    // Get the parameters from the GET request (param1, param2, etc.)
-    $params = [];
-    foreach ($_GET as $key => $value) {
-        if (strpos($key, 'param') === 0) {
-            $params[] = $value;
-        }
-    } 
-
-    // Call the function with the parameters (try)
-    try {
-
-        // Call the function with the parameters
-        $result = call_user_func_array($function, $params);
-        echo json_encode(['Status' => 'OK', 'Return' => $result, 'Message' => 'Function executed']);
-    
-    // If the function does not exist or fails, catch the exception
-    } catch (Exception $e) {
-        echo json_encode(['Status' => 'ERROR', 'Return' => null, 'Message' => $e->getMessage()]);
-    }
-
+// If the function does not exist or fails, catch the exception
+} catch (Exception $e) {
+    echo json_encode(['Success' => 'False', 'Return' => null, 'Message' => $e->getMessage()]);
 }

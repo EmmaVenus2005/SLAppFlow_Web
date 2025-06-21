@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RLV Settings Panel</title>
+    <style>
+        ul { list-style-type: none; padding-left: 20px; }
+        li { margin: 5px 0; position: relative; }
+        .toggle-category {
+            cursor: pointer;
+            color: blue;
+            margin-right: 5px;
+        }
+        .info-icon {
+            cursor: pointer;
+            color: green;
+            margin-left: 5px;
+        }
+        .doc-panel {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 5px;
+            margin-left: 20px;
+        }
+        .checkbox-group label {
+            margin-right: 10px;
+        }
+        input[type="submit"] {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <form id="settings-form">
+        <div id="settings-panel">
+            <p>Loading settings...</p>
+        </div>
+        <input type="submit" value="Save Settings">
+    </form>
+
+    <!-- Loading public SLAppFlow commands -->
+    <script src="/webcontrol/include_functions.js"></script>
+    <script>
+        const documentation = {
+            "DressUp Override": "When a force undress command is received for a specific body part...",
+            "DressUp Priority": "If DressUp recognizes the body part to undress...",
+            "Ignore DressUp": "Processes force undress commands without involving DressUp...",
+            "Head": "Represents the head area of the avatar.",
+            "Upper Body": "Includes the torso and upper body regions.",
+            "Lower Body": "Covers the hips and legs.",
+            "Left Arm": "Refers to the avatar's left arm.",
+            "Right Arm": "Refers to the avatar's right arm.",
+            "Left Leg": "Refers to the avatar's left leg.",
+            "Right Leg": "Refers to the avatar's right leg.",
+            "Hands": "Includes both hands of the avatar.",
+            "Feet": "Includes both feet of the avatar.",
+            "Chest": "Represents the chest area.",
+            "Back": "Covers the back region.",
+            "Pelvis": "Refers to the pelvic area.",
+            "Mouth": "Includes items attached to the mouth.",
+            "Nose": "Includes items attached to the nose.",
+            "Ears": "Includes items attached to the ears.",
+            "Eyes": "Includes items attached to the eyes."
+        };
+
+        function toggleElement(id) {
+            const elem = document.getElementById(id);
+            elem.style.display = elem.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function createDocPanel(id, label) {
+            const panel = document.createElement('div');
+            panel.className = 'doc-panel';
+            panel.id = id;
+            panel.style.display = 'none';
+            const title = document.createElement('p');
+            title.innerHTML = `<strong>${label}</strong>`;
+            const desc = document.createElement('p');
+            desc.textContent = documentation[label] || 'Documentation not available.';
+            panel.appendChild(title);
+            panel.appendChild(desc);
+            return panel;
+        }
+
+        function createCheckboxRow(command) {
+            const li = document.createElement('li');
+            const title = document.createElement('p');
+            title.innerHTML = `<strong>${command.Filter}</strong> — ${command.Description}`;
+
+            const group = document.createElement('div');
+            group.className = 'checkbox-group';
+
+            ["Owner", "Trusted", "Group"].forEach(role => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = `settings[${command.Filter}][${role}]`;
+                checkbox.value = '1';
+                label.appendChild(checkbox);
+                label.append(" " + role);
+                group.appendChild(label);
+            });
+
+            li.appendChild(title);
+            li.appendChild(group);
+            return li;
+        }
+
+        function createCategoryBlock(category, commands) {
+            const li = document.createElement('li');
+            const toggleId = 'cat_' + category.ShortName;
+            li.innerHTML = `<span class="toggle-category" onclick="toggleElement('${toggleId}')">[+]</span> <strong>${category.Name}</strong>`;
+            const container = document.createElement('div');
+            container.id = toggleId;
+            container.style.display = 'none';
+
+            const ul = document.createElement('ul');
+            commands.forEach(cmd => ul.appendChild(createCheckboxRow(cmd)));
+
+            container.appendChild(ul);
+            li.appendChild(container);
+            return li;
+        }
+
+        WebControlReady.then(async () => {
+            const panel = document.getElementById("settings-panel");
+            panel.innerHTML = "";
+            const ul = document.createElement('ul');
+
+            try {
+                const categories = await RLVListCategories();
+                for (const category of categories) {
+                    const commands = await RLVListCommandsByCategory(category.ShortName);
+                    if (commands.length > 0) {
+                        ul.appendChild(createCategoryBlock(category, commands));
+                    }
+                }
+                panel.appendChild(ul);
+            } catch (err) {
+                console.error("Failed to load RLV settings:", err);
+                panel.innerHTML = "<p style='color:red;'>Error loading settings.</p>";
+            }
+
+            // Force Undress Section
+            const forceUndressWrapper = document.createElement('li');
+            forceUndressWrapper.innerHTML = `<span class="toggle-category" onclick="toggleElement('force_undress_block')">[+]</span> <strong>Force Undress</strong>`;
+
+            const forceUndressBlock = document.createElement('div');
+            forceUndressBlock.id = 'force_undress_block';
+            forceUndressBlock.style.display = 'none';
+            forceUndressBlock.style.marginLeft = '20px';
+
+            // Mode Selection (radio)
+            const modeSelectionTitle = document.createElement('p');
+            modeSelectionTitle.innerHTML = '<strong>Mode Selection</strong>';
+            forceUndressBlock.appendChild(modeSelectionTitle);
+
+            ['DressUp Override', 'DressUp Priority', 'Ignore DressUp'].forEach((mode, index) => {
+                const div = document.createElement('div');
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'force_undress_mode';
+                radio.value = mode;
+                if (mode === 'DressUp Override') radio.checked = true;
+                radio.onclick = () => toggleBodyParts(mode);
+
+                const info = document.createElement('span');
+                info.className = 'info-icon';
+                const docId = 'doc_' + Math.random().toString(36).substr(2, 8);
+                info.textContent = '(i)';
+                info.onclick = () => toggleElement(docId);
+
+                const label = document.createElement('label');
+                label.appendChild(radio);
+                label.append(" " + mode);
+                label.appendChild(info);
+
+                const doc = createDocPanel(docId, mode);
+
+                div.appendChild(label);
+                div.appendChild(doc);
+                forceUndressBlock.appendChild(div);
+            });
+
+            // Body Parts (checkboxes)
+            const bodyPartsTitle = document.createElement('p');
+            bodyPartsTitle.innerHTML = '<strong>Body Parts</strong>';
+            forceUndressBlock.appendChild(bodyPartsTitle);
+
+            [
+                "Head", "Upper Body", "Lower Body", "Left Arm", "Right Arm",
+                "Left Leg", "Right Leg", "Hands", "Feet", "Chest",
+                "Back", "Pelvis", "Mouth", "Nose", "Ears", "Eyes"
+            ].forEach(part => {
+                const div = document.createElement('div');
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'body_parts[]';
+                checkbox.value = part;
+                checkbox.className = 'body-part-checkbox';
+                checkbox.disabled = true;
+
+                const info = document.createElement('span');
+                info.className = 'info-icon';
+                const docId = 'doc_' + Math.random().toString(36).substr(2, 8);
+                info.textContent = '(i)';
+                info.onclick = () => toggleElement(docId);
+
+                const label = document.createElement('label');
+                label.appendChild(checkbox);
+                label.append(" " + part);
+                label.appendChild(info);
+
+                const doc = createDocPanel(docId, part);
+
+                div.appendChild(label);
+                div.appendChild(doc);
+                forceUndressBlock.appendChild(div);
+            });
+
+            const rlvRelayWrapper = document.createElement('li');
+            rlvRelayWrapper.innerHTML = `<span class="toggle-category" onclick="toggleElement('rlv_relay_block')">[+]</span> <strong>RLV Relay</strong>`;
+            const rlvRelayBlock = document.createElement('div');
+            rlvRelayBlock.id = 'rlv_relay_block';
+            rlvRelayBlock.style.display = 'none';
+            rlvRelayBlock.style.marginLeft = '20px';
+
+            // Force Undress Section
+            rlvRelayBlock.appendChild(forceUndressWrapper);
+        
+
+            ul.appendChild(rlvRelayWrapper);
+            rlvRelayWrapper.appendChild(rlvRelayBlock);
+
+            toggleBodyParts('DressUp Override');
+
+        });
+
+        function toggleBodyParts(selectedMode) {
+            const checkboxes = document.querySelectorAll('.body-part-checkbox');
+            checkboxes.forEach(cb => {
+                cb.disabled = (selectedMode !== 'Ignore DressUp');
+                if (selectedMode !== 'Ignore DressUp') cb.checked = false;
+            });
+        }
+
+    </script>
+</body>
+</html>
