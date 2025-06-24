@@ -55,5 +55,8 @@ if (is_dir($appsDir)) {
     }
 }
 
+// List used by wcapp.php to ensure it's an authorized app
+$_SESSION['apps'] = $apps;
+
 // If this point of the code is reached, it means the user is authenticated
 include "webcontrol/wchome.php";

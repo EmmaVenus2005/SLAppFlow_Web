@@ -18,13 +18,14 @@ session_start();
 // In this case ALWAYS abort the script for obvious security reason
 if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit(); }
 
-// TO IMPLEMENT : Check if the app is valid, using backend list
+// If the app was not included by wcindex.php, the user tries to access unauthorized app
+if (!in_array($_GET['app'], $_SESSION['apps'], true)) { exit; }
 
 // The selected app is stored in the session
 $_SESSION['app'] = $_GET['app'];
 
 // Get the app directory
-$appDir = realpath(__DIR__ . "/../apps/" . $_SESSION['app'] . "/");
+$appDir = $_SESSION['config']['dirs']['appsdir'] . "/" . $_SESSION['app'] . "/";
 
 // Displaying the requested app
 echo file_get_contents("$appDir/web/index.html");

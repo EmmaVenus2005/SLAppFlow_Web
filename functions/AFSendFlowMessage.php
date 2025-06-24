@@ -3,7 +3,7 @@
 function AFSendFlowMessage($toApp, $toRecipient, $message) {
     
     // Ensure global variables are available
-    global $config, $appid, $uuid, $name, $homeDir;
+    global $config, $appid, $uuid, $name, $isFrontendCall;
 
     // Ensure required parameters are set
     if (!isset($toApp, $toRecipient)) {
@@ -13,23 +13,23 @@ function AFSendFlowMessage($toApp, $toRecipient, $message) {
 
     // Creates the context array
     $context = [
-        'config'       => $config,
-        'homeDir'      => $homeDir,
-        'appid'        => $toApp,
-        'uuid'         => $toRecipient,
-        'name'         => "",
-        'session'      => "",
-        'sender_appid' => $appid,
-        'sender_uuid'  => $uuid,
-        'sender_name'  => $name,
-        'message'      => $message,
+        'config'            => $config,
+        'appid'             => $toApp,
+        'uuid'              => $toRecipient,
+        'name'              => "",
+        'session'           => "",
+        'sender_appid'      => $appid,
+        'sender_uuid'       => $uuid,
+        'sender_name'       => $name,
+        'message'           => $message,
+        'isFrontendCall'    => $isFrontendCall
     ];
 
     // Create a JSON representation of the context
     $jsonContext = json_encode($context);
 
     // Command to run
-    $cmd = ['php', $homeDir . '/api/send_flow_message.php'];
+    $cmd = ['php', $config['dirs']['homedir'] . '/api/send_flow_message.php'];
 
     // Set the descriptors for the process
     $descriptors = [

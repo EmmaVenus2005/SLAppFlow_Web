@@ -21,7 +21,7 @@ $context = json_decode($contextData, true);
 extract($context);
 
 // Ensure required keys exist
-$required = ['config', 'appid', 'uuid', 'name', 'session', 'sender_appid', 'sender_uuid', 'sender_name', 'message', 'homeDir'];
+$required = ['config', 'appid', 'uuid', 'name', 'session', 'sender_appid', 'sender_uuid', 'sender_name', 'message'];
 foreach ($required as $key) {
     if (!isset($context[$key])) {
         fwrite(STDERR, "Missing context key: $key\n");
@@ -45,7 +45,7 @@ if ($conn->connect_error) {
 }
 
 // Include all utility functions
-$functionsDir = $homeDir . '/functions/';
+$functionsDir = $config['dirs']['homedir'] . '/functions/';
 if (is_dir($functionsDir)) {
     foreach (glob($functionsDir . '*.php') as $filename) {
         require_once $filename;
@@ -53,7 +53,7 @@ if (is_dir($functionsDir)) {
 }
 
 // Include app-specific functions
-$functionsDir = $homeDir . '/apps/' . $appid . '/functions/';
+$functionsDir = $config['dirs']['homedir'] . '/apps/' . $appid . '/functions/';
 if (is_dir($functionsDir)) {
     // Scan the directory for PHP files
     foreach (glob($functionsDir . '*.php') as $filename) {
@@ -63,7 +63,7 @@ if (is_dir($functionsDir)) {
 }
 
 // Execute the flow
-$flowPath = $homeDir . '/apps/' . $appid . '/flows/on_flow_message.php';
+$flowPath = $config['dirs']['homedir'] . '/apps/' . $appid . '/flows/on_flow_message.php';
 
 // Check if the flow file exists
 if (!file_exists($flowPath)) 

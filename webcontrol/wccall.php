@@ -15,7 +15,7 @@ session_start();
 
 // If $uuid and $name are not set, someone tries to access to the page without using main menu
 // In this case ALWAYS abort the script for obvious security reason
-if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit(); }
+if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) { exit; }
 
 // If the app is not set in the context, functions cannot be called
 if (!isset($_SESSION['app'])) { exit; }
@@ -29,7 +29,7 @@ $function = $data['Function'] ?? null;
 $params = $data['Params'] ?? [];
 
 // Get the directory path containing the PHP functions and classes
-$functionsDir = realpath(__DIR__ . '/../functions/');
+$functionsDir = $_SESSION['config']['dirs']['funcdir'];
 
 // Sanitize function name to avoid directory traversal, etc.
 if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $function)) {
@@ -74,6 +74,9 @@ $appid = $_SESSION['app'];
 $uuid = $_SESSION['uuid'];
 $name = $_SESSION['name'];
 $session = "";
+
+// Setting a variable to know the call comes from front-end
+$isFrontendCall = true;
 
 // Call the function with the parameters (try)
 try {
