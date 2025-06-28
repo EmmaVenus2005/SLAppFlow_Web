@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Contextual variables used during flow execution
+ * Contextual functions used during flow execution
  * -----------------------------------------------
- *
+ * 
  * - AFGetAppID()               → Application identifier (unique per app instance)
  * - AFGetOwnerID()             → UUID of the avatar who owns the object
  * - AFGetOwnerName()           → Display name of the object owner
@@ -16,16 +16,31 @@
  * - AFGetFlowRegionPosition()  → Position (vector) of the region in the world
  * - AFGetFlowRegionName()      → Name of the region in the world
  * 
- * Specific functions for on_hooked event :
- * 
- * - AFGetFlowSession()   Not relevant in this case
+ * Touch-specific additional parameters are accessible using:
+ *
+ * - AFGetFlowSession()         → UUID of the avatar who touched the object
+ * - AFGetFlowParameter(index)  → Indexed array of touch data:
+ *      [0] = toucherName          (string)
+ *      [1] = toucherOwner UUID    (string)
+ *      [2] = toucherPos           (vector as string)
+ *      [3] = toucherRot           (rotation as string)
+ *      [4] = toucherType          (integer)
+ *      [5] = surfaceST            (vector as string)
+ *      [6] = surfaceUV            (vector as string)
+ *      [7] = touchedFace          (integer)
+ *      [8] = touchNormal          (vector as string)
+ *      [9] = touchBinormal        (vector as string)
+ *      [10] = touchPos            (vector as string)
+ *      [11] = touchedLink         (integer)  (Gateway =<0.952)
  * 
  */
 
-// Nothing to do when the board comes online
-if (AFGetFlowAppMode() === "AuctionBoard") 
-{ 
+if (AFGetFlowAppMode() === "AuctionBoard")
+{
 
+    //Test
+    //SLOwnerSay(AFGetFlowObjectID(), "The board has been touched at link number : " . AFGetFlowParameter(11));
+   
     // Updates the URL of the board with the new token
     $message = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 
@@ -34,23 +49,5 @@ if (AFGetFlowAppMode() === "AuctionBoard")
 
     // Successfully updated the URL
     return true; 
-
+   
 }
-
-// If it's a painting, checking if the owner changed
-
-// Creating a JSON with all the information
-$data = [
-    "OwnerID"               => AFGetOwnerID(),
-    "OwnerName"             => AFGetOwnerName(),
-    "FlowObjectID"          => AFGetFlowObjectID(),
-    "FlowObjectName"        => AFGetFlowObjectName(),
-    "FlowGatewayVersion"    => AFGetFlowGatewayVersion(),
-    "FlowObjectPosition"    => AFGetFlowObjectPosition(),
-    "FlowObjectRotation"    => AFGetFlowObjectRotation(),
-    "FlowRegionPosition"    => AFGetFlowRegionPosition(),
-    "FlowRegionName"        => AFGetFlowRegionName()
-    ];
-
-// Sending the message to the "Global" user
-AFSendFlowMessage(AFGetAppID(), "Global", "REZZED|" . AFGetFlowAppMode() . "|" . json_encode($data));

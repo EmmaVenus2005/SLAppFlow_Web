@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title id="page-title">Auction</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #f0f0f0; }
+        .auction-board { width: 700px; margin: 30px auto; background: #222; box-shadow: 0 0 18px #000c; border-radius: 12px; padding: 18px 24px; position: relative; }
+        .image-artwork { float: left; width: 250px; height: 250px; background: #222; border-radius: 8px; overflow: hidden; position: relative; }
+        .image-artwork img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .arrow-group { position: absolute; top: 16px; right: 24px; z-index: 10; display: flex; gap: 0; }
+        .arrow { font-size: 2em; color: #ffc833; background: #222a; border-radius: 50%; padding: 4px 14px; cursor: pointer; user-select: none; transition: background 0.2s, color 0.2s; margin-left: 4px; }
+        .arrow:hover { background: #ffc833; color: #222; }
+        .info-block { margin-left: 280px; min-height: 220px; }
+        .title { font-size: 2em; letter-spacing: 4px; font-weight: bold; margin-top: 0; color: #ffc833; }
+        .timer { font-size: 1.2em; margin-bottom: 14px; color: #fff; }
+        .start-info, .bidders, .creator-desc { color: #eee; }
+        .bidders { margin-top: 22px; }
+        .creator-desc { clear: both; margin-top: 32px; font-size: 1em; }
+    </style>
+</head>
+<body>
+    <div class="auction-board" id="auctionBoard" style="display:none;">
+        <!-- Arrows are now in top-right of the board -->
+        <div class="arrow-group">
+            <span class="arrow" id="imgLeft">&#9664;</span>
+            <span class="arrow" id="imgRight">&#9654;</span>
+        </div>
+        <div class="image-artwork">
+            <img id="artworkImage" src="" alt="Artwork">
+        </div>
+        <div class="info-block">
+            <div class="title" id="artworkTitle"></div>
+            <div class="timer" id="auctionTimer"></div>
+            <div class="start-info">
+                <div>Start price: <b id="startPrice"></b></div>
+                <div>Start date: <b id="startDate"></b></div>
+            </div>
+            <div class="bidders" id="biddersList">
+                <div><b>Bidders:</b></div>
+            </div>
+        </div>
+        <div class="creator-desc" id="creatorDesc"></div>
+    </div>
+
+<!-- Loading public SLAppFlow commands -->
+<script src="/webcontrol/include_functions.js"></script>
+
+<script>
+// --- Simulated data (replace by backend injection if needed) ---
+window.mediaInput = {
+    images: [
+        "woman_back.png",
+        "woman_front.png"
+    ],
+    title: "ASTRID",
+    creator: "Mina Minelli",
+    description: "This is the description of the artwork.",
+    start_price: 300,
+    currency: "L$",
+    start_date: "2025-06-20 12:00:00",
+    duration_seconds: 3*24*3600 + 8*3600 + 3*60,
+    bids: [
+        { name: "Elea Gee-Venus", amount: 420, currency: "L$" },
+        { name: "Emma Gee-Venus", amount: 420, currency: "L$" },
+        { name: "Steve Vlho", amount: 400, currency: "L$" }
+    ]
+};
+
+(function(){
+    if(!window.mediaInput) return;
+
+    document.getElementById('auctionBoard').style.display = "";
+    document.getElementById('artworkTitle').textContent = window.mediaInput.title;
+    document.getElementById('startPrice').textContent = window.mediaInput.start_price + " " + window.mediaInput.currency;
+    const startDateObj = new Date(window.mediaInput.start_date.replace(" ", "T"));
+    document.getElementById('startDate').textContent = startDateObj.toLocaleString();
+    document.getElementById('creatorDesc').innerHTML =
+        "<b>Creator:</b> " + window.mediaInput.creator + "<br>" +
+        window.mediaInput.description;
+
+    // Bidders
+    const biddersList = document.getElementById('biddersList');
+    biddersList.innerHTML = "<div><b>Bidders:</b></div>";
+    (window.mediaInput.bids || []).forEach(function(bid) {
+        const div = document.createElement("div");
+        div.innerHTML = `${bid.name} - <b>${bid.amount}${bid.currency}</b>`;
+        biddersList.appendChild(div);
+    });
+
+    // Timer
+    function updateTimer() {
+        const now = new Date();
+        const start_ts = startDateObj.getTime() / 1000;
+        const end_ts = start_ts + window.mediaInput.duration_seconds;
+        const now_ts = now.getTime() / 1000;
+        let remaining = Math.floor(end_ts - now_ts);
+        if (remaining < 0) remaining = 0;
+        const days = Math.floor(remaining / 86400);
+        const hours = Math.floor((remaining % 86400) / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        document.getElementById('auctionTimer').textContent =
+            `🕒 ${days} days ${hours} hours ${minutes} minutes`;
+    }
+    updateTimer();
+    setInterval(updateTimer, 1000);
+
+    // IMAGE ARROWS
+    let currentImg = 0;
+    const imgArray = window.mediaInput.images || [window.mediaInput.image];
+    const artworkImage = document.getElementById('artworkImage');
+
+    function updateImage() {
+        artworkImage.src = imgArray[currentImg];
+    }
+    updateImage();
+
+    document.getElementById('imgLeft').onclick = function() {
+        currentImg = (currentImg - 1 + imgArray.length) % imgArray.length;
+        updateImage();
+    };
+    document.getElementById('imgRight').onclick = function() {
+        currentImg = (currentImg + 1) % imgArray.length;
+        updateImage();
+    };
+
+})();
+</script>
+</body>
+</html>
