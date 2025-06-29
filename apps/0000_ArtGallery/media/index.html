@@ -21,7 +21,6 @@
 </head>
 <body>
     <div class="auction-board" id="auctionBoard" style="display:none;">
-        <!-- Arrows are now in top-right of the board -->
         <div class="arrow-group">
             <span class="arrow" id="imgLeft">&#9664;</span>
             <span class="arrow" id="imgRight">&#9654;</span>
@@ -31,11 +30,14 @@
         </div>
         <div class="info-block">
             <div class="title" id="artworkTitle"></div>
-            <div class="timer" id="auctionTimer"></div>
+            <div style="height:12px"></div>
             <div class="start-info">
-                <div>Start price: <b id="startPrice"></b></div>
-                <div>Start date: <b id="startDate"></b></div>
-            </div>
+            <div>Start price: <b id="startPrice"></b></div>
+            <div>Reserved price: <b id="reservedPrice"></b></div>
+            <div>Start date: <b id="startDate"></b></div>
+            <div style="height:12px"></div>
+            <div class="timer" id="auctionTimer"></div>
+        </div>
             <div class="bidders" id="biddersList">
                 <div><b>Bidders:</b></div>
             </div>
@@ -43,163 +45,353 @@
         <div class="creator-desc" id="creatorDesc"></div>
     </div>
 
-<!-- Loading public SLAppFlow commands -->
-<script src="/webcontrol/include_functions.js"></script>
+    <!-- Include SLAppFlow public functions -->
+    <script src="/webcontrol/include_functions.js"></script>
+    
+    <script>
+    
+    // ----- State management -----
+    const auctionState = {
+        auctions: {},          // { reference: { fullName, base, number, info } }
+        refs: [],              // Sorted list of reference keys (to control order)
+        currentIdx: 0,         // Index in refs[]
+        lastLoad: 0,           // Timestamp of last load
+        images: {},            // Optionally, cache images here
+    };
 
-<script>
-// --- Simulated data (replace by backend injection if needed) ---
-window.mediaInput = {
-    images: [
-        "woman_back.png",
-        "woman_front.png"
-    ],
-    title: "ASTRID",
-    creator: "Mina Minelli",
-    description: "This is the description of the artwork.",
-    start_price: 300,
-    currency: "L$",
-    start_date: "2025-06-20 12:00:00",
-    duration_seconds: 3*24*3600 + 8*3600 + 3*60,
-    bids: [
-        { name: "Elea Gee-Venus", amount: 420, currency: "L$" },
-        { name: "Emma Gee-Venus", amount: 420, currency: "L$" },
-        { name: "Steve Vlho", amount: 400, currency: "L$" }
-    ]
-};
+    // Timer for countdown updates
+    let timerInterval = null; 
 
-(function(){
-    if(!window.mediaInput) return;
+    // Utility: Extracts the auction reference (between first and second underscore)
+    function extractReference(fullName) {
+        const first = fullName.indexOf('_');
+        const second = fullName.indexOf('_', first + 1);
+        if (first === -1 || second === -1) return null;
+        return fullName.substring(first + 1, second);
+    }
 
-    document.getElementById('auctionBoard').style.display = "";
-    document.getElementById('artworkTitle').textContent = window.mediaInput.title;
-    document.getElementById('startPrice').textContent = window.mediaInput.start_price + " " + window.mediaInput.currency;
-    const startDateObj = new Date(window.mediaInput.start_date.replace(" ", "T"));
-    document.getElementById('startDate').textContent = startDateObj.toLocaleString();
-    document.getElementById('creatorDesc').innerHTML =
-        "<b>Creator:</b> " + window.mediaInput.creator + "<br>" +
-        window.mediaInput.description;
+    // Utility: Parses the base and numeric part (if present) from the reference
+    function parseReference(ref) {
+        // Matches: BASE + DIGITS at the end, e.g., TESTUNI00002
+        const match = ref.match(/^([A-Za-z_]+)(\d+)$/);
+        if (match) {
+            return { base: match[1], number: match[2] };
+        }
+        // Fallback: Just return as base
+        return { base: ref, number: null };
+    }
 
-    // Bidders
-    const biddersList = document.getElementById('biddersList');
-    biddersList.innerHTML = "<div><b>Bidders:</b></div>";
-    (window.mediaInput.bids || []).forEach(function(bid) {
-        const div = document.createElement("div");
-        div.innerHTML = `${bid.name} - <b>${bid.amount}${bid.currency}</b>`;
-        biddersList.appendChild(div);
+    // Utility: Checks if end_date is still valid (not expired)
+    function isAuctionActive(info) {
+        if (!info || !info.end_date) return false;
+        const now = Date.now();
+        // Parse end_date as local time
+        const end = new Date(info.end_date.replace(" ", "T"));
+        return now < end.getTime();
+    }
+
+    // Loads the list of active auctions and their info
+    async function loadAuctions(force = false) {
+        const now = Date.now();
+        // Only reload if over 10min or force
+        if (!force && auctionState.lastLoad && (now - auctionState.lastLoad < 10*60*1000)) return;
+        auctionState.lastLoad = now;
+
+        // Clear previous state
+        auctionState.auctions = {};
+        auctionState.refs = [];
+        auctionState.currentIdx = 0;
+
+        // Wait for the appID (could be async)
+        const appId = await AFGetAppID();
+
+        // Getting the token from the URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || ""; // or handle missing token as you want
+
+        // Request active auction list        
+        let auctionList = await AFSendFlowMessage(appId, "Global", "LISTACTIVE|" + token);
+        console.log("LISTACTIVE result:", auctionList);
+
+        // Accept single string or array
+        if (typeof auctionList === "string") auctionList = [auctionList];
+        if (!Array.isArray(auctionList)) auctionList = [];
+
+        // Build index by reference
+        for (const fullName of auctionList) {
+            const ref = extractReference(fullName);
+            if (!ref) continue;
+            const { base, number } = parseReference(ref);
+            // Store with minimal info, more will be added by GETINFO
+            auctionState.auctions[ref] = { fullName, base, number, info: null };
+            auctionState.refs.push(ref);
+        }
+
+        // Optionally, sort by numeric order if you want ordered navigation
+        auctionState.refs.sort((a, b) => {
+            const na = parseReference(a).number || "";
+            const nb = parseReference(b).number || "";
+            return na.localeCompare(nb, undefined, { numeric: true });
+        });
+
+        // Now, fetch GETINFO for each auction and filter out expired
+        const filteredRefs = [];
+        for (const ref of auctionState.refs) {
+            const { fullName } = auctionState.auctions[ref];
+            // Await info (JSON with start_date, end_date, etc)
+            let info = await AFSendFlowMessage(appId, "Global", "GETINFO|" + token + "|" + fullName);
+            console.log("GETINFO for", fullName, ":", info);
+
+            // Info may arrive as a stringified JSON; parse if needed
+            if (typeof info === "string") {
+                try { info = JSON.parse(info); } catch {}
+            }
+            if (isAuctionActive(info)) {
+                auctionState.auctions[ref].info = info;
+                filteredRefs.push(ref);
+            }
+        }
+        auctionState.refs = filteredRefs;
+
+        // If nothing left, hide board
+        if (!auctionState.refs.length) {
+            document.getElementById('auctionBoard').style.display = "none";
+        } else {
+            document.getElementById('auctionBoard').style.display = "";
+        }
+    }
+
+    // Preload images for adjacent auctions
+    function preloadAdjacentImages() {
+        const total = auctionState.refs.length;
+        const center = auctionState.currentIdx;
+        // Preload -2, -1, +1, +2 (but not the current one)
+        for (let delta of [-2, -1, 1, 2]) {
+            let idx = (center + delta + total) % total;
+            let ref = auctionState.refs[idx];
+            if (ref && !auctionState.images[ref]) {
+                loadImageForAuction(ref);
+            }
+        }
+    }
+
+    // Function to load the image for a specific auction reference
+    async function loadImageForAuction(ref, force = false) {
+        if (!ref) return null;
+        if (auctionState.images[ref] && !force) {
+            // Already cached
+            return auctionState.images[ref];
+        }
+        const data = auctionState.auctions[ref];
+        if (!data) return null;
+
+        // Get token and appId
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+
+        try {
+            let imageBase64 = await AFSendFlowMessage(appId, "Global", "GETIMAGE|" + token + "|" + data.fullName);
+
+            if (typeof imageBase64 === "string" && imageBase64.length > 30) {
+                // Cache it
+                auctionState.images[ref] = "data:image/png;base64," + imageBase64;
+                return auctionState.images[ref];
+            } else {
+                auctionState.images[ref] = "https://dummyimage.com/250x250/444/fff?text=No+Image";
+                return auctionState.images[ref];
+            }
+        } catch (err) {
+            auctionState.images[ref] = "https://dummyimage.com/250x250/444/fff?text=No+Image";
+            return auctionState.images[ref];
+        }
+    }
+
+
+    // Displays the current auction's data in the UI
+    async function displayCurrentAuction() {
+        if (!auctionState.refs.length) return;
+        const ref = auctionState.refs[auctionState.currentIdx];
+        const data = auctionState.auctions[ref];
+        const info = data.info;
+
+        document.getElementById('artworkTitle').textContent = getDisplayTitle(data.fullName);
+        document.getElementById('startPrice').textContent = info.start_price ? info.start_price + " L$" : "";
+        document.getElementById('startDate').textContent = info.start_date ?
+            new Date(info.start_date.replace(" ", "T")).toLocaleString() : "";
+
+        // Show cached image or a loading placeholder
+        const imgElem = document.getElementById('artworkImage');
+        imgElem.src = auctionState.images[ref] || "https://dummyimage.com/250x250/444/fff?text=Loading...";
+
+        // If not yet cached, fetch asynchronously and update the image when loaded
+        if (!auctionState.images[ref]) {
+            loadImageForAuction(ref).then(src => {
+                imgElem.src = src;
+            });
+        }
+
+        // Updates the creator and description
+        document.getElementById('creatorDesc').innerHTML =
+        (info.creatorName ? "<b>Creator:</b> " + info.creatorName + "<br>" : "") +
+        "<b>Description:</b> " + (info.description || "No description");
+
+        // Updates the reserved price
+        document.getElementById('reservedPrice').textContent = 
+        info.reserved_price ? info.reserved_price + " L$" : "-";
+
+        // --- Get and display the best bidders for this painting ---
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        const fullName = data.fullName;
+
+        // Appel API pour récupérer les 3 meilleurs enchérisseurs
+        let bids = await AFSendFlowMessage(appId, "Global", "GETBESTBIDS|" + token + "|" + fullName);
+        console.log("GETBESTBIDS for", fullName, ":", bids);
+
+        // Essayons de parser si c’est du JSON
+        try {
+            if (typeof bids === "string") bids = JSON.parse(bids);
+        } catch {}
+
+        // Affichage dans la page : (provisoire, juste pour voir)
+        const biddersListElem = document.getElementById('biddersList');
+        biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
+
+       if (Array.isArray(bids) && bids.length) {
+            bids.forEach(bid => {
+                let info = {};
+                try {
+                    info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
+                } catch { /* ignore parse errors */ }
+                const dateStr = bid[0] || "";
+                biddersListElem.innerHTML += `<div>
+                    <span style="color:#ffc833;">${info.name || "(unknown)"}</span> 
+                    - <b>${info.amount || "?"} L$</b>
+                    <span style="font-size:0.9em;opacity:0.6;"> (${dateStr})</span>
+                </div>`;
+            });
+        } else {
+            biddersListElem.innerHTML += "<div>(no bids)</div>";
+        }
+
+        // **Preload adjacent images here**
+        preloadAdjacentImages();
+
+        // Update the countdown timer
+        updateCountdown(info.end_date);
+
+    }
+
+    // Navigates to a given index and updates UI and backend
+    async function goToAuction(idx) {
+        if (!auctionState.refs.length) return;
+        auctionState.currentIdx = (idx + auctionState.refs.length) % auctionState.refs.length;
+        await displayCurrentAuction();
+
+        // Notify backend of the page change with token
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        const ref = auctionState.refs[auctionState.currentIdx];
+        const fullName = auctionState.auctions[ref].fullName;
+        await AFSendFlowMessage(appId, "Global", "PAGECHANGE|" + token + "|" + fullName);
+
+    }
+
+    // This function polls the backend to get the current page (auction) that should be displayed.
+    // It only triggers a page change if the page has actually changed, avoiding unnecessary reloads.
+    async function getCurrentPageFromBackend() {
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        let page = await AFSendFlowMessage(appId, "Global", "GETPAGE|" + token);
+
+        // Output the polled value for debugging
+        console.log(`[Polling] Backend says current page is:`, page);
+
+        // The backend should return the fullName of the currently displayed auction.
+        if (typeof page === "string" && page.length > 0) {
+            // Find the index of the auction that matches the backend response
+            const idx = auctionState.refs.findIndex(ref =>
+                auctionState.auctions[ref].fullName === page
+            );
+            if (idx >= 0 && idx !== auctionState.currentIdx) {
+                console.log(`[Polling] Page changed! Navigating to auction at index ${idx} (${page})`);
+                // Only navigate if the page index is different (to avoid unnecessary reloads)
+                await goToAuction(idx);
+            } else {
+                console.log(`[Polling] No page change needed.`);
+            }
+        } else {
+            console.log(`[Polling] Backend did not return a valid page.`);
+        }
+    }
+
+    // Arrow button event handlers
+    function setupNavigation() {
+        document.getElementById('imgLeft').onclick = () => {
+            goToAuction(auctionState.currentIdx - 1);
+        };
+        document.getElementById('imgRight').onclick = () => {
+            goToAuction(auctionState.currentIdx + 1);
+        };
+    }
+
+    // Get the part after the second underscore
+    function getDisplayTitle(fullName) {
+        if (!fullName) return "";
+        const parts = fullName.split("_");
+        if (parts.length < 3) return fullName; // fallback if structure is unexpected
+        return parts.slice(2).join("_");
+    }
+
+    // Updates the countdown timer based on the end date
+    function updateCountdown(endDateStr) {
+        const timerElem = document.getElementById('auctionTimer');
+        if (!endDateStr) {
+            timerElem.textContent = "";
+            return;
+        }
+
+        function refresh() {
+            const now = new Date();
+            const end = new Date(endDateStr.replace(" ", "T"));
+            let diff = Math.floor((end - now) / 1000); // seconds
+
+            if (diff < 0) diff = 0;
+            const days = Math.floor(diff / 86400);
+            const hours = Math.floor((diff % 86400) / 3600);
+            const minutes = Math.floor((diff % 3600) / 60);
+            const seconds = diff % 60;
+
+            if (diff === 0) {
+                timerElem.textContent = "Auction ended";
+                clearInterval(timerInterval);
+            } else {
+                timerElem.textContent = `⏳ Time left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+            }
+        }
+
+        // Clear previous timer if any
+        if (timerInterval) clearInterval(timerInterval);
+        refresh();
+        timerInterval = setInterval(refresh, 1000);
+
+    }
+
+    // --- Main async flow ---
+    WebControlReady.then(async function() {
+        await loadAuctions();
+        setupNavigation();
+        await displayCurrentAuction();
+
+        // Start backend polling ONCE here, after first display
+        setInterval(getCurrentPageFromBackend, 5000);
+
     });
 
-    // Timer
-    function updateTimer() {
-        const now = new Date();
-        const start_ts = startDateObj.getTime() / 1000;
-        const end_ts = start_ts + window.mediaInput.duration_seconds;
-        const now_ts = now.getTime() / 1000;
-        let remaining = Math.floor(end_ts - now_ts);
-        if (remaining < 0) remaining = 0;
-        const days = Math.floor(remaining / 86400);
-        const hours = Math.floor((remaining % 86400) / 3600);
-        const minutes = Math.floor((remaining % 3600) / 60);
-        document.getElementById('auctionTimer').textContent =
-            `🕒 ${days} days ${hours} hours ${minutes} minutes`;
-    }
-    updateTimer();
-    setInterval(updateTimer, 1000);
-
-    // IMAGE ARROWS
-    let currentImg = 0;
-    const imgArray = window.mediaInput.images || [window.mediaInput.image];
-    const artworkImage = document.getElementById('artworkImage');
-
-    function updateImage() {
-        artworkImage.src = imgArray[currentImg];
-    }
-    updateImage();
-
-    document.getElementById('imgLeft').onclick = function() {
-        currentImg = (currentImg - 1 + imgArray.length) % imgArray.length;
-        updateImage();
-    };
-    document.getElementById('imgRight').onclick = function() {
-        currentImg = (currentImg + 1) % imgArray.length;
-        updateImage();
-    };
-    
-
-})();
-
-// Stuff to do using the SLAppFlow public functions
-WebControlReady.then(async function() {
-
-    // 1. Get the query string from the current URL
-    const params = new URLSearchParams(window.location.search);
-
-    // 2. Retrieve the value of a specific parameter
-    // const foo = params.get('foo'); // -> "123"
-    // const bar = params.get('bar'); // -> "test"
-
-    // Optionally, check if a parameter exists before using it
-    // if (params.has('baz')) {
-    //     console.log("baz =", params.get('baz'));
-    // }
-    
-
-    // Below creating text data, not relevant for this page
-    // Sends a JSON with 'description', 'creatorName'
-    // NVSetList("Information", "Painting_TESTUNI00001_My super test painting", 
-    //     JSON.stringify({
-    //         description: "This is a test description for the painting.",
-    //         creatorName: "Emma Gee-Venus"
-    //     })
-    // );
-
-    //NVSetList("Image", "Painting_TESTUNI00002_My super test painting", "71435638-463c-40ef-96b9-f0f6e48f0efb");
-
-    // // Sends a JSON with 'start_date', 'start_price', 'end_date', 'reserved_price'
-    // NVSetList("ActiveAuction", "Painting_TESTUNI00002_My super test painting", 
-    //     JSON.stringify({
-    //         start_date: "2025-06-20 12:00:00",
-    //         start_price: 300,
-    //         end_date: "2025-06-23 20:00:00",
-    //         reserved_price: 500
-    //     })
-    // );
-
-    // NVSetSessionList("Painting_TESTUNI00002_My super test painting", "Bid", "2025-06-23 20:00:00", 
-    //     JSON.stringify({
-    //         name: "Elea Gee-Venus", amount: 420
-    //     })
-    // );
-
-    // This is a test
-    //NVSetValue("TestValue", "Another great value");
-    //console.log("NVSetValue called");
-
-    // Getting the info about the token
-    //NVSetValue("TestToken", params.get('token'));
-
-    // Below the commands that need to be used in that code. When the page is changed with the arrows, calls LISTACTIVE
-    // to ensure it's up to date. Then, the next number is selected, and the info and picture are loaded (only updated when the last
-    // loading was over 10 minutes for that specific painting).
-    // Once the page is loaded, send the PAGECHANGE message to the Global app, so it can update the page number on server side.
-
-    // This message sends the new page (called after the arrow is clicked and the content loaded)
-    //AFSendFlowMessage(AFGetAppID(), "Global", "PAGECHANGE|" + params.get('token') + "|" + currentPage);
-
-    // This is called to get the current page number (has to be called every 5 seconds to ensure everyone sees the same page)
-    //currentPage = AFSendFlowMessage(AFGetAppID(), "Global", "GETPAGE|" + params.get('token'));
-
-    // This request returns the list of active auctions
-    active = AFSendFlowMessage(await AFGetAppID(), "Global", "LISTACTIVE|" + params.get('token')).then(active => {
-        console.log("Active auctions:", active);
-    });
-    // This request loads the informations about the currently selected painting
-    //AFSendFlowMessage(AFGetAppID(), "Global", "GETINFO|" + params.get('token') + "|" + unicatNumber);
-
-    // This request loads the picture of the requested painting
-    //AFSendFlowMessage(AFGetAppID(), "Global", "GETIMAGE|" + params.get('token') + "|" + unicatNumber);
-
-});
-
-</script>
+    </script>
 </body>
 </html>
