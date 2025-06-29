@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title id="page-title">Auction</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #f0f0f0; }
+        .auction-board { width: 700px; margin: 30px auto; background: #222; box-shadow: 0 0 18px #000c; border-radius: 12px; padding: 18px 24px; position: relative; }
+        .image-artwork { float: left; width: 250px; height: 250px; background: #222; border-radius: 8px; overflow: hidden; position: relative; }
+        .image-artwork img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .arrow-group { position: absolute; top: 16px; right: 24px; z-index: 10; display: flex; gap: 0; }
+        .arrow { font-size: 2em; color: #ffc833; background: #222a; border-radius: 50%; padding: 4px 14px; cursor: pointer; user-select: none; transition: background 0.2s, color 0.2s; margin-left: 4px; }
+        .arrow:hover { background: #ffc833; color: #222; }
+        .info-block { margin-left: 280px; min-height: 220px; }
+        .title { font-size: 2em; letter-spacing: 4px; font-weight: bold; margin-top: 0; color: #ffc833; }
+        .timer { font-size: 1.2em; margin-bottom: 14px; color: #fff; }
+        .start-info, .bidders, .creator-desc { color: #eee; }
+        .bidders { margin-top: 22px; }
+        .creator-desc { clear: both; margin-top: 32px; font-size: 1em; }
+    </style>
+</head>
+<body>
+    <div class="auction-board" id="auctionBoard" style="display:none;">
+        <div class="arrow-group">
+            <span class="arrow" id="imgLeft">&#9664;</span>
+            <span class="arrow" id="imgRight">&#9654;</span>
+        </div>
+        <div class="image-artwork">
+            <img id="artworkImage" src="" alt="Artwork">
+        </div>
+        <div class="info-block">
+            <div class="title" id="artworkTitle"></div>
+            <div style="height:12px"></div>
+            <div class="start-info">
+            <div>Start price: <b id="startPrice"></b></div>
+            <div>Reserved price: <b id="reservedPrice"></b></div>
+            <div>Start date: <b id="startDate"></b></div>
+            <div style="height:12px"></div>
+            <div class="timer" id="auctionTimer"></div>
+        </div>
+            <div class="bidders" id="biddersList">
+                <div><b>Bidders:</b></div>
+            </div>
+        </div>
+        <div class="creator-desc" id="creatorDesc"></div>
+    </div>
+
+    <!-- Include SLAppFlow public functions -->
+    <script src="/webcontrol/include_functions.js"></script>
+    
+    <script>
+    
+    // ----- State management -----
+    const auctionState = {
+        auctions: {},          // { reference: { fullName, base, number, info } }
+        refs: [],              // Sorted list of reference keys (to control order)
+        currentIdx: 0,         // Index in refs[]
+        lastLoad: 0,           // Timestamp of last load
+        images: {},            // Optionally, cache images here
+    };
+
+    // Timer for countdown updates
+    let timerInterval = null; 
+
+    // Utility: Extracts the auction reference (between first and second underscore)
+    function extractReference(fullName) {
+        const first = fullName.indexOf('_');
+        const second = fullName.indexOf('_', first + 1);
+        if (first === -1 || second === -1) return null;
+        return fullName.substring(first + 1, second);
+    }
+
+    // Utility: Parses the base and numeric part (if present) from the reference
+    function parseReference(ref) {
+        // Matches: BASE + DIGITS at the end, e.g., TESTUNI00002
+        const match = ref.match(/^([A-Za-z_]+)(\d+)$/);
+        if (match) {
+            return { base: match[1], number: match[2] };
+        }
+        // Fallback: Just return as base
+        return { base: ref, number: null };
+    }
+
+    // Utility: Checks if end_date is still valid (not expired)
+    function isAuctionActive(info) {
+        if (!info || !info.end_date) return false;
+        const now = Date.now();
+        // Parse end_date as local time
+        const end = new Date(info.end_date.replace(" ", "T"));
+        return now < end.getTime();
+    }
+
+    // Loads the list of active auctions and their info
+    async function loadAuctions(force = false) {
+        const now = Date.now();
+        // Only reload if over 10min or force
+        if (!force && auctionState.lastLoad && (now - auctionState.lastLoad < 10*60*1000)) return;
+        auctionState.lastLoad = now;
+
+        // Clear previous state
+        auctionState.auctions = {};
+        auctionState.refs = [];
+        auctionState.currentIdx = 0;
+
+        // Wait for the appID (could be async)
+        const appId = await AFGetAppID();
+
+        // Getting the token from the URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || ""; // or handle missing token as you want
+
+        // Request active auction list        
+        let auctionList = await AFSendFlowMessage(appId, "Global", "LISTACTIVE|" + token);
+        console.log("LISTACTIVE result:", auctionList);
+
+        // Accept single string or array
+        if (typeof auctionList === "string") auctionList = [auctionList];
+        if (!Array.isArray(auctionList)) auctionList = [];
+
+        // Build index by reference
+        for (const fullName of auctionList) {
+            const ref = extractReference(fullName);
+            if (!ref) continue;
+            const { base, number } = parseReference(ref);
+            // Store with minimal info, more will be added by GETINFO
+            auctionState.auctions[ref] = { fullName, base, number, info: null };
+            auctionState.refs.push(ref);
+        }
+
+        // Optionally, sort by numeric order if you want ordered navigation
+        auctionState.refs.sort((a, b) => {
+            const na = parseReference(a).number || "";
+            const nb = parseReference(b).number || "";
+            return na.localeCompare(nb, undefined, { numeric: true });
+        });
+
+        // Now, fetch GETINFO for each auction and filter out expired
+        const filteredRefs = [];
+        for (const ref of auctionState.refs) {
+            const { fullName } = auctionState.auctions[ref];
+            // Await info (JSON with start_date, end_date, etc)
+            let info = await AFSendFlowMessage(appId, "Global", "GETINFO|" + token + "|" + fullName);
+            console.log("GETINFO for", fullName, ":", info);
+
+            // Info may arrive as a stringified JSON; parse if needed
+            if (typeof info === "string") {
+                try { info = JSON.parse(info); } catch {}
+            }
+            if (isAuctionActive(info)) {
+                auctionState.auctions[ref].info = info;
+                filteredRefs.push(ref);
+            }
+        }
+        auctionState.refs = filteredRefs;
+
+        // If nothing left, hide board
+        if (!auctionState.refs.length) {
+            document.getElementById('auctionBoard').style.display = "none";
+        } else {
+            document.getElementById('auctionBoard').style.display = "";
+        }
+    }
+
+    // Preload images for adjacent auctions
+    function preloadAdjacentImages() {
+        const total = auctionState.refs.length;
+        const center = auctionState.currentIdx;
+        // Preload -2, -1, +1, +2 (but not the current one)
+        for (let delta of [-2, -1, 1, 2]) {
+            let idx = (center + delta + total) % total;
+            let ref = auctionState.refs[idx];
+            if (ref && !auctionState.images[ref]) {
+                loadImageForAuction(ref);
+            }
+        }
+    }
+
+    // Function to load the image for a specific auction reference
+    async function loadImageForAuction(ref, force = false) {
+        if (!ref) return null;
+        if (auctionState.images[ref] && !force) {
+            // Already cached
+            return auctionState.images[ref];
+        }
+        const data = auctionState.auctions[ref];
+        if (!data) return null;
+
+        // Get token and appId
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+
+        try {
+            let imageBase64 = await AFSendFlowMessage(appId, "Global", "GETIMAGE|" + token + "|" + data.fullName);
+
+            if (typeof imageBase64 === "string" && imageBase64.length > 30) {
+                // Cache it
+                auctionState.images[ref] = "data:image/png;base64," + imageBase64;
+                return auctionState.images[ref];
+            } else {
+                auctionState.images[ref] = "https://dummyimage.com/250x250/444/fff?text=No+Image";
+                return auctionState.images[ref];
+            }
+        } catch (err) {
+            auctionState.images[ref] = "https://dummyimage.com/250x250/444/fff?text=No+Image";
+            return auctionState.images[ref];
+        }
+    }
+
+
+    // Displays the current auction's data in the UI
+    async function displayCurrentAuction() {
+        if (!auctionState.refs.length) return;
+        const ref = auctionState.refs[auctionState.currentIdx];
+        const data = auctionState.auctions[ref];
+        const info = data.info;
+
+        document.getElementById('artworkTitle').textContent = getDisplayTitle(data.fullName);
+        document.getElementById('startPrice').textContent = info.start_price ? info.start_price + " L$" : "";
+        document.getElementById('startDate').textContent = info.start_date ?
+            new Date(info.start_date.replace(" ", "T")).toLocaleString() : "";
+
+        // Show cached image or a loading placeholder
+        const imgElem = document.getElementById('artworkImage');
+        imgElem.src = auctionState.images[ref] || "https://dummyimage.com/250x250/444/fff?text=Loading...";
+
+        // If not yet cached, fetch asynchronously and update the image when loaded
+        if (!auctionState.images[ref]) {
+            loadImageForAuction(ref).then(src => {
+                imgElem.src = src;
+            });
+        }
+
+        // Updates the creator and description
+        document.getElementById('creatorDesc').innerHTML =
+        (info.creatorName ? "<b>Creator:</b> " + info.creatorName + "<br>" : "") +
+        "<b>Description:</b> " + (info.description || "No description");
+
+        // Updates the reserved price
+        document.getElementById('reservedPrice').textContent = 
+        info.reserved_price ? info.reserved_price + " L$" : "-";
+
+        // --- Get and display the best bidders for this painting ---
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        const fullName = data.fullName;
+
+        // Appel API pour récupérer les 3 meilleurs enchérisseurs
+        let bids = await AFSendFlowMessage(appId, "Global", "GETBESTBIDS|" + token + "|" + fullName);
+        console.log("GETBESTBIDS for", fullName, ":", bids);
+
+        // Essayons de parser si c’est du JSON
+        try {
+            if (typeof bids === "string") bids = JSON.parse(bids);
+        } catch {}
+
+        // Affichage dans la page : (provisoire, juste pour voir)
+        const biddersListElem = document.getElementById('biddersList');
+        biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
+
+       if (Array.isArray(bids) && bids.length) {
+            bids.forEach(bid => {
+                let info = {};
+                try {
+                    info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
+                } catch { /* ignore parse errors */ }
+                const dateStr = bid[0] || "";
+                biddersListElem.innerHTML += `<div>
+                    <span style="color:#ffc833;">${info.name || "(unknown)"}</span> 
+                    - <b>${info.amount || "?"} L$</b>
+                    <span style="font-size:0.9em;opacity:0.6;"> (${dateStr})</span>
+                </div>`;
+            });
+        } else {
+            biddersListElem.innerHTML += "<div>(no bids)</div>";
+        }
+
+        // **Preload adjacent images here**
+        preloadAdjacentImages();
+
+        // Update the countdown timer
+        updateCountdown(info.end_date);
+
+    }
+
+    // Navigates to a given index and updates UI and backend
+    async function goToAuction(idx) {
+        if (!auctionState.refs.length) return;
+        auctionState.currentIdx = (idx + auctionState.refs.length) % auctionState.refs.length;
+        await displayCurrentAuction();
+
+        // Notify backend of the page change with token
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        const ref = auctionState.refs[auctionState.currentIdx];
+        const fullName = auctionState.auctions[ref].fullName;
+        await AFSendFlowMessage(appId, "Global", "PAGECHANGE|" + token + "|" + fullName);
+
+    }
+
+    // This function polls the backend to get the current page (auction) that should be displayed.
+    // It only triggers a page change if the page has actually changed, avoiding unnecessary reloads.
+    async function getCurrentPageFromBackend() {
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        let page = await AFSendFlowMessage(appId, "Global", "GETPAGE|" + token);
+
+        // Output the polled value for debugging
+        console.log(`[Polling] Backend says current page is:`, page);
+
+        // The backend should return the fullName of the currently displayed auction.
+        if (typeof page === "string" && page.length > 0) {
+            // Find the index of the auction that matches the backend response
+            const idx = auctionState.refs.findIndex(ref =>
+                auctionState.auctions[ref].fullName === page
+            );
+            if (idx >= 0 && idx !== auctionState.currentIdx) {
+                console.log(`[Polling] Page changed! Navigating to auction at index ${idx} (${page})`);
+                // Only navigate if the page index is different (to avoid unnecessary reloads)
+                await goToAuction(idx);
+            } else {
+                console.log(`[Polling] No page change needed.`);
+            }
+        } else {
+            console.log(`[Polling] Backend did not return a valid page.`);
+        }
+    }
+
+    // Arrow button event handlers
+    function setupNavigation() {
+        document.getElementById('imgLeft').onclick = () => {
+            goToAuction(auctionState.currentIdx - 1);
+        };
+        document.getElementById('imgRight').onclick = () => {
+            goToAuction(auctionState.currentIdx + 1);
+        };
+    }
+
+    // Get the part after the second underscore
+    function getDisplayTitle(fullName) {
+        if (!fullName) return "";
+        const parts = fullName.split("_");
+        if (parts.length < 3) return fullName; // fallback if structure is unexpected
+        return parts.slice(2).join("_");
+    }
+
+    // Updates the countdown timer based on the end date
+    function updateCountdown(endDateStr) {
+        const timerElem = document.getElementById('auctionTimer');
+        if (!endDateStr) {
+            timerElem.textContent = "";
+            return;
+        }
+
+        function refresh() {
+            const now = new Date();
+            const end = new Date(endDateStr.replace(" ", "T"));
+            let diff = Math.floor((end - now) / 1000); // seconds
+
+            if (diff < 0) diff = 0;
+            const days = Math.floor(diff / 86400);
+            const hours = Math.floor((diff % 86400) / 3600);
+            const minutes = Math.floor((diff % 3600) / 60);
+            const seconds = diff % 60;
+
+            if (diff === 0) {
+                timerElem.textContent = "Auction ended";
+                clearInterval(timerInterval);
+            } else {
+                timerElem.textContent = `⏳ Time left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+            }
+        }
+
+        // Clear previous timer if any
+        if (timerInterval) clearInterval(timerInterval);
+        refresh();
+        timerInterval = setInterval(refresh, 1000);
+
+    }
+
+    // --- Main async flow ---
+    WebControlReady.then(async function() {
+        await loadAuctions();
+        setupNavigation();
+        await displayCurrentAuction();
+
+        // Start backend polling ONCE here, after first display
+        setInterval(getCurrentPageFromBackend, 5000);
+
+    });
+
+    </script>
+</body>
+</html>

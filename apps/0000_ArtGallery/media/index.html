@@ -123,8 +123,83 @@ window.mediaInput = {
         currentImg = (currentImg + 1) % imgArray.length;
         updateImage();
     };
+    
 
 })();
+
+// Stuff to do using the SLAppFlow public functions
+WebControlReady.then(async function() {
+
+    // 1. Get the query string from the current URL
+    const params = new URLSearchParams(window.location.search);
+
+    // 2. Retrieve the value of a specific parameter
+    // const foo = params.get('foo'); // -> "123"
+    // const bar = params.get('bar'); // -> "test"
+
+    // Optionally, check if a parameter exists before using it
+    // if (params.has('baz')) {
+    //     console.log("baz =", params.get('baz'));
+    // }
+    
+
+    // Below creating text data, not relevant for this page
+    // Sends a JSON with 'description', 'creatorName'
+    // NVSetList("Information", "Painting_TESTUNI00001_My super test painting", 
+    //     JSON.stringify({
+    //         description: "This is a test description for the painting.",
+    //         creatorName: "Emma Gee-Venus"
+    //     })
+    // );
+
+    //NVSetList("Image", "Painting_TESTUNI00002_My super test painting", "71435638-463c-40ef-96b9-f0f6e48f0efb");
+
+    // // Sends a JSON with 'start_date', 'start_price', 'end_date', 'reserved_price'
+    // NVSetList("ActiveAuction", "Painting_TESTUNI00002_My super test painting", 
+    //     JSON.stringify({
+    //         start_date: "2025-06-20 12:00:00",
+    //         start_price: 300,
+    //         end_date: "2025-06-23 20:00:00",
+    //         reserved_price: 500
+    //     })
+    // );
+
+    // NVSetSessionList("Painting_TESTUNI00002_My super test painting", "Bid", "2025-06-23 20:00:00", 
+    //     JSON.stringify({
+    //         name: "Elea Gee-Venus", amount: 420
+    //     })
+    // );
+
+    // This is a test
+    //NVSetValue("TestValue", "Another great value");
+    //console.log("NVSetValue called");
+
+    // Getting the info about the token
+    //NVSetValue("TestToken", params.get('token'));
+
+    // Below the commands that need to be used in that code. When the page is changed with the arrows, calls LISTACTIVE
+    // to ensure it's up to date. Then, the next number is selected, and the info and picture are loaded (only updated when the last
+    // loading was over 10 minutes for that specific painting).
+    // Once the page is loaded, send the PAGECHANGE message to the Global app, so it can update the page number on server side.
+
+    // This message sends the new page (called after the arrow is clicked and the content loaded)
+    //AFSendFlowMessage(AFGetAppID(), "Global", "PAGECHANGE|" + params.get('token') + "|" + currentPage);
+
+    // This is called to get the current page number (has to be called every 5 seconds to ensure everyone sees the same page)
+    //currentPage = AFSendFlowMessage(AFGetAppID(), "Global", "GETPAGE|" + params.get('token'));
+
+    // This request returns the list of active auctions
+    active = AFSendFlowMessage(await AFGetAppID(), "Global", "LISTACTIVE|" + params.get('token')).then(active => {
+        console.log("Active auctions:", active);
+    });
+    // This request loads the informations about the currently selected painting
+    //AFSendFlowMessage(AFGetAppID(), "Global", "GETINFO|" + params.get('token') + "|" + unicatNumber);
+
+    // This request loads the picture of the requested painting
+    //AFSendFlowMessage(AFGetAppID(), "Global", "GETIMAGE|" + params.get('token') + "|" + unicatNumber);
+
+});
+
 </script>
 </body>
 </html>

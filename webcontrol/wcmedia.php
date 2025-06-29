@@ -38,6 +38,9 @@ $config = parse_ini_file($configDir . '/config.ini', true);
 // Checking if app it exists and have media
 if (!file_exists($config['dirs']['appsdir'] . "/" . $app . "/media/" . $file . ".html")) { exit; }
 
+// Setting the app in the session
+$_SESSION['app'] = $app;
+
 // Setting config file to be used afterwards by the media
 $_SESSION['config'] = $config;
 

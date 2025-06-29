@@ -130,12 +130,136 @@ if ($messageParts[0] === "GETPAGE" && AFGetSenderID() === "Media")
     {
 
         // Gets the current page from the database
-        $currentPage = NVGettList("CurrentPage", $boardID) ?? 1;
+        $currentPage = NVGetList("CurrentPage", $boardID) ?? 1;
 
         // Sending the current page
         return $currentPage;
 
     }
+
+}
+
+// Gets the information about the painting
+// CALLED FROM THE FRONT-END MEDIA
+// E. g. "GETINFO|<token>|<paintingID>"
+if ($messageParts[0] === "GETINFO" && AFGetSenderID() === "Media")
+{
+
+    // Gets the board using the token
+    $boardID = NVGetList("BoardToken", $messageParts[1]);
+
+    // If the board exists, returns the current page
+    if ($boardID === null) return null;
+    
+    // Getting the ActiveAuction elements, if doesn't exist,
+    // doesn't do further processing, since we don't want media
+    // to get information about paintings that are not active
+    $activeAuction = NVGetList("ActiveAuction", $messageParts[2]);
+
+    // No active auction, no information to return
+    if ($activeAuction === null) return null;
+
+    // Getting the general information about the painting
+    $generalInfo = NVGetList("Information", $messageParts[2]);
+
+    // Decode each JSON (if not null)
+    $activeAuctionArr = $activeAuction ? json_decode($activeAuction, true) : [];
+    $generalInfoArr   = $generalInfo   ? json_decode($generalInfo, true)   : [];
+
+    // Merging the JSON data
+    $info = array_merge($activeAuctionArr, $generalInfoArr);
+
+    // Returning the information as JSON
+    return json_encode($info, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+}
+
+// Gets the list of paintings from the board
+// CALLED FROM THE FRONT-END MEDIA
+// E. g. "LISTACTIVE|<token>"
+if ($messageParts[0] === "LISTACTIVE" && AFGetSenderID() === "Media")
+{
+
+    // Gets the board using the token
+    $boardID = NVGetList("BoardToken", $messageParts[1]);
+
+    // If the board doesn't exist, returns null
+    if ($boardID === null) return null;
+
+    // Gets the list of paintings from the database
+    $paintingsList = NVGetLists("ActiveAuction");
+
+    // If there are no paintings, return an empty array
+    if ($paintingsList === null) return [];
+
+    // Returns the list of paintings as JSON
+    return json_encode($paintingsList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+}
+
+// Gets the image of the painting
+// CALLED FROM THE FRONT-END MEDIA
+// E. g. "GETIMAGE|<token>|<paintingID>"
+if ($messageParts[0] === "GETIMAGE" && AFGetSenderID() === "Media")
+{
+
+    // Gets the board using the token
+    $boardID = NVGetList("BoardToken", $messageParts[1]);
+
+    // If the board doesn't exist, returns null
+    if ($boardID === null) return null;
+
+    // Looking for the image ID for the painting
+    $imageID = NVGetList("Image", $messageParts[2]);
+
+    // If the image ID doesn't exist, returns null
+    if ($imageID === null) return null;
+
+    // Gets the image from File Service
+    $imageData = FSDownload($imageID);
+
+    // Returns the image data directly
+    return base64_encode($imageData); 
+    
+}
+
+// Gets 3 best bidders
+// CALLED FROM THE FRONT-END MEDIA
+// E. g. "GETBESTBIDS|<token>|<paintingID>"
+if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
+{
+
+    // Gets the board using the token
+    $boardID = NVGetList("BoardToken", $messageParts[1]);
+
+    // If the board doesn't exist, returns null
+    if ($boardID === null) return null;
+
+    // Gets the list of buids for the painting
+    $bidsList = NVGetSessionLists($messageParts[2], "Bid");
+
+    // If no bid on this painting, returns an empty array
+    if ($bidsList === null || count($bidsList) === 0) return [];
+
+    // Sort bids by date ascending
+    usort($bidsList, function($a, $b) {
+        return strtotime($a) <=> strtotime($b);
+    });
+
+    // Keep only the latest 3 bids
+    $lastBids = array_slice($bidsList, -3);
+
+    // For each bid, recovering the bidder name
+    foreach($lastBids as &$bid) 
+    {
+     
+        // Gets the elements of each bid (including the name, UUID and price)
+        $bidderDetails[] = [$bid, NVGetSessionList($messageParts[2], "Bid", $bid)];
+
+    }
+
+    // Returns the list of bidders
+    return json_encode($bidderDetails, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
 }
 
