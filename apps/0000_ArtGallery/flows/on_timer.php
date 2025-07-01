@@ -22,4 +22,17 @@
  * 
  */
 
-SLOwnerSay(AFGetFlowObjectID(), "on_timer.php: Flow triggered by timer with key " . AFGetFlowSession());
+//SLOwnerSay(AFGetFlowObjectID(), "on_timer.php: Flow triggered by timer with key " . AFGetFlowSession());
+if (AFGetFlowAppMode() === "AuctionBoard" && AFGetFlowSession() === "lock_screen")
+{
+
+    // Updates the URL of the board with the new token
+    $texture = AFSendFlowMessage(AFGetAppID(), "Global", "LOCKSCREEN|" . AFGetFlowObjectID());
+
+    // Applies the received texture to the board
+    SLApplyTexture(AFGetFlowObjectID(), $texture);
+
+    // Successfully updated the URL
+    return true;
+
+}

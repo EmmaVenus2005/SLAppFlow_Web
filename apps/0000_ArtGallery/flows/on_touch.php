@@ -37,23 +37,14 @@
 
 if (AFGetFlowAppMode() === "AuctionBoard")
 {
-
-    //Test
-    //SLOwnerSay(AFGetFlowObjectID(), "The board has been touched at link number : " . AFGetFlowParameter(11));
-
-
-    SLAddTimer(AFGetFlowObjectID(), "demo_2min", time() + 120);
-    SLAddTimer(AFGetFlowObjectID(), "demo_3min", time() + 180);
-
-    SLAddTimer(AFGetFlowObjectID(), "demo_2min", time() + 120);
    
     // Updates the URL of the board with the new token
-    $message = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
+    $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 
-    // Sending the message to the linked prims
-    SLMessageLinked(AFGetFlowObjectID(), -1, 500, $message, "key");
+    // Applies the received texture to the board
+    SLApplyTexture(AFGetFlowObjectID(), $texture);
 
     // Successfully updated the URL
-    return true; 
+    return true;
    
 }

@@ -34,14 +34,43 @@ if (AFGetSenderAppID() !== AFGetAppID()) { return; }
 
 // ... your code here ...
 
+// Separating the message parts
+$messageParts = explode("|", AFGetMessage());
+
+// This message is sent to the board owner, to reset the lock screen timer
+// E. g. "RESETLOCK|<boardID>"
+if ($messageParts[0] === "RESETLOCK" && AFIsUnsafe() !== true)
+{
+
+    // 5 minutes
+    SLAddTimer($messageParts[1], "lock_screen", time() + 60 * 5); 
+
+    // Debug
+    SLOwnerSay($messageParts[1], "timer reset for the lock screen");
+
+    // Successfully reset the lock screen timer
+    return true; 
+
+}
+
 // Messages are sent to the "Global" user, which is not an actual avatar
 // but a common user for the ArtGallery app.
 if (AFGetOwnerID() !== "Global") {
     return; 
 }
 
-// Separating the message parts
-$messageParts = explode("|", AFGetMessage());
+// Saves the board owner in the "Global" user context
+// E. g. "BOARDOWNER|<boardID>|<ownerID>"
+if ($messageParts[0] === "BOARDOWNER" && AFIsUnsafe() !== true)
+{
+
+    // Saves the board owner in the database
+    NVSetList("BoardOwner", $messageParts[1], $messageParts[2]);
+
+    // Successfully saved the board owner
+    return true;
+
+}
 
 // Refreshes the token and sends the new URL from the board
 // E. g. "UPDATEURL|<boardID>
@@ -54,20 +83,58 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
     // Saves the new token
     NVSetList("BoardToken", $token, $messageParts[1]);
 
-    // Gets the current page from the board
-    $current = NVGetList("CurrentPage", $messageParts[1]) ?? 1;
+    // JSON structure to apply the media texture to the prim
+    $textureInfo = [[
+        "link" => 1,                // Target prim (1 = specific prim, not root)
+        "face" => 3,                // Target face on the prim
+        "type" => "media",          // Type: media (web URL)
+        "scale" => [0.750, 0.563],  // Default scale
+        "offset" => [0.0, 0.0],     // Default offset
+        "rotation" => 0.0,          // No rotation
 
-    // New URL to apply
-    $url = "https://wwwtest.slappflow.net/webcontrol/wcmedia.php";
+        "media" => [
+            "url" => "https://wwwtest.slappflow.net/webcontrol/wcmedia.php?token={$token}&app=" . AFGetAppID(),
+            "width" => 1024,           // Optional: adjust if known
+            "height" => 768,           // Optional: adjust if known
+            "auto_play" => true,       // Media auto-start
+            "auto_scale" => false,     // Disable auto-scale (respects PRIM_TEXTURE scaling)
+            "whitelist" => [
+                "https://wwwtest.slappflow.net"
+            ],
+            "interact" => "none",     // Who can click/interact
+            "control" => "none"       // Who can control (navigate, reload)
+        ]
+    ]];
 
-    // Params including the new token
-    $params = "?token=" . $token . "&app=" . AFGetAppID();
+    // Returns the structure, so can be applied using SLApplyTexture()
+    return $textureInfo;
 
-    // Creating the message to send
-    $message = "URL\\1\\3\\{$url}" . $params;
+}
 
-    // Reuturns the message to be sent
-    return $message;
+// Refreshes the token and sends the new URL from the board
+// E. g. "LOCKSCREEN|<boardID>
+if ($messageParts[0] === "LOCKSCREEN" && AFIsUnsafe() !== true)
+{
+
+    // Texture of the lock screen
+    $textureInfo = [[
+        "link" => 1,              // Numéro du prim (1 = prim spécifique, 0 = root)
+        "face" => 3,              // Face à texturer (0 = toutes, ou à préciser)
+        "type" => "texture",      // Indique qu'on applique une texture
+        "scale" => [1.0, 1.0],    // Remplit la face (ajuste si besoin)
+        "offset" => [0.0, 0.0],   // Centré
+        "rotation" => 0.0,        // Pas de rotation
+
+        "texture" => [
+            "value" => "Lock screen",  // Nom EXACT de la texture dans l’inventaire de l’objet
+            "source" => "inventory"    // Indique que la source est l’inventaire (pas une UUID ou URL)
+        ]
+    ]];
+
+    // IMPLEMENT HERE THE TOKEN REMOVAL
+
+    // Returns the structure, so can be applied using SLApplyTexture()
+    return $textureInfo;
 
 }
 
@@ -103,16 +170,46 @@ if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
     $boardID = NVGetList("BoardToken", $messageParts[1]);
 
     // If the board exists, updates the current page
-    if ($boardID !== null)
-    {     
+    if ($boardID === null) return null;
 
-        // Updates the current page in the database
-        NVSetList("CurrentPage", $boardID, $messageParts[2]);
+    // Sending a message to the board owner to reset the lock screen timer
+    $ownerID = NVGetList("BoardOwner", $boardID);
+    
+    // Test
+    if (AFIsUnsafe()) 
+    { 
 
-        // Successfully updated the page
-        return true;
+        NVSetValue("FECallBefore", "true");
+
+    } else {
+
+        NVSetValue("FECallBefore", "false");
 
     }
+
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
+
+    // Test
+    if (AFIsUnsafe()) 
+    { 
+
+        NVSetValue("FECallAfter", "true");
+
+    } else {
+
+        NVSetValue("FECallAfter", "false");
+
+    }
+
+    // Sending a message to the board owner to reset the lock screen timer
+    AFSendFlowMessage(AFGetAppID(), $ownerID, "RESETLOCK|" . $boardID);
+
+    // Updates the current page in the database
+    NVSetList("CurrentPage", $boardID, $messageParts[2]);
+
+    // Successfully updated the page
+    return true;
 
 }
 

@@ -27,10 +27,14 @@ if (AFGetFlowAppMode() === "AuctionBoard")
 { 
 
     // Updates the URL of the board with the new token
-    $message = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
+    $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 
-    // Sending the message to the linked prims
-    SLMessageLinked(AFGetFlowObjectID(), -1, 500, $message, "key");
+    // Applies the received texture to the board
+    SLApplyTexture(AFGetFlowObjectID(), $texture);
+
+    // Saves the board owner, so the message to reset the lock screen timer can
+    // be sent when the front-end uses the selection arrows
+    AFSendFlowMessage(AFGetAppID(), "Global", "BOARDOWNER|" . AFGetFlowObjectID() . "|" . AFGetOwnerID());
 
     // Successfully updated the URL
     return true; 

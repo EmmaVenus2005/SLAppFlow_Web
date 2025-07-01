@@ -16,6 +16,6 @@ function AFSetSafe()
 
     // Unsetting it, so next flow message will be considered as safe
     // BE CAREFUL THOUGH TO MAKE ALL THE CHECKS
-    if (isset($isFrontendCall)) { unset($isFrontendCall); }
+    $isFrontendCall = false;
 
 }
