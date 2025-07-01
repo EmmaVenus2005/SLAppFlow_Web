@@ -239,41 +239,8 @@
         document.getElementById('reservedPrice').textContent = 
         info.reserved_price ? info.reserved_price + " L$" : "-";
 
-        // Get and display the best bidders for this painting
-        const appId = await AFGetAppID();
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token') || "";
-        const fullName = data.fullName;
-
-        // API call to get the best bids
-        let bids = await AFSendFlowMessage(appId, "Global", "GETBESTBIDS|" + token + "|" + fullName);
-        console.log("GETBESTBIDS for", fullName, ":", bids);
-
-        // Trying to parse bids if it's a string
-        try {
-            if (typeof bids === "string") bids = JSON.parse(bids);
-        } catch {}
-
-        // Display the bidders list
-        const biddersListElem = document.getElementById('biddersList');
-        biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
-
-        if (Array.isArray(bids) && bids.length) {
-            bids.forEach(bid => {
-                let info = {};
-                try {
-                    info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
-                } catch { /* ignore parse errors */ }
-                const dateStr = bid[0] || "";
-                biddersListElem.innerHTML += `<div>
-                    <span style="color:#ffc833;">${info.name || "(unknown)"}</span> 
-                    - <b>${info.amount || "?"} L$</b>
-                    <span style="font-size:0.9em;opacity:0.6;"> (${dateStr})</span>
-                </div>`;
-            });
-        } else {
-            biddersListElem.innerHTML += "<div>(no bids)</div>";
-        }
+        // Update best bidders for the current auction
+        await updateBiddersForCurrentAuction();
 
         // Preload adjacent images here
         preloadAdjacentImages();
@@ -349,6 +316,10 @@
         } else {
             console.log(`[Polling] Backend did not return a valid page.`);
         }
+
+        // Update best bidders for the current page every poll
+        await updateBiddersForCurrentAuction();
+
     }
 
     // Arrow button event handlers
@@ -401,6 +372,50 @@
         refresh();
         timerInterval = setInterval(refresh, 1000);
 
+    }
+
+    // Updates the best bidders for the current auction (without reloading all auction data)
+    async function updateBiddersForCurrentAuction() {
+        if (!auctionState.refs.length) return;
+
+        const ref = auctionState.refs[auctionState.currentIdx];
+        const data = auctionState.auctions[ref];
+        if (!data || !data.fullName) return;
+
+        const appId = await AFGetAppID();
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || "";
+        const fullName = data.fullName;
+
+        // API call to get the best bids
+        let bids = await AFSendFlowMessage(appId, "Global", "GETBESTBIDS|" + token + "|" + fullName);
+        console.log("Polling - GETBESTBIDS for", fullName, ":", bids);
+
+        // Trying to parse bids if it's a string
+        try {
+            if (typeof bids === "string") bids = JSON.parse(bids);
+        } catch {}
+
+        // Display the bidders list
+        const biddersListElem = document.getElementById('biddersList');
+        biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
+
+        if (Array.isArray(bids) && bids.length) {
+            bids.forEach(bid => {
+                let info = {};
+                try {
+                    info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
+                } catch { /* ignore parse errors */ }
+                const dateStr = bid[0] || "";
+                biddersListElem.innerHTML += `<div>
+                    <span style="color:#ffc833;">${info.name || "(unknown)"}</span> 
+                    - <b>${info.amount || "?"} L$</b>
+                    <span style="font-size:0.9em;opacity:0.6;"> (${dateStr})</span>
+                </div>`;
+            });
+        } else {
+            biddersListElem.innerHTML += "<div>(no bids)</div>";
+        }
     }
 
     // Main async flow
