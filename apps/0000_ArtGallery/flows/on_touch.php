@@ -40,6 +40,12 @@ if (AFGetFlowAppMode() === "AuctionBoard")
 
     //Test
     //SLOwnerSay(AFGetFlowObjectID(), "The board has been touched at link number : " . AFGetFlowParameter(11));
+
+
+    SLAddTimer(AFGetFlowObjectID(), "demo_2min", time() + 120);
+    SLAddTimer(AFGetFlowObjectID(), "demo_3min", time() + 180);
+
+    SLAddTimer(AFGetFlowObjectID(), "demo_2min", time() + 120);
    
     // Updates the URL of the board with the new token
     $message = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());

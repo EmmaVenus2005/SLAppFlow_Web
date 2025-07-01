@@ -61,7 +61,7 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
     $url = "https://wwwtest.slappflow.net/webcontrol/wcmedia.php";
 
     // Params including the new token
-    $params = "?token=" . $token . "&app=" . AFGetAppID() . "&page=" . $current;
+    $params = "?token=" . $token . "&app=" . AFGetAppID();
 
     // Creating the message to send
     $message = "URL\\1\\3\\{$url}" . $params;

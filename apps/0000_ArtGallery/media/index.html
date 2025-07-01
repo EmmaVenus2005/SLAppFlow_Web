@@ -207,7 +207,6 @@
         }
     }
 
-
     // Displays the current auction's data in the UI
     async function displayCurrentAuction() {
         if (!auctionState.refs.length) return;
@@ -240,26 +239,26 @@
         document.getElementById('reservedPrice').textContent = 
         info.reserved_price ? info.reserved_price + " L$" : "-";
 
-        // --- Get and display the best bidders for this painting ---
+        // Get and display the best bidders for this painting
         const appId = await AFGetAppID();
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token') || "";
         const fullName = data.fullName;
 
-        // Appel API pour récupérer les 3 meilleurs enchérisseurs
+        // API call to get the best bids
         let bids = await AFSendFlowMessage(appId, "Global", "GETBESTBIDS|" + token + "|" + fullName);
         console.log("GETBESTBIDS for", fullName, ":", bids);
 
-        // Essayons de parser si c’est du JSON
+        // Trying to parse bids if it's a string
         try {
             if (typeof bids === "string") bids = JSON.parse(bids);
         } catch {}
 
-        // Affichage dans la page : (provisoire, juste pour voir)
+        // Display the bidders list
         const biddersListElem = document.getElementById('biddersList');
         biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
 
-       if (Array.isArray(bids) && bids.length) {
+        if (Array.isArray(bids) && bids.length) {
             bids.forEach(bid => {
                 let info = {};
                 try {
@@ -276,7 +275,7 @@
             biddersListElem.innerHTML += "<div>(no bids)</div>";
         }
 
-        // **Preload adjacent images here**
+        // Preload adjacent images here
         preloadAdjacentImages();
 
         // Update the countdown timer
@@ -381,7 +380,7 @@
 
     }
 
-    // --- Main async flow ---
+    // Main async flow
     WebControlReady.then(async function() {
         await loadAuctions();
         setupNavigation();
