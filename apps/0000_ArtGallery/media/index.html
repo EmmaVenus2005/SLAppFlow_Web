@@ -283,13 +283,36 @@
 
     }
 
-    // Navigates to a given index and updates UI and backend
-    async function goToAuction(idx) {
+    // Navigates to a given index, reloads auction list if needed, and shifts to the next if current is gone
+    async function goToAuction(idx) 
+    {
+        let oldRefs = [...auctionState.refs];
+        let oldIdx = auctionState.currentIdx;
+        let prevRef = oldRefs[oldIdx];
+
+        // Reload auctions list if needed
+        await loadAuctions();
+
         if (!auctionState.refs.length) return;
-        auctionState.currentIdx = (idx + auctionState.refs.length) % auctionState.refs.length;
+
+        // By default, keep intended navigation (modulo new list length)
+        let requestedIdx = (idx + auctionState.refs.length) % auctionState.refs.length;
+
+        // If the previous reference still exists, use the requested index
+        // If not, try to find the closest "next" element in new list
+        if (auctionState.refs.includes(prevRef)) {
+            auctionState.currentIdx = requestedIdx;
+        } else {
+            // If old "next" exists, go there, otherwise fallback to first
+            let oldNextIdx = (oldIdx + 1) % oldRefs.length;
+            let nextRef = oldRefs[oldNextIdx];
+            let newIdx = auctionState.refs.indexOf(nextRef);
+            auctionState.currentIdx = (newIdx >= 0) ? newIdx : 0;
+        }
+
         await displayCurrentAuction();
 
-        // Notify backend of the page change with token
+        // Notify backend...
         const appId = await AFGetAppID();
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token') || "";
@@ -381,9 +404,19 @@
     }
 
     // Main async flow
-    WebControlReady.then(async function() {
+    WebControlReady.then(async function() 
+    {
+
+        // Loads the list of available auctions
         await loadAuctions();
+
+        // Sets up the left/right arrow navigation handlers
         setupNavigation();
+
+        // On first load, synchronize with the backend's current page
+        await getCurrentPageFromBackend();
+
+        // Displays the current auction
         await displayCurrentAuction();
 
         // Start backend polling ONCE here, after first display
