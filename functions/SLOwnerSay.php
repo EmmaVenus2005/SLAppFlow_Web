@@ -19,8 +19,10 @@ function SLOwnerSay($object, $message) {
 	// Prepare the command
     $command = 'owner_say|' . $flowToken . "|" . $message;
     
-    // Send HTTPS POST request
+    // Initialize cURL
     $ch = curl_init($flowURL);
+
+    // Preparing the headers
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $command);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -28,12 +30,12 @@ function SLOwnerSay($object, $message) {
         'Content-Type: text/plain; charset=UTF-8'
     ]);
     // Optionally, ignore SSL certificate verification (not recommended for production)
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     // Set timeout to 60 seconds
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-    // Execute the request
+    // Executes the request
     $response = curl_exec($ch);
 
     if ($response === false) {
@@ -56,5 +58,3 @@ function SLOwnerSay($object, $message) {
     return true;
 
 }
-
-?>

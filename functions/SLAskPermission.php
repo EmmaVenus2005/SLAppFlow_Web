@@ -24,18 +24,21 @@ function SLAskPermission($object, $permission) {
     // Format: ask_permission|<token>|<permission>
     $command = 'ask_permission|' . $flowToken . '|' . $permission;
 
-    // Send HTTPS POST request
+    // Initialize cURL
     $ch = curl_init($flowURL);
+
+    // Preparing the headers
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $command);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: text/plain; charset=UTF-8'
     ]);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
+    // Executes the request
     $response = curl_exec($ch);
 
     if ($response === false) {

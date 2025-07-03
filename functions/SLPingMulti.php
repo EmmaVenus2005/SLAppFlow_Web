@@ -6,6 +6,7 @@ function SLPingMulti(array $objectIds): array {
     $handles = [];
 
     foreach ($objectIds as $objid) {
+        
         // Get FlowURL and FlowToken
         $flowURL = NVGetSessionValue($objid, 'FlowURL');
         $flowToken = NVGetSessionValue($objid, 'FlowToken');
@@ -19,22 +20,25 @@ function SLPingMulti(array $objectIds): array {
         // Build ping payload
         $command = "ping|" . $flowToken;
 
-        // Init single curl
+        // Initialize cURL
         $ch = curl_init($flowURL);
+
+        // Preparing the headers
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $command);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain; charset=UTF-8']);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // optional short timeout
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
 
         // Add to multi handle
         curl_multi_add_handle($multiHandle, $ch);
         $handles[(int)$ch] = ['handle' => $ch, 'objid' => $objid];
+
     }
 
-    // Execute all pings in parallel
+    // Executes all pings in parallel
     $running = null;
     do {
         curl_multi_exec($multiHandle, $running);

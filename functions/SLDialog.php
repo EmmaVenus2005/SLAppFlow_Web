@@ -1,5 +1,19 @@
 <?php
 
+/**
+ * Displays an interactive dialog in Second Life using FlowApp HTTP gateway.
+ * Handles paging, "BACK" buttons, and a flexible set of options.
+ * 
+ * @param string $object      // The object ID (usually SL prim UUID)
+ * @param string $recipient   // The recipient's UUID (must be 36-char SL UUID)
+ * @param string $leading     // Text displayed at the top of the dialog (can include <<PAGE>> placeholder)
+ * @param string $trailing    // Text displayed at the bottom of the dialog (can include <<PAGE>> placeholder)
+ * @param array  $choices     // List of text choices displayed in the dialog (one per button)
+ * @param array  $options     // List of values sent back when a button is pressed (mapped to $choices, same order)
+ * @param bool   $needsPaging // Whether to enable pagination if there are more than 12 options
+ * @param bool   $needsBack   // Whether to include a "BACK" button in the dialog
+ * @return string|null        // The selected option, or 'BACK', or null if error
+ */
 function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, $needsPaging = false, $needsBack = false) {
     
     // Context variables
@@ -15,11 +29,6 @@ function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, 
         error_log("SLDialogTest: Invalid leading or trailing text.");
         return null;
     }
-
-    // if (!is_array($choices) || empty($options) || !is_array($options)) {
-    //     error_log("SLDialogTest: Choices and options must be non-empty arrays.");
-    //     return null;
-    // }
 
     if (!is_array($choices) || !is_array($options)) {
         error_log("SLDialogTest: Choices and options must be arrays.");
@@ -129,17 +138,21 @@ function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, 
         $data = $command . '|' . $flowToken . '|' . $recipient . '|' . $promptWithPage . '|' . $buttonsString;
         error_log($data);
 
+        // Initialize cURL
         $ch = curl_init($flowURL);
+
+        // Preparing the headers
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: text/plain; charset=UTF-8'
         ]);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
+        // Executes the request
         $response = curl_exec($ch);
         if ($response === false) {
             error_log("SLDialogTest: cURL error: " . curl_error($ch));
@@ -176,6 +189,7 @@ function SLDialog($object, $recipient, $leading, $trailing, $choices, $options, 
             error_log("SLDialogTest: Invalid selection received.");
             return null;
         }
-    }
-}
 
+    }
+
+}

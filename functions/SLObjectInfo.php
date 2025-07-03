@@ -19,19 +19,21 @@ function SLObjectInfo($object) {
     // Prepare the object_infos command
     $command = 'object_info|' . $flowToken;
 
-    // Send HTTPS POST request
+    // Initialize cURL
     $ch = curl_init($flowURL);
+
+    // Preparing the headers
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $command);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: text/plain; charset=UTF-8'
     ]);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-    // Execute the request
+    // Executes the request
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);

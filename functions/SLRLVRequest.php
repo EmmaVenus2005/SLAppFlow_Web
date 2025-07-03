@@ -39,17 +39,19 @@ function SLRLVRequest($object, $rlvCommands)
 
         // Initialize cURL
         $ch = curl_init($flowURL);
+
+        // Preparing the headers
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: text/plain; charset=UTF-8'
         ]);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-        // Execute request
+        // Executes request
         $response = curl_exec($ch);
 
         if ($response === false) {
@@ -70,6 +72,7 @@ function SLRLVRequest($object, $rlvCommands)
 
         // Success: store response
         $results[$key] = $response;
+        
     }
 
     return $results;

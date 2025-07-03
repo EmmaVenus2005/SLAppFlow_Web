@@ -1,5 +1,6 @@
 <?php
 
+// Function to add a timer event to an object (will launch on_timer flow if exists)
 function SLAddTimer($object, $timerKey, $timestamp) 
 {
     
@@ -23,18 +24,21 @@ function SLAddTimer($object, $timerKey, $timestamp)
     // Format: add_timer|<token>|<timerKey>|<timestamp>
     $command = 'add_timer|' . $flowToken . '|' . $timerKey . '|' . intval($timestamp);
 
-    // Send HTTPS POST request
+    // Initialize cURL
     $ch = curl_init($flowURL);
+
+    // Preparing the headers
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $command);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: text/plain; charset=UTF-8'
     ]);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
 
+    // Executes the request
     $response = curl_exec($ch);
 
     if ($response === false) {
