@@ -101,7 +101,7 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
             "whitelist" => [
                 "https://wwwtest.slappflow.net"
             ],
-            "interact" => "none",     // Who can click/interact
+            "interact" => "anyone",     // Who can click/interact
             "control" => "none"       // Who can control (navigate, reload)
         ]
     ]];
@@ -166,6 +166,9 @@ if ($messageParts[0] === "REZZED" && AFIsUnsafe() !== true)
 if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
 {
 
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
+
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
 
@@ -174,33 +177,6 @@ if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
 
     // Sending a message to the board owner to reset the lock screen timer
     $ownerID = NVGetList("BoardOwner", $boardID);
-    
-    // Test
-    if (AFIsUnsafe()) 
-    { 
-
-        NVSetValue("FECallBefore", "true");
-
-    } else {
-
-        NVSetValue("FECallBefore", "false");
-
-    }
-
-    // Since called from media, we have to sanitize the thread
-    AFSetSafe();
-
-    // Test
-    if (AFIsUnsafe()) 
-    { 
-
-        NVSetValue("FECallAfter", "true");
-
-    } else {
-
-        NVSetValue("FECallAfter", "false");
-
-    }
 
     // Sending a message to the board owner to reset the lock screen timer
     AFSendFlowMessage(AFGetAppID(), $ownerID, "RESETLOCK|" . $boardID);
@@ -218,6 +194,9 @@ if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
 // E. g. "GETPAGE|<token>"
 if ($messageParts[0] === "GETPAGE" && AFGetSenderID() === "Media")
 {
+
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
 
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
@@ -241,6 +220,9 @@ if ($messageParts[0] === "GETPAGE" && AFGetSenderID() === "Media")
 // E. g. "GETINFO|<token>|<paintingID>"
 if ($messageParts[0] === "GETINFO" && AFGetSenderID() === "Media")
 {
+
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
 
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
@@ -277,6 +259,9 @@ if ($messageParts[0] === "GETINFO" && AFGetSenderID() === "Media")
 if ($messageParts[0] === "LISTACTIVE" && AFGetSenderID() === "Media")
 {
 
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
+
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
 
@@ -299,6 +284,9 @@ if ($messageParts[0] === "LISTACTIVE" && AFGetSenderID() === "Media")
 // E. g. "GETIMAGE|<token>|<paintingID>"
 if ($messageParts[0] === "GETIMAGE" && AFGetSenderID() === "Media")
 {
+
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
 
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
@@ -325,6 +313,9 @@ if ($messageParts[0] === "GETIMAGE" && AFGetSenderID() === "Media")
 // E. g. "GETBESTBIDS|<token>|<paintingID>"
 if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
 {
+
+    // Since called from media, we have to sanitize the thread
+    AFSetSafe();
 
     // Gets the board using the token
     $boardID = NVGetList("BoardToken", $messageParts[1]);
