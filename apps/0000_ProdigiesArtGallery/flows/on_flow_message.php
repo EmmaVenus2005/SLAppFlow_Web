@@ -46,7 +46,7 @@ if ($messageParts[0] === "RESETLOCK" && AFIsUnsafe() !== true)
     SLAddTimer($messageParts[1], "lock_screen", time() + 60 * 5); 
 
     // Debug
-    SLOwnerSay($messageParts[1], "timer reset for the lock screen");
+    //SLOwnerSay($messageParts[1], "Timer reset for the lock screen");
 
     // Successfully reset the lock screen timer
     return true; 
@@ -83,6 +83,12 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
     // Saves the new token
     NVSetList("BoardToken", $token, $messageParts[1]);
 
+    // Retrieving the board owner, in order to send him a message
+    $ownerID = NVGetList("BoardOwner", $messageParts[1]);
+
+    // Sending a message to the board owner to reset the lock screen timer
+    AFSendFlowMessage(AFGetAppID(), $ownerID, "RESETLOCK|" . $messageParts[1]);
+
     // JSON structure to apply the media texture to the prim
     $textureInfo = [[
         "link" => 1,                // Target prim (1 = specific prim, not root)
@@ -116,6 +122,33 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
 if ($messageParts[0] === "LOCKSCREEN" && AFIsUnsafe() !== true)
 {
 
+    // Removing all tokens from that board (cleaning)
+    
+    // Get all entries with Class = 'BoardToken'
+    $rows = NVEnumerateLists('BoardToken');
+
+    if ($rows !== false) 
+    {
+
+        // Looping through all rows
+        foreach ($rows as $row) 
+        {
+            
+            // If the token is for that board
+            // 'Name' stores the token
+            // 'Elements' corresponds to the board ID
+            if ($row['Elements'] === $messageParts[1])
+            {
+
+                // Deletes the token
+                NVDelList("BoardToken",  $row['Name']);
+
+            }
+
+        }
+
+    }
+
     // Texture of the lock screen
     $textureInfo = [[
         "link" => 1,              // Numéro du prim (1 = prim spécifique, 0 = root)
@@ -130,8 +163,6 @@ if ($messageParts[0] === "LOCKSCREEN" && AFIsUnsafe() !== true)
             "source" => "inventory"    // Indique que la source est l’inventaire (pas une UUID ou URL)
         ]
     ]];
-
-    // IMPLEMENT HERE THE TOKEN REMOVAL
 
     // Returns the structure, so can be applied using SLApplyTexture()
     return $textureInfo;
@@ -175,7 +206,7 @@ if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
     // If the board exists, updates the current page
     if ($boardID === null) return null;
 
-    // Sending a message to the board owner to reset the lock screen timer
+    // Retrieving the board owner, in order to send him a message
     $ownerID = NVGetList("BoardOwner", $boardID);
 
     // Sending a message to the board owner to reset the lock screen timer
