@@ -191,6 +191,79 @@ if ($messageParts[0] === "REZZED" && AFIsUnsafe() !== true)
 
 }
 
+// Bids on the currently selected painting. Called from on_payment event
+// E. g. "BID|<boardID>|<bidder uuid>|<bidder name>|<amount>
+if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
+{
+
+    // Retrieving the board owner, in order to send him a message
+    $ownerID = NVGetList("BoardOwner", $messageParts[1]);
+
+    // Sending a message to the board owner to reset the lock screen timer
+    AFSendFlowMessage(AFGetAppID(), $ownerID, "RESETLOCK|" . $messageParts[1]);
+    
+    // Get the current page related to the boardID
+    $currentPage = NVGetList("CurrentPage", $messageParts[1]);
+
+    // Get the list of existing bids for this painting
+    $bidsList = NVGetSessionLists($currentPage, "Bid");
+
+    // Removes the ending Resident from the bidder's name
+    $username = $messageParts[3];
+    if (substr($username, -9) === " Resident") {
+        $username = substr($username, 0, -9);
+    }
+
+    // If there are no previous bids, accept this bid directly
+    if (!$bidsList || count($bidsList) === 0) {
+        $bid = [
+            "board"  => $messageParts[1],
+            "uuid"   => $messageParts[2],
+            "name"   => $username,
+            "amount" => $messageParts[4]
+        ];
+        
+        // Save the new bid to the database
+        NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
+        
+        // Nothing to refund since it's the first bid
+        return "FIRSTBID|" . $currentPage;
+
+    }
+
+    // Sort all bids by their date (ascending order)
+    usort($bidsList, function($a, $b) {
+        return strtotime($a) <=> strtotime($b);
+    });
+
+    // Get the key (timestamp or index) of the last bid
+    $lastBidKey = end($bidsList);
+
+    // Retrieve the JSON-encoded last bid details from storage
+    $lastBidJson = NVGetSessionList($currentPage, "Bid", $lastBidKey);
+    $lastBidDetails = json_decode($lastBidJson, true);
+
+    // If the new bid amount is not greater than the previous, reject the bid
+    if ($lastBidDetails['amount'] >= $messageParts[4]) {
+        return "REJECT|" . $currentPage . "|" . $lastBidDetails['amount'] + 1;
+    }
+
+    // Build the new bid data structure
+    $bid = [
+        "board"  => $messageParts[1],
+        "uuid"   => $messageParts[2],
+        "name"   => $username,
+        "amount" => $messageParts[4]
+    ];
+
+    // Save the new bid to the database
+    NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
+
+    // Refund the previous highest bidder (by UUID)
+    return "REFUNDPREV|" . $currentPage . "|" . $lastBidDetails['uuid'];
+
+}
+
 // When the page from a board changes, updates the current page in the database
 // CALLED FROM THE FRONT-END MEDIA
 // E. g. "PAGECHANGE|<token>|<pageNumber>"

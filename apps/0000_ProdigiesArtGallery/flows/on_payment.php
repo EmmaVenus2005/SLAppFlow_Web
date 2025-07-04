@@ -27,5 +27,14 @@
  */
 
 
- SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Flow triggered by payment from " . AFGetFlowSession() . " (" . AFGetFlowParameter(0) . ") : " . AFGetFlowParameter(1) . " L$");
- SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Internal count: " . AFGetFlowParameter(2));
+//  SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Flow triggered by payment from " . AFGetFlowSession() . " (" . AFGetFlowParameter(0) . ") : " . AFGetFlowParameter(1) . " L$");
+//  SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Internal count: " . AFGetFlowParameter(2));
+
+// Registers the bidding, 3 possible options :
+// - "FIRSTBID|<painting name> : First who bid on that painting
+// - "REJECT|<painting name>|<min amount>" : The paid amount is not higher than the previous best bid
+// - "REFUNDPREV|<painting name>|<previous bidder> : The previous best bidder got bid over
+$response = AFSendFlowMessage(AFGetAppID(), "Global", "BID|" . AFGetFlowObjectID() . "|" . AFGetFlowSession() . "|" . AFGetFlowParameter(0) . "|" . AFGetFlowParameter(1));
+
+
+ SLOwnerSay(AFGetFlowObjectID(), $response);
