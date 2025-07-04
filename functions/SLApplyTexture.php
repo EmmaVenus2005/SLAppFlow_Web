@@ -23,8 +23,8 @@
 //             "url" => "https://example.com",
 //             "width" => 1024,
 //             "height" => 768,
-//             "auto_play" => true,
-//             "auto_scale" => false,
+//             "auto_play" => 1,    // Use 1 or 0
+//             "auto_scale" => 0,   // Use 1 or 0
 //             "whitelist" => [
 //                 "https://example.com",
 //                 "https://cdn.example.com"

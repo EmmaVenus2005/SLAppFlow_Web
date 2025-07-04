@@ -78,7 +78,7 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
 {
 
     // Generating a new UUID as a token
-    $token = GenerateUUID();
+    $token = AFGenerateUUID();
 
     // Saves the new token
     NVSetList("BoardToken", $token, $messageParts[1]);
@@ -95,15 +95,15 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
         "face" => 3,                // Target face on the prim
         "type" => "media",          // Type: media (web URL)
         "scale" => [0.750, 0.563],  // Default scale
-        "offset" => [0.0, 0.0],     // Default offset
+        "offset" => [0.0, -0.050],  // Default offset
         "rotation" => 0.0,          // No rotation
 
         "media" => [
             "url" => "https://wwwtest.slappflow.net/webcontrol/wcmedia.php?token={$token}&app=" . AFGetAppID(),
             "width" => 1024,           // Optional: adjust if known
             "height" => 768,           // Optional: adjust if known
-            "auto_play" => true,       // Media auto-start
-            "auto_scale" => false,     // Disable auto-scale (respects PRIM_TEXTURE scaling)
+            "auto_play" => 1,          // Media auto-start
+            "auto_scale" => 0,         // Disable auto-scale (respects PRIM_TEXTURE scaling)
             "whitelist" => [
                 "https://wwwtest.slappflow.net"
             ],
