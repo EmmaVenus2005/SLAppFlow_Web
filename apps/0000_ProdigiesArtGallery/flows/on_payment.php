@@ -26,15 +26,83 @@
  * 
  */
 
-
-//  SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Flow triggered by payment from " . AFGetFlowSession() . " (" . AFGetFlowParameter(0) . ") : " . AFGetFlowParameter(1) . " L$");
-//  SLOwnerSay(AFGetFlowObjectID(), "on_payment.php: Internal count: " . AFGetFlowParameter(2));
-
 // Registers the bidding, 3 possible options :
 // - "FIRSTBID|<painting name> : First who bid on that painting
 // - "REJECT|<painting name>|<min amount>" : The paid amount is not higher than the previous best bid
 // - "REFUNDPREV|<painting name>|<previous bidder> : The previous best bidder got bid over
 $response = AFSendFlowMessage(AFGetAppID(), "Global", "BID|" . AFGetFlowObjectID() . "|" . AFGetFlowSession() . "|" . AFGetFlowParameter(0) . "|" . AFGetFlowParameter(1));
 
+// Notification and refund if needed
+$commandParts = explode('|', $response);
+$action = $commandParts[0];
 
- SLOwnerSay(AFGetFlowObjectID(), $response);
+switch ($action) {
+    case 'FIRSTBID':
+
+        // Example painting name: Painting_UNITEST0002_Forest Serenity
+        $paintingFullName = $commandParts[1];
+
+        // Extract the human-friendly painting name after the second underscore
+        $nameParts = explode('_', $paintingFullName, 3);
+        $friendlyName = isset($nameParts[2]) ? $nameParts[2] : $paintingFullName;
+
+        // Build a friendly message for the bidder
+        $bidderId = AFGetFlowSession();
+        $message = "Congratulations! You have placed the first bid on the painting: \"$friendlyName\". Good luck in the auction!";
+
+        // Send the notification to the bidder
+        SLInstantMessage(AFGetFlowObjectID(), $bidderId, $message);
+        
+        // Nothing more to do
+        break;
+
+    case 'REJECT':
+
+        // Example: Painting_UNITEST0002_Forest Serenity
+        $paintingFullName = $commandParts[1];
+        $minAmount = $commandParts[2];
+
+        // Extract the human-friendly painting name after the second underscore
+        // Splits into: [Painting, UNITEST0002, "Forest Serenity"]
+        $nameParts = explode('_', $paintingFullName, 3);
+        $friendlyName = isset($nameParts[2]) ? $nameParts[2] : $paintingFullName;
+
+        // Build a friendly rejection message for the bidder
+        $bidderId = AFGetFlowSession();
+        $message = "Sorry! Your bid was not high enough for the painting: \"$friendlyName\". The minimum required bid is L$" . intval($minAmount) . ". Please try again with a higher offer!";
+
+        // Send the notification to the bidder
+        SLInstantMessage(AFGetFlowObjectID(), $bidderId, $message);
+        
+        // Nothing more to do
+        break;
+
+    case 'REFUNDPREV':
+       
+        // Example: Painting_UNITEST0002_Forest Serenity|<previous_bidder_uuid>
+        $paintingFullName = $commandParts[1];
+        $previousBidderUuid = $commandParts[2];
+
+        // Extract the human-friendly painting name after the second underscore
+        $nameParts = explode('_', $paintingFullName, 3);
+        $friendlyName = isset($nameParts[2]) ? $nameParts[2] : $paintingFullName;
+
+        // 1. Notify the previous top bidder (refund)
+        $refundMessage = "Your bid for the painting \"$friendlyName\" has been surpassed by another participant. Your money has been refunded. Thank you for your participation!";
+        SLInstantMessage(AFGetFlowObjectID(), $previousBidderUuid, $refundMessage);
+
+        // 2. Notify the new top bidder (new leader)
+        $newTopBidder = AFGetFlowSession(); // This should be the UUID of the new best bidder (the payer in this flow)
+        $leaderMessage = "Congratulations! You are now the top bidder for \"$friendlyName\". Good luck in the auction!";
+        SLInstantMessage(AFGetFlowObjectID(), $newTopBidder, $leaderMessage);
+        
+        // Nothing more to do
+        break;
+
+    default:
+
+        // Unknown action
+        // Your code here...
+        break;
+
+}
