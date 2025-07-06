@@ -214,8 +214,16 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         $username = substr($username, 0, -9);
     }
 
-    // If there are no previous bids, accept this bid directly
+    // If there are no previous bids, accept this bid directly if at least the start price
     if (!$bidsList || count($bidsList) === 0) {
+        
+        // Reading the start-price, must be equal or higher
+        $activeAuction = json_decode(NVGetList("ActiveAuction", $currentPage), true);
+        $startPrice = $activeAuction['start_price'];
+
+        // Returns LOWERSTARTPRICE|<painting name>|<start price>
+        if ($messageParts[4] < $startPrice) return "LOWERSTARTPRICE|" . $currentPage . "|" . $startPrice;
+        
         $bid = [
             "board"  => $messageParts[1],
             "uuid"   => $messageParts[2],
@@ -236,7 +244,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         return strtotime($a) <=> strtotime($b);
     });
 
-    // Get the key (timestamp or index) of the last bid
+    // Get the key (timestamp) of the last bid
     $lastBidKey = end($bidsList);
 
     // Retrieve the JSON-encoded last bid details from storage
@@ -259,8 +267,8 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     // Save the new bid to the database
     NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
 
-    // Refund the previous highest bidder (by UUID)
-    return "REFUNDPREV|" . $currentPage . "|" . $lastBidDetails['uuid'];
+    // Returns "REFUNDPREV|<painting name>|<previous bidder>|<previous best bid>"
+    return "REFUNDPREV|" . $currentPage . "|" . $lastBidDetails['uuid'] . "|" . $lastBidDetails['amount'];
 
 }
 
