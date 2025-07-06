@@ -401,7 +401,7 @@
         biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
 
         if (Array.isArray(bids) && bids.length) {
-            bids.forEach(bid => {
+            bids.reverse().forEach(bid => {
                 let info = {};
                 try {
                     info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
