@@ -37,7 +37,10 @@
 
 if (AFGetFlowAppMode() === "AuctionBoard")
 {
-   
+
+    // Sets the BID button position in front of the screen (visible)
+    SLSetLinkPosition(AFGetFlowObjectID(), 2, -2.353508, 0.002645, -1.615417);
+    
     // Updates the URL of the board with the new token
     $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 

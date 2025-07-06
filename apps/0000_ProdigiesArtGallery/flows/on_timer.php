@@ -26,6 +26,9 @@
 if (AFGetFlowAppMode() === "AuctionBoard" && AFGetFlowSession() === "lock_screen")
 {
 
+    // Sets the BID button behind the screen (hidden)
+    SLSetLinkPosition(AFGetFlowObjectID(), 2, -2.353508,-0.107327,-1.615417);
+   
     // Updates the URL of the board with the new token
     $texture = AFSendFlowMessage(AFGetAppID(), "Global", "LOCKSCREEN|" . AFGetFlowObjectID());
 
