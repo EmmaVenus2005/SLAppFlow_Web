@@ -22,9 +22,9 @@ $_SESSION['config'] = $config;
 if (isset($_POST['username']) && isset($_POST['password']))
 { 
 
-  // Includes the authentication script 
-  // (is actually setting the session variables if the authentication is successful)
-  include "webcontrol/wcauth.php";
+    // Includes the authentication script 
+    // (is actually setting the session variables if the authentication is successful)
+    include "webcontrol/wcauth.php";
 
 }
 
@@ -32,27 +32,75 @@ if (isset($_POST['username']) && isset($_POST['password']))
 if (!isset($_SESSION['uuid']) || !isset($_SESSION['name'])) 
 { 
 
-  // Includes the authentication page 
-  include "webcontrol/wclogin.php";
+    // Includes the authentication page 
+    include "webcontrol/wclogin.php";
 
-  // Nothing further to do, the authentication script will handle the rest
-  exit(); 
+    // Nothing further to do, the authentication script will handle the rest
+    exit(); 
 
 }
-
-// Directory where apps are located
-$appsDir = $homeDir . '/apps';
 
 // Creating array that will contain the available apps list
 $apps = [];
 
+// Directory where apps are located
+$appsDir = $config['dirs']['appsdir'];
+
+// Get the directory path containing the PHP functions
+$functionsDir = $config['dirs']['funcdir'];
+
+// Including all PHP files from the functions directory
+foreach (glob($functionsDir . '/*.php') as $filename) {
+    require_once $filename;
+}
+
+// Elements of the context
+$uuid = $_SESSION['uuid'];
+$name = $_SESSION['name'];
+
+// Database connection details
+$servername = $config['appflowdb']['servername'];
+$username = $config['appflowdb']['username'];
+$password = $config['appflowdb']['password'];
+$dbname = $config['appflowdb']['dbname'];
+
+// Create connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Unsetting DB variables once connection done
+unset($servername, $username, $password, $dbname);
+
+// Function to isolate the "include.php" file
+function isolated_include($file) { return include $file; }
+
 // Checking for apps folder
-if (is_dir($appsDir)) {
-    foreach (scandir($appsDir) as $dir) {
-        if ($dir !== '.' && $dir !== '..' && is_dir("$appsDir/$dir/web")) {
-            $apps[$dir] = $dir;
+if (is_dir($appsDir)) 
+{
+
+    // Loops through each app
+    foreach (scandir($appsDir) as $dir) 
+    {
+
+        // Looking for the "include.php" file
+        if ($dir !== '.' && $dir !== '..' && file_exists("$appsDir/$dir/web/include.php")) 
+        {
+
+            // Sets the current app (only app changes, we have everything else)
+            $appid = $dir;
+
+            // Executes "include.php"
+            if (isolated_include("$appsDir/$dir/web/include.php"))
+            {
+
+                // Adds the app
+                $apps[$dir] = $dir;
+
+            }   
+
         }
+
     }
+
 }
 
 // List used by wcapp.php to ensure it's an authorized app
