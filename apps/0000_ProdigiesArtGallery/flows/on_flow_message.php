@@ -275,7 +275,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
 // When the page from a board changes, updates the current page in the database
 // CALLED FROM THE FRONT-END MEDIA
 // E. g. "PAGECHANGE|<token>|<pageNumber>"
-if ($messageParts[0] ===  "PAGECHANGE" && AFGetSenderID() === "Media")
+if ($messageParts[0] === "PAGECHANGE" && AFGetSenderID() === "Media")
 {
 
     // Since called from media, we have to sanitize the thread

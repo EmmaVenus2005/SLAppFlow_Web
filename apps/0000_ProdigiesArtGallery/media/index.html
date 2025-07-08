@@ -236,8 +236,8 @@
         "<b>Description:</b> " + (info.description || "No description");
 
         // Updates the reserved price
-        document.getElementById('reservedPrice').textContent = 
-        info.reserved_price ? info.reserved_price + " L$" : "-";
+        //document.getElementById('reservedPrice').textContent = 
+        //info.reserved_price ? info.reserved_price + " L$" : "-";
 
         // Update best bidders for the current auction
         await updateBiddersForCurrentAuction();
@@ -286,6 +286,7 @@
         const ref = auctionState.refs[auctionState.currentIdx];
         const fullName = auctionState.auctions[ref].fullName;
         await AFSendFlowMessage(appId, "Global", "PAGECHANGE|" + token + "|" + fullName);
+        console.log("PAGECHANGE|" + token + "|" + fullName);
 
     }
 
