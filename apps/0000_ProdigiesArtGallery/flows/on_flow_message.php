@@ -465,40 +465,20 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
 
 // Checks if the user is an admin
 // Called from WebControl authenticated user to "Global"
-// TO IMPLEMENT TO ADD THE APP ONLY WHEN NEEDED
+// E. g. "ISADMIN"
+if ($messageParts[0] === "ISADMIN" && AFIsUnsafe() !== true)
+{
+
+    // Returns true or false weither the sender is admin
+    return IsAdmin(AFGetSenderID());
+
+}
 
 // Gets the list of UNICATS
 // Called by admin or trusted user ONLY through WebControl
 // E. g. "LISTUNICATS"
-if ($messageParts[0] === "LISTUNICATS")
+if ($messageParts[0] === "LISTUNICATS" && IsAdmin(AFGetSenderID()))
 {
-
-    // Checks if the sender is an owner
-    $admins = NVGetLists("Admin");
-
-    // Initial value
-    $isAdmin = false;
-
-    // Looping through all admins
-    foreach ($admins as $admin)
-    {
-
-        // Current sender is found
-        if (AFGetSenderID() === $admin)
-        {
-
-            // Sets the user as admin
-            $isAdmin = true;
-
-            // No need to check further
-            break;
-
-        }
-
-    }
-
-    // Avoids further execution for a non admin
-    if ($isAdmin !== true) return false;
 
     // At this point, we know we're safe
     AFSetSafe();
@@ -528,6 +508,26 @@ if ($messageParts[0] === "LISTUNICATS")
 
     // Return the result as JSON (echo or return depending on your structure)
     return json_encode($output);
+
+}
+
+// Gets the image of a given painting
+// Called by admin or trusted user ONLY through WebControl
+// E. g. "GETIMAGE|<unicat number>"
+if ($messageParts[0] === "GETIMAGE" && IsAdmin(AFGetSenderID()))
+{
+
+    // Gets the image ID for the specified painting (unicat number)
+    $imageID = NVGetList("Image", $messageParts[1]);
+
+    // If the image ID doesn't exist, returns null
+    if ($imageID === null) return null;
+
+    // Gets the image data from File Service
+    $imageData = FSDownload($imageID);
+
+    // Returns the image data as base64
+    return base64_encode($imageData);
 
 }
 

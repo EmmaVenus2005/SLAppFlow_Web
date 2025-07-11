@@ -1,5 +1,6 @@
 <?php
 
+// Retrieves the UNICAT display name from number
 function GetUNICATName($number)
 {
 

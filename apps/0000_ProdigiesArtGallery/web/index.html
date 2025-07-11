@@ -164,92 +164,14 @@
     <script src="/webcontrol/include_functions.js"></script>
 
     <script>
-        // -------- Demo data --------
-        // Example paintings data (would come from backend in real app)
-        const paintings = [
-            {
-                id: 1,
-                unicat: true, // Is this artwork unique? If so, show badge.
-                title: "My Super Painting",
-                creator: "Mina Mirelli",
-                status: "active", // can be 'active', 'inactive', 'ended', 'sold'
-                preview: "", // image URL or empty for demo
-                number: "PNT-0001",
-                description: "A unique, colorful abstract art piece.",
-                auction: {
-                    startingPrice: "1,200 €",
-                    currentBid: "1,700 €",
-                    bids: 5
-                },
-                tracking: {
-                    owner: "EmmaVenus",
-                    provenance: ["Mina Mirelli", "Gallery A", "EmmaVenus"],
-                    lastMoved: "2025-07-01"
-                }
-            },
-            {
-                id: 2,
-                unicat: true,
-                title: "Golden Horizon",
-                creator: "Alexis Forte",
-                status: "ended",
-                preview: "",
-                number: "PNT-0002",
-                description: "Modernist sunset with gold leaf.",
-                auction: {
-                    startingPrice: "800 €",
-                    currentBid: "1,050 €",
-                    bids: 3
-                },
-                tracking: {
-                    owner: "CollectorX",
-                    provenance: ["Alexis Forte", "CollectorX"],
-                    lastMoved: "2025-06-29"
-                }
-            },
-            {
-                id: 3,
-                unicat: true,
-                title: "Urban Dream",
-                creator: "Jamie Cole",
-                status: "sold",
-                preview: "",
-                number: "PNT-0003",
-                description: "Cityscape with surreal accents.",
-                auction: {
-                    startingPrice: "500 €",
-                    currentBid: "Sold for 900 €",
-                    bids: 6
-                },
-                tracking: {
-                    owner: "Sophie P.",
-                    provenance: ["Jamie Cole", "Sophie P."],
-                    lastMoved: "2025-06-22"
-                }
-            },
-            {
-                id: 4,
-                unicat: true,
-                title: "Quiet Lake",
-                creator: "Olga Beran",
-                status: "inactive",
-                preview: "",
-                number: "PNT-0004",
-                description: "A peaceful landscape in pastels.",
-                auction: {
-                    startingPrice: "400 €",
-                    currentBid: "No bids yet",
-                    bids: 0
-                },
-                tracking: {
-                    owner: "Olga Beran",
-                    provenance: ["Olga Beran"],
-                    lastMoved: "2025-05-30"
-                }
-            }
-        ];
 
-        // --------- State & Rendering Logic ---------
+        // This will store the paintings
+        let paintings = [];
+
+        // Unicat image cache
+        const imageCache = {}; // UNICAT number → Data URL
+
+        // State & Rendering Logic
         let selectedPainting = null;
         let activeFilters = ["active", "inactive", "ended", "sold"];
 
@@ -260,20 +182,22 @@
             const filtered = paintings.filter(p => activeFilters.includes(p.status));
             filtered.forEach((p, idx) => {
                 const row = document.createElement('tr');
-                // UNICAT badge
+                
+                // UNICAT column (show number)
                 const unicatTd = document.createElement('td');
-                if (p.unicat) {
-                    unicatTd.innerHTML = `<span class="badge-unicat">UNICAT</span>`;
-                }
+                unicatTd.textContent = p.number;
                 row.appendChild(unicatTd);
+                
                 // Title
                 const titleTd = document.createElement('td');
                 titleTd.textContent = p.title;
                 row.appendChild(titleTd);
+                
                 // Creator
                 const creatorTd = document.createElement('td');
                 creatorTd.textContent = p.creator;
                 row.appendChild(creatorTd);
+                
                 // Status
                 const statusTd = document.createElement('td');
                 let statusClass = 'status-' + p.status;
@@ -322,17 +246,44 @@
         });
 
         // Select a painting and show its details
-        function selectPainting(painting) {
+        async function selectPainting(painting) {
+            
             selectedPainting = painting;
             renderPaintingsTable(); // To highlight row
-            // Preview (would be image in real app)
+
+            // Reference to the preview container
             const preview = document.getElementById('preview-image');
-            preview.innerHTML = painting.preview
-                ? `<img src="${painting.preview}" alt="Preview" style="max-width:100%;max-height:100%;">`
-                : `<span style="color:#bbb;font-size:2em;">🎨</span>`;
+
+            // Use cache if possible
+            if (imageCache[painting.number]) {
+                preview.innerHTML = `<img src="${imageCache[painting.number]}" alt="Preview" style="max-width:100%;max-height:100%;">`;
+                setActiveTab("general");
+                return;
+            }
+
+            // Show a loading state
+            preview.innerHTML = `<span style="color:#bbb;font-size:1.6em;">Loading...</span>`;
+
+            const appId = await AFGetAppID();
+            const base64 = await AFSendFlowMessage(appId, "Global", `GETIMAGE|${painting.number}`);
+
+            // Debug: Show in console
+            //console.log('Fetched Base64:', base64 ? base64.substring(0, 40) : "(empty)", "length:", base64 ? base64.length : 0);
+
+            if (!base64 || typeof base64 !== 'string' || base64.length < 100) {
+                preview.innerHTML = `<span style="color:#bbb;font-size:2em;">🎨</span>`;
+            } else {
+                // Heuristic: JPEG files usually start with "/9j/"
+                let mime = "image/png";
+                if (base64.startsWith("/9j/")) mime = "image/jpeg";
+                const dataUrl = `data:${mime};base64,${base64}`;
+                imageCache[painting.number] = dataUrl;
+                preview.innerHTML = `<img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">`;
+            }
 
             // Show "General" tab by default
             setActiveTab("general");
+
         }
 
         // Handle tab clicks
@@ -379,13 +330,47 @@
         }
 
         // Initial rendering
-        renderPaintingsTable();
+        //renderPaintingsTable();
 
         // Main async flow
         WebControlReady.then(async function() 
         {
 
-            console.log(await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS"));
+            //console.log(await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS"));
+
+            // Send a message to the backend to retrieve the list of UNICAT paintings
+            const result = await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS");
+            console.log(result); // For debugging: print the raw data to the console
+
+            // Parse the result if it's a JSON string; otherwise, use as is
+            let data = typeof result === 'string' ? JSON.parse(result) : result;
+
+            // Map each backend entry to the format expected by the UI
+            paintings = data.map((entry, idx) => ({
+                id: entry.number,           // Use UNICAT number as unique row ID
+                unicat: true,               // All are UNICAT (adjust if needed)
+                title: entry.name,          // Painting title
+                creator: entry.creatorName, // Name of the creator
+                status: (entry.status || "active").toLowerCase(), // Normalize status
+                preview: "",                // No image for now
+                number: entry.number,       // UNICAT number, displayed in the table
+                description: entry.description, // Painting description
+
+                // Auction and tracking data: placeholders (fill with real data if/when available)
+                auction: {
+                    startingPrice: "?",
+                    currentBid: "?",
+                    bids: "?"
+                },
+                tracking: {
+                    owner: "?",
+                    provenance: [],
+                    lastMoved: "?"
+                }
+            }));
+
+            // Re-render the table using the updated paintings array
+            renderPaintingsTable();
             
         });
 
