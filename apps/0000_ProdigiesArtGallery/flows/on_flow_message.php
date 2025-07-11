@@ -222,7 +222,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         $startPrice = $activeAuction['start_price'];
 
         // Returns LOWERSTARTPRICE|<painting name>|<start price>
-        if ($messageParts[4] < $startPrice) return "LOWERSTARTPRICE|" . $currentPage . "|" . $startPrice;
+        if ($messageParts[4] < $startPrice) return "LOWERSTARTPRICE|" . GetUNICATName($currentPage) . "|" . $startPrice;
         
         $bid = [
             "board"  => $messageParts[1],
@@ -235,7 +235,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
         
         // Nothing to refund since it's the first bid
-        return "FIRSTBID|" . $currentPage;
+        return "FIRSTBID|" . GetUNICATName($currentPage);
 
     }
 
@@ -253,7 +253,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
 
     // If the new bid amount is not greater than the previous, reject the bid
     if ($lastBidDetails['amount'] >= $messageParts[4]) {
-        return "REJECT|" . $currentPage . "|" . $lastBidDetails['amount'] + 1;
+        return "REJECT|" . GetUNICATName($currentPage) . "|" . $lastBidDetails['amount'] + 1;
     }
 
     // Build the new bid data structure
@@ -268,7 +268,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
 
     // Returns "REFUNDPREV|<painting name>|<previous bidder>|<previous best bid>"
-    return "REFUNDPREV|" . $currentPage . "|" . $lastBidDetails['uuid'] . "|" . $lastBidDetails['amount'];
+    return "REFUNDPREV|" . GetUNICATName($currentPage) . "|" . $lastBidDetails['uuid'] . "|" . $lastBidDetails['amount'];
 
 }
 
@@ -460,6 +460,74 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
 
     // Returns the list of bidders
     return json_encode($bidderDetails, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+}
+
+// Checks if the user is an admin
+// Called from WebControl authenticated user to "Global"
+// TO IMPLEMENT TO ADD THE APP ONLY WHEN NEEDED
+
+// Gets the list of UNICATS
+// Called by admin or trusted user ONLY through WebControl
+// E. g. "LISTUNICATS"
+if ($messageParts[0] === "LISTUNICATS")
+{
+
+    // Checks if the sender is an owner
+    $admins = NVGetLists("Admin");
+
+    // Initial value
+    $isAdmin = false;
+
+    // Looping through all admins
+    foreach ($admins as $admin)
+    {
+
+        // Current sender is found
+        if (AFGetSenderID() === $admin)
+        {
+
+            // Sets the user as admin
+            $isAdmin = true;
+
+            // No need to check further
+            break;
+
+        }
+
+    }
+
+    // Avoids further execution for a non admin
+    if ($isAdmin !== true) return false;
+
+    // At this point, we know we're safe
+    AFSetSafe();
+
+    // Gets all the UNICATS
+    $unicats = NVGetLists("Information");
+
+    // Preparing an empty array
+    $output = [];
+    
+    // Looping through each UNICAT
+    // UNICAT example string : "Painting_UNICAT1_Painting name"
+    foreach ($unicats as $unicat)
+    {
+
+        // Decoding the UNICAT number
+        //$number = explode("_", $unicat)[1];
+
+        // Getting the general information about the painting
+        $jsonInfo = NVGetList("Information", $unicat);
+        $info = json_decode($jsonInfo, true);
+
+        // Merge the UNICAT number into the output array
+        $output[] = array_merge(['number' => $unicat], $info);
+
+    }
+
+    // Return the result as JSON (echo or return depending on your structure)
+    return json_encode($output);
 
 }
 

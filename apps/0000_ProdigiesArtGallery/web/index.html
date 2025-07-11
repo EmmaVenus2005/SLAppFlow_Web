@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Paintings List</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f6fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 24px;
+            gap: 24px;
+        }
+        .left-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        .filters {
+            margin-bottom: 16px;
+        }
+        .filters label {
+            margin-right: 16px;
+            font-size: 1em;
+        }
+        .paintings-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .paintings-table th, .paintings-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #ececec;
+            text-align: left;
+        }
+        .paintings-table th {
+            background: #fafafa;
+            font-weight: bold;
+        }
+        .badge-unicat {
+            background: #f44336;
+            color: #fff;
+            font-size: 0.82em;
+            border-radius: 7px;
+            padding: 2px 8px;
+            font-weight: bold;
+        }
+        .status-active { color: #28a745; font-weight: bold; }
+        .status-inactive { color: #888; }
+        .status-ended { color: #ff9800; }
+        .status-sold { color: #2196f3; }
+        .right-panel {
+            flex: 1.2;
+            background: #fff;
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .preview {
+            width: 230px;
+            height: 230px;
+            background: #f3f3f3;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+        }
+        .tabs {
+            display: flex;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .tab {
+            flex: 1;
+            padding: 7px 10px;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        .tab.active {
+            background: #fff;
+            border-bottom: 2px solid #fff;
+            font-weight: bold;
+        }
+        .tab-content {
+            width: 100%;
+            background: #fff;
+            border: 1px solid #eee;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            padding: 12px;
+        }
+        .field-label { font-weight: bold; display: inline-block; width: 80px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left panel: Filters and paintings list -->
+        <div class="left-panel">
+            <!-- Dropdown for variants/lists (future extension) -->
+            <div style="margin-bottom:8px;">
+                <select>
+                    <option>Paintings List</option>
+                </select>
+            </div>
+            <!-- Filters section -->
+            <div class="filters">
+                <!-- Paintings status filters -->
+                <label><input type="checkbox" class="filter-checkbox" value="active" checked> Active</label>
+                <label><input type="checkbox" class="filter-checkbox" value="inactive" checked> Inactive</label>
+                <label><input type="checkbox" class="filter-checkbox" value="ended" checked> Ended</label>
+                <label><input type="checkbox" class="filter-checkbox" value="sold" checked> Sold</label>
+            </div>
+            <!-- Paintings table: main listing -->
+            <table class="paintings-table">
+                <thead>
+                    <tr>
+                        <th>Unicat</th>
+                        <th>Title</th>
+                        <th>Creator</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="paintings-tbody">
+                    <!-- Content is injected via JS -->
+                </tbody>
+            </table>
+        </div>
+        <!-- Right panel: Preview and details (tabs) -->
+        <div class="right-panel">
+            <!-- Artwork preview -->
+            <div class="preview" id="preview-image">
+                <!-- Placeholder art - in real app, use <img src="..."> or a <canvas> -->
+                <span style="color:#bbb;">No preview</span>
+            </div>
+            <!-- Tabs for details -->
+            <div class="tabs">
+                <div class="tab active" data-tab="general">General</div>
+                <div class="tab" data-tab="auction">Auction</div>
+                <div class="tab" data-tab="tracking">Tracking</div>
+            </div>
+            <!-- Tab content area -->
+            <div class="tab-content" id="tab-content">
+                <!-- Content is injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Include SLAppFlow public functions -->
+    <script src="/webcontrol/include_functions.js"></script>
+
+    <script>
+        // -------- Demo data --------
+        // Example paintings data (would come from backend in real app)
+        const paintings = [
+            {
+                id: 1,
+                unicat: true, // Is this artwork unique? If so, show badge.
+                title: "My Super Painting",
+                creator: "Mina Mirelli",
+                status: "active", // can be 'active', 'inactive', 'ended', 'sold'
+                preview: "", // image URL or empty for demo
+                number: "PNT-0001",
+                description: "A unique, colorful abstract art piece.",
+                auction: {
+                    startingPrice: "1,200 €",
+                    currentBid: "1,700 €",
+                    bids: 5
+                },
+                tracking: {
+                    owner: "EmmaVenus",
+                    provenance: ["Mina Mirelli", "Gallery A", "EmmaVenus"],
+                    lastMoved: "2025-07-01"
+                }
+            },
+            {
+                id: 2,
+                unicat: true,
+                title: "Golden Horizon",
+                creator: "Alexis Forte",
+                status: "ended",
+                preview: "",
+                number: "PNT-0002",
+                description: "Modernist sunset with gold leaf.",
+                auction: {
+                    startingPrice: "800 €",
+                    currentBid: "1,050 €",
+                    bids: 3
+                },
+                tracking: {
+                    owner: "CollectorX",
+                    provenance: ["Alexis Forte", "CollectorX"],
+                    lastMoved: "2025-06-29"
+                }
+            },
+            {
+                id: 3,
+                unicat: true,
+                title: "Urban Dream",
+                creator: "Jamie Cole",
+                status: "sold",
+                preview: "",
+                number: "PNT-0003",
+                description: "Cityscape with surreal accents.",
+                auction: {
+                    startingPrice: "500 €",
+                    currentBid: "Sold for 900 €",
+                    bids: 6
+                },
+                tracking: {
+                    owner: "Sophie P.",
+                    provenance: ["Jamie Cole", "Sophie P."],
+                    lastMoved: "2025-06-22"
+                }
+            },
+            {
+                id: 4,
+                unicat: true,
+                title: "Quiet Lake",
+                creator: "Olga Beran",
+                status: "inactive",
+                preview: "",
+                number: "PNT-0004",
+                description: "A peaceful landscape in pastels.",
+                auction: {
+                    startingPrice: "400 €",
+                    currentBid: "No bids yet",
+                    bids: 0
+                },
+                tracking: {
+                    owner: "Olga Beran",
+                    provenance: ["Olga Beran"],
+                    lastMoved: "2025-05-30"
+                }
+            }
+        ];
+
+        // --------- State & Rendering Logic ---------
+        let selectedPainting = null;
+        let activeFilters = ["active", "inactive", "ended", "sold"];
+
+        // Render the table rows based on filters
+        function renderPaintingsTable() {
+            const tbody = document.getElementById('paintings-tbody');
+            tbody.innerHTML = '';
+            const filtered = paintings.filter(p => activeFilters.includes(p.status));
+            filtered.forEach((p, idx) => {
+                const row = document.createElement('tr');
+                // UNICAT badge
+                const unicatTd = document.createElement('td');
+                if (p.unicat) {
+                    unicatTd.innerHTML = `<span class="badge-unicat">UNICAT</span>`;
+                }
+                row.appendChild(unicatTd);
+                // Title
+                const titleTd = document.createElement('td');
+                titleTd.textContent = p.title;
+                row.appendChild(titleTd);
+                // Creator
+                const creatorTd = document.createElement('td');
+                creatorTd.textContent = p.creator;
+                row.appendChild(creatorTd);
+                // Status
+                const statusTd = document.createElement('td');
+                let statusClass = 'status-' + p.status;
+                let statusText = p.status.charAt(0).toUpperCase() + p.status.slice(1);
+                statusTd.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+                row.appendChild(statusTd);
+
+                // Row click: select painting
+                row.style.cursor = 'pointer';
+                row.onclick = () => selectPainting(p);
+
+                // Highlight selected row
+                if (selectedPainting && selectedPainting.id === p.id) {
+                    row.style.background = '#ffecf5';
+                }
+
+                tbody.appendChild(row);
+            });
+
+            // Auto-select first painting if none selected
+            if (!selectedPainting && filtered.length > 0) {
+                selectPainting(filtered[0]);
+            }
+            // If filters remove selected painting, select first visible
+            else if (
+                selectedPainting &&
+                !filtered.some(p => p.id === selectedPainting.id) &&
+                filtered.length > 0
+            ) {
+                selectPainting(filtered[0]);
+            }
+            // If nothing left, clear details
+            else if (filtered.length === 0) {
+                clearDetails();
+            }
+        }
+
+        // Handle filter changes
+        document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', e => {
+                activeFilters = Array.from(document.querySelectorAll('.filter-checkbox'))
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.value);
+                renderPaintingsTable();
+            });
+        });
+
+        // Select a painting and show its details
+        function selectPainting(painting) {
+            selectedPainting = painting;
+            renderPaintingsTable(); // To highlight row
+            // Preview (would be image in real app)
+            const preview = document.getElementById('preview-image');
+            preview.innerHTML = painting.preview
+                ? `<img src="${painting.preview}" alt="Preview" style="max-width:100%;max-height:100%;">`
+                : `<span style="color:#bbb;font-size:2em;">🎨</span>`;
+
+            // Show "General" tab by default
+            setActiveTab("general");
+        }
+
+        // Handle tab clicks
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                setActiveTab(this.getAttribute('data-tab'));
+            });
+        });
+
+        // Set active tab and render its content
+        function setActiveTab(tab) {
+            document.querySelectorAll('.tab').forEach(tabEl => {
+                tabEl.classList.toggle('active', tabEl.getAttribute('data-tab') === tab);
+            });
+            if (!selectedPainting) return;
+            const content = document.getElementById('tab-content');
+            if (tab === "general") {
+                content.innerHTML = `
+                    <div><span class="field-label">Number:</span> ${selectedPainting.number}</div>
+                    <div><span class="field-label">Title:</span> ${selectedPainting.title}</div>
+                    <div><span class="field-label">Creator:</span> ${selectedPainting.creator}</div>
+                    <div><span class="field-label">Description:</span> ${selectedPainting.description}</div>
+                `;
+            } else if (tab === "auction") {
+                content.innerHTML = `
+                    <div><span class="field-label">Starting Price:</span> ${selectedPainting.auction.startingPrice}</div>
+                    <div><span class="field-label">Current Bid:</span> ${selectedPainting.auction.currentBid}</div>
+                    <div><span class="field-label">Total Bids:</span> ${selectedPainting.auction.bids}</div>
+                `;
+            } else if (tab === "tracking") {
+                content.innerHTML = `
+                    <div><span class="field-label">Owner:</span> ${selectedPainting.tracking.owner}</div>
+                    <div><span class="field-label">Provenance:</span> ${selectedPainting.tracking.provenance.join(" → ")}</div>
+                    <div><span class="field-label">Last Moved:</span> ${selectedPainting.tracking.lastMoved}</div>
+                `;
+            }
+        }
+
+        // Clear details panel
+        function clearDetails() {
+            selectedPainting = null;
+            document.getElementById('preview-image').innerHTML = `<span style="color:#bbb;">No preview</span>`;
+            document.getElementById('tab-content').innerHTML = `<div style="color:#aaa;">No painting selected.</div>`;
+        }
+
+        // Initial rendering
+        renderPaintingsTable();
+
+        // Main async flow
+        WebControlReady.then(async function() 
+        {
+
+            console.log(await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS"));
+            
+        });
+
+    </script>
+</body>
+</html>

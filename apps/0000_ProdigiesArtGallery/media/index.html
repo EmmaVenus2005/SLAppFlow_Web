@@ -63,12 +63,12 @@
     let timerInterval = null; 
 
     // Utility: Extracts the auction reference (between first and second underscore)
-    function extractReference(fullName) {
-        const first = fullName.indexOf('_');
-        const second = fullName.indexOf('_', first + 1);
-        if (first === -1 || second === -1) return null;
-        return fullName.substring(first + 1, second);
-    }
+    // function extractReference(fullName) {
+    //     const first = fullName.indexOf('_');
+    //     const second = fullName.indexOf('_', first + 1);
+    //     if (first === -1 || second === -1) return null;
+    //     return fullName.substring(first + 1, second);
+    // }
 
     // Utility: Parses the base and numeric part (if present) from the reference
     function parseReference(ref) {
@@ -119,7 +119,8 @@
 
         // Build index by reference
         for (const fullName of auctionList) {
-            const ref = extractReference(fullName);
+            //const ref = extractReference(fullName);
+            const ref = fullName;
             if (!ref) continue;
             const { base, number } = parseReference(ref);
             // Store with minimal info, more will be added by GETINFO
@@ -214,7 +215,8 @@
         const data = auctionState.auctions[ref];
         const info = data.info;
 
-        document.getElementById('artworkTitle').textContent = getDisplayTitle(data.fullName);
+        //document.getElementById('artworkTitle').textContent = getDisplayTitle(data.fullName);
+        document.getElementById('artworkTitle').textContent = info.name ? info.name : "(No name)";
         document.getElementById('startPrice').textContent = info.start_price ? info.start_price + " L$" : "";
         document.getElementById('startDate').textContent = info.start_date ?
             new Date(info.start_date.replace(" ", "T")).toLocaleString() : "";
@@ -334,12 +336,12 @@
     }
 
     // Get the part after the second underscore
-    function getDisplayTitle(fullName) {
-        if (!fullName) return "";
-        const parts = fullName.split("_");
-        if (parts.length < 3) return fullName; // fallback if structure is unexpected
-        return parts.slice(2).join("_");
-    }
+    // function getDisplayTitle(fullName) {
+    //     if (!fullName) return "";
+    //     const parts = fullName.split("_");
+    //     if (parts.length < 3) return fullName; // fallback if structure is unexpected
+    //     return parts.slice(2).join("_");
+    // }
 
     // Updates the countdown timer based on the end date
     function updateCountdown(endDateStr) {
