@@ -105,6 +105,25 @@
             padding: 12px;
         }
         .field-label { font-weight: bold; display: inline-block; width: 80px; }
+        .preview {
+            position: relative;
+        }
+        .preview-upload-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 1.4em;
+            background: rgba(255,255,255,0.8);
+            padding: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: none;
+            transition: opacity 0.2s;
+        }
+
+        .preview:hover .preview-upload-icon {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -144,7 +163,7 @@
         <div class="right-panel">
             <!-- Artwork preview -->
             <div class="preview" id="preview-image">
-                <!-- Placeholder art - in real app, use <img src="..."> or a <canvas> -->
+                <!-- <span class="preview-upload-icon" title="Upload image">⬆️</span> -->
                 <span style="color:#bbb;">No preview</span>
             </div>
             <!-- Tabs for details -->
@@ -352,7 +371,18 @@
 
             // Use cache if possible
             if (imageCache[painting.number]) {
-                preview.innerHTML = `<img src="${imageCache[painting.number]}" alt="Preview" style="max-width:100%;max-height:100%;">`;
+                preview.innerHTML = `
+                    <img src="${imageCache[painting.number]}" alt="Preview" style="max-width:100%;max-height:100%;">
+                    <span class="preview-upload-icon" title="Upload image">⬆️</span>
+                `;
+
+                // RE-ASSIGN THE CLICK LISTENER HERE
+                const uploadIcon = preview.querySelector(".preview-upload-icon");
+                uploadIcon.onclick = () => {
+                    const fileInput = document.getElementById("image-upload-input");
+                    fileInput.click();
+                };
+
                 setActiveTab("general");
                 return;
             }
@@ -367,20 +397,60 @@
             //console.log('Fetched Base64:', base64 ? base64.substring(0, 40) : "(empty)", "length:", base64 ? base64.length : 0);
 
             if (!base64 || typeof base64 !== 'string' || base64.length < 100) {
-                preview.innerHTML = `<span style="color:#bbb;font-size:2em;">🎨</span>`;
+                preview.innerHTML = `
+                    <span style="color:#bbb;font-size:2em;">🎨</span>
+                    <span class="preview-upload-icon" title="Upload image">⬆️</span>
+                `;
             } else {
                 // Heuristic: JPEG files usually start with "/9j/"
                 let mime = "image/png";
                 if (base64.startsWith("/9j/")) mime = "image/jpeg";
                 const dataUrl = `data:${mime};base64,${base64}`;
                 imageCache[painting.number] = dataUrl;
-                preview.innerHTML = `<img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">`;
+                preview.innerHTML = `
+                    <img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">
+                    <span class="preview-upload-icon" title="Upload image">⬆️</span>
+                `;
             }
 
             // Show "General" tab by default
             setActiveTab("general");
 
+            // After inserting the HTML preview
+            const uploadIcon = preview.querySelector(".preview-upload-icon");
+            uploadIcon.onclick = () => {
+                const fileInput = document.getElementById("image-upload-input");
+                fileInput.click();
+            };
+
         }
+
+        // Image upload
+        document.addEventListener("DOMContentLoaded", function() {
+
+            document.getElementById("image-upload-input").addEventListener("change", async function(event) {
+                const file = event.target.files[0];
+                if (!file || !selectedPainting) return;
+
+                const isImage = file.type === "image/png" || file.type === "image/jpeg";
+                if (!isImage) {
+                    alert("Only PNG or JPEG images are allowed.");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const base64 = e.target.result.split(",")[1];
+                    const message = `SETIMAGE|${selectedPainting.number}|${base64}`;
+                    const appId = await AFGetAppID();
+                    await AFSendFlowMessage(appId, "Global", message);
+                    imageCache[selectedPainting.number] = e.target.result;
+                    selectPainting(selectedPainting);
+                };
+                reader.readAsDataURL(file);
+            });
+
+        });
 
         // Handle tab clicks
         document.querySelectorAll('.tab').forEach(tab => {
@@ -468,5 +538,6 @@
         });
 
     </script>
+    <input type="file" id="image-upload-input" accept="image/png, image/jpeg" style="display:none;">
 </body>
 </html>

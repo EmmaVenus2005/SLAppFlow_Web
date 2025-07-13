@@ -558,5 +558,46 @@ if ($messageParts[0] === "ADDUNICAT" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Stores a base64-encoded image for a UNICAT painting
+// E.g. "SETIMAGE|UNICAT234|<base64 image string>"
+if ($messageParts[0] === "SETIMAGE" && IsAdmin(AFGetSenderID())) 
+{
+
+    $number     = $messageParts[1];      // UNICAT number (e.g., UNICAT234)
+    $base64     = $messageParts[2];      // Base64-encoded image
+
+    // Decode the image
+    $binaryData = base64_decode($base64);
+
+    // Minimal validation
+    if (!$binaryData || strlen($binaryData) < 1000) {
+        return false;
+    }
+
+    // Build a unique file name (e.g. UNICAT234.jpg)
+    if (str_starts_with($base64, '/9j/')) {
+        $filename = $number . ".jpg";
+    } elseif (str_starts_with($base64, 'iVBOR')) {
+        $filename = $number . ".png";
+    } else {
+        return false; // unsupported format
+    }
+
+    // Upload the file to the File Service
+    $fileID = FSUpload($filename, $binaryData);
+
+    // If upload failed
+    if (!$fileID) {
+        return false;
+    }
+
+    // Associate the uploaded file ID to the UNICAT number
+    NVSetList("Image", $number, $fileID);
+
+    // File saved
+    return true;
+    
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;
