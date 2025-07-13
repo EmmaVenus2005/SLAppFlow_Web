@@ -217,6 +217,95 @@
                 tbody.appendChild(row);
             });
 
+            // Add a row for new painting
+            const newRow = document.createElement('tr');
+
+            // Number input (manual UNICATxxx)
+            const numberTd = document.createElement('td');
+            const numberInput = document.createElement('input');
+            numberInput.type = "text";
+            numberInput.placeholder = "UNICAT123";
+            numberInput.style.width = "95%";
+            numberTd.appendChild(numberInput);
+            newRow.appendChild(numberTd);
+
+            // Title input
+            const titleInputTd = document.createElement('td');
+            const titleInput = document.createElement('input');
+            titleInput.type = "text";
+            titleInput.placeholder = "Title";
+            titleInput.style.width = "95%";
+            titleInputTd.appendChild(titleInput);
+            newRow.appendChild(titleInputTd);
+
+            // Creator input
+            const creatorInputTd = document.createElement('td');
+            const creatorInput = document.createElement('input');
+            creatorInput.type = "text";
+            creatorInput.placeholder = "Creator";
+            creatorInput.style.width = "95%";
+            creatorInputTd.appendChild(creatorInput);
+            newRow.appendChild(creatorInputTd);
+
+            // Static status: always inactive
+            const statusTd = document.createElement('td');
+            statusTd.innerHTML = `<span class="status-inactive">Inactive</span>`;
+            newRow.appendChild(statusTd);
+
+            // Append the row
+            tbody.appendChild(newRow);
+
+            // Add submit button in a new row below
+            const btnRow = document.createElement('tr');
+            const btnTd = document.createElement('td');
+            btnTd.colSpan = 4;
+            btnTd.style.textAlign = "right";
+
+            const addButton = document.createElement('button');
+            addButton.textContent = "➕ Add Painting";
+            addButton.style.padding = "6px 12px";
+            addButton.style.cursor = "pointer";
+            addButton.onclick = async () => {
+                const number = numberInput.value.trim();
+                const title = titleInput.value.trim();
+                const creator = creatorInput.value.trim();
+                const description = "(new entry)";
+
+                if (!number || !title || !creator) {
+                    alert("Please fill in all fields: number, title, creator.");
+                    return;
+                }
+
+                // Send to backend
+                const msg = `ADDUNICAT|${number}|${title}|${creator}|${description}`;
+                const appId = await AFGetAppID();
+                await AFSendFlowMessage(appId, "Global", msg);
+
+                // Optional: Add locally
+                const newPainting = {
+                    id: number,
+                    unicat: true,
+                    number,
+                    title,
+                    creator,
+                    status: "inactive",
+                    preview: "",
+                    description,
+                    auction: { startingPrice: "?", currentBid: "?", bids: "?" },
+                    tracking: { owner: "?", provenance: [], lastMoved: "?" }
+                };
+
+                paintings.push(newPainting);
+                selectedPainting = newPainting;
+                renderPaintingsTable();
+            };
+
+
+            btnTd.appendChild(addButton);
+            btnRow.appendChild(btnTd);
+            tbody.appendChild(btnRow);
+
+
             // Auto-select first painting if none selected
             if (!selectedPainting && filtered.length > 0) {
                 selectPainting(filtered[0]);
@@ -234,6 +323,13 @@
                 clearDetails();
             }
         }
+
+        // Function to detect the next available number (highest + 1)
+        // function getNextUnicatNumber() {
+        //     if (paintings.length === 0) return 1;
+        //     const nums = paintings.map(p => parseInt(p.number.replace("UNICAT", ""), 10)).filter(n => !isNaN(n));
+        //     return Math.max(...nums) + 1;
+        // }
 
         // Handle filter changes
         document.querySelectorAll('.filter-checkbox').forEach(checkbox => {

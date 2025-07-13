@@ -531,5 +531,32 @@ if ($messageParts[0] === "GETIMAGE" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Adds a new UNICAT entry
+// E.g. "ADDUNICAT|UNICAT234|My super test painting|Emma Gee-Venus|This is a test description."
+if ($messageParts[0] === "ADDUNICAT" && IsAdmin(AFGetSenderID())) 
+{
+
+    // Decoding the incoming information
+    $number       = $messageParts[1];
+    $name         = $messageParts[2];
+    $creatorName  = $messageParts[3];
+    $description  = $messageParts[4];
+
+    // Create the JSON structure (status is forced to "Inactive")
+    $data = [
+        "name"        => $name,
+        "description" => $description,
+        "creatorName" => $creatorName,
+        "status"      => "Inactive"
+    ];
+
+    // Save into the Information list
+    NVSetList("Information", $number, json_encode($data, JSON_UNESCAPED_UNICODE));
+
+    // Successfully created
+    return true;
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;
