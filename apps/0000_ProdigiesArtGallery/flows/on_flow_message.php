@@ -613,5 +613,30 @@ if ($messageParts[0] === "SETIMAGE" && IsAdmin(AFGetSenderID()))
     
 }
 
+// Changes the description of a given UNICAT
+// E.g. "SETDESCRIPTION|UNICAT234|New description for this painting"
+if ($messageParts[0] === "SETDESCRIPTION" && IsAdmin(AFGetSenderID())) 
+{
+
+    // Reads the input parts
+    $number      = $messageParts[1];
+    $description = $messageParts[2];
+
+    // Retrieve the current info for this UNICAT
+    $json = NVGetList("Information", $number);
+    if ($json === null) return false;
+
+    // Decode the JSON and update the description
+    $info = json_decode($json, true);
+    $info['description'] = $description;
+
+    // Save the updated info back to the database
+    NVSetList("Information", $number, json_encode($info, JSON_UNESCAPED_UNICODE));
+
+    // Successfully updated
+    return true;
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;

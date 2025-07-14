@@ -471,9 +471,27 @@
                     <div><span class="field-label">Number:</span> ${selectedPainting.number}</div>
                     <div><span class="field-label">Title:</span> ${selectedPainting.title}</div>
                     <div><span class="field-label">Creator:</span> ${selectedPainting.creator}</div>
-                    <div><span class="field-label">Description:</span> ${selectedPainting.description}</div>
+                    <div>
+                        <span class="field-label">Description:</span>
+                        <textarea id="description-input" rows="3" style="width:90%;">${selectedPainting.description || ''}</textarea>
+                        <button id="update-description-btn" style="margin-top:6px; padding:4px 10px;">Update</button>
+                    </div>
                 `;
-            } else if (tab === "auction") {
+
+                // Attach click handler after injection
+                document.getElementById("update-description-btn").onclick = async () => {
+                    const newDescription = document.getElementById("description-input").value.trim();
+                    const appId = await AFGetAppID();
+                    const response = await AFSendFlowMessage(appId, "Global", `SETDESCRIPTION|${selectedPainting.number}|${newDescription}`);
+                    if (response == true) {
+                        //alert("Description updated.");
+                        selectedPainting.description = newDescription;
+                    } else {
+                        alert("Failed to update description.");
+                    }
+                };
+            }
+            else if (tab === "auction") {
                 content.innerHTML = `
                     <div><span class="field-label">Starting Price:</span> ${selectedPainting.auction.startingPrice}</div>
                     <div><span class="field-label">Current Bid:</span> ${selectedPainting.auction.currentBid}</div>
