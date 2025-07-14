@@ -386,8 +386,16 @@ if ($messageParts[0] === "LISTACTIVE" && AFGetSenderID() === "Media")
     // If there are no paintings, return an empty array
     if ($paintingsList === null) return [];
 
+    // Filter out expired paintings
+    $filteredList = [];
+    foreach ($paintingsList as $painting) {
+        if (IsUNICATActive($painting)) {
+            $filteredList[] = $painting;
+        }
+    }
+
     // Returns the list of paintings as JSON
-    return json_encode($paintingsList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return json_encode($filteredList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
 }
 
@@ -449,6 +457,9 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
     // Keep only the latest 3 bids
     $lastBids = array_slice($bidsList, -3);
 
+    // Creating a new empty array
+    $bidderDetails = [];
+
     // For each bid, recovering the bidder name
     foreach($lastBids as &$bid) 
     {
@@ -494,8 +505,8 @@ if ($messageParts[0] === "LISTUNICATS" && IsAdmin(AFGetSenderID()))
     foreach ($unicats as $unicat)
     {
 
-        // Decoding the UNICAT number
-        //$number = explode("_", $unicat)[1];
+        // Check and update auction status first
+        IsUNICATActive($unicat);
 
         // Getting the general information about the painting
         $jsonInfo = NVGetList("Information", $unicat);
@@ -538,13 +549,13 @@ if ($messageParts[0] === "ADDUNICAT" && IsAdmin(AFGetSenderID()))
 
     // Decoding the incoming information
     $number       = $messageParts[1];
-    $name         = $messageParts[2];
+    $unicatName   = $messageParts[2];
     $creatorName  = $messageParts[3];
     $description  = $messageParts[4];
 
     // Create the JSON structure (status is forced to "Inactive")
     $data = [
-        "name"        => $name,
+        "name"        => $unicatName,
         "description" => $description,
         "creatorName" => $creatorName,
         "status"      => "Inactive"
