@@ -638,5 +638,30 @@ if ($messageParts[0] === "SETDESCRIPTION" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Changes the category of a given UNICAT
+// E.g. "SETCATEGORY|UNICAT234|Modernism"
+if ($messageParts[0] === "SETCATEGORY" && IsAdmin(AFGetSenderID())) 
+{
+    
+    // Extract the UNICAT number and new category
+    $number   = $messageParts[1];
+    $category = $messageParts[2];
+
+    // Retrieve the current info for this UNICAT
+    $json = NVGetList("Information", $number);
+    if ($json === null) return false;
+
+    // Decode the JSON and update the category
+    $info = json_decode($json, true);
+    $info['category'] = $category;
+
+    // Save the updated info back to the database
+    NVSetList("Information", $number, json_encode($info, JSON_UNESCAPED_UNICODE));
+
+    // Successfully updated
+    return true;
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;

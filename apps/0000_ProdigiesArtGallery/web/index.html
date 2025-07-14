@@ -467,10 +467,21 @@
             if (!selectedPainting) return;
             const content = document.getElementById('tab-content');
             if (tab === "general") {
+
+                // Get unique category values from existing paintings
+                const allCategories = [...new Set(paintings.map(p => p.category).filter(Boolean))];
+
                 content.innerHTML = `
                     <div><span class="field-label">Number:</span> ${selectedPainting.number}</div>
                     <div><span class="field-label">Title:</span> ${selectedPainting.title}</div>
                     <div><span class="field-label">Creator:</span> ${selectedPainting.creator}</div>
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <span class="field-label" style="min-width: 80px;">Category:</span>
+                        <input list="category-suggestions" id="category-input" style="flex: 1;" value="${selectedPainting.category || ''}">
+                        <datalist id="category-suggestions">
+                            ${allCategories.map(c => `<option value="${c}">`).join('')}
+                        </datalist>
+                    </div>
                     <div>
                         <span class="field-label">Description:</span>
                         <textarea id="description-input" rows="3" style="width:90%;">${selectedPainting.description || ''}</textarea>
@@ -480,16 +491,51 @@
 
                 // Attach click handler after injection
                 document.getElementById("update-description-btn").onclick = async () => {
+                    
+                    // Get new values from input fields
                     const newDescription = document.getElementById("description-input").value.trim();
+                    const newCategory = document.getElementById("category-input").value.trim();
                     const appId = await AFGetAppID();
-                    const response = await AFSendFlowMessage(appId, "Global", `SETDESCRIPTION|${selectedPainting.number}|${newDescription}`);
-                    if (response == true) {
-                        //alert("Description updated.");
+
+                    // Send both updates to the backend
+                    const respDesc = await AFSendFlowMessage(appId, "Global", `SETDESCRIPTION|${selectedPainting.number}|${newDescription}`);
+                    const respCat  = await AFSendFlowMessage(appId, "Global", `SETCATEGORY|${selectedPainting.number}|${newCategory}`);
+
+                    if (respDesc == true) {
+                        // Update selected painting locally
                         selectedPainting.description = newDescription;
+                        selectedPainting.category = newCategory;
+
+                        // Also update in the global paintings list
+                        const p = paintings.find(x => x.id === selectedPainting.id);
+                        if (p) {
+                            p.description = newDescription;
+                            p.category = newCategory;
+                        }
+
+                        // Refresh category suggestions in case a new one was added
+                        const allCategories = [...new Set(paintings.map(p => p.category).filter(Boolean))];
+                        const datalist = document.getElementById('category-suggestions');
+                        datalist.innerHTML = allCategories.map(c => `<option value="${c}">`).join('');
+
+                        // The Update button is greyed out
+                        const btn = document.getElementById("update-description-btn");
+                        btn.disabled = true;
+
+                        // Optional: show success silently or with a toast/message
+                        // alert("Updated successfully.");
                     } else {
-                        alert("Failed to update description.");
+                        alert("Failed to update one or more fields.");
                     }
                 };
+
+                // Link input changes to re-enable the button
+                document.getElementById("description-input").addEventListener("input", enableUpdateButtonIfChanged);
+                document.getElementById("category-input").addEventListener("input", enableUpdateButtonIfChanged);
+
+                // Run once to ensure initial disabled state
+                enableUpdateButtonIfChanged();
+
             }
             else if (tab === "auction") {
                 content.innerHTML = `
@@ -504,6 +550,18 @@
                     <div><span class="field-label">Last Moved:</span> ${selectedPainting.tracking.lastMoved}</div>
                 `;
             }
+        }
+
+        // Function to manage to grey out the update when not needed
+        function enableUpdateButtonIfChanged() {
+            const descInput = document.getElementById("description-input");
+            const catInput = document.getElementById("category-input");
+            const btn = document.getElementById("update-description-btn");
+
+            const descChanged = descInput.value.trim() !== (selectedPainting.description || "").trim();
+            const catChanged = catInput.value.trim() !== (selectedPainting.category || "").trim();
+
+            btn.disabled = !(descChanged || catChanged);
         }
 
         // Clear details panel
@@ -528,14 +586,15 @@
 
             // Map each backend entry to the format expected by the UI
             paintings = data.map((entry, idx) => ({
-                id: entry.number,           // Use UNICAT number as unique row ID
-                unicat: true,               // All are UNICAT (adjust if needed)
-                title: entry.name,          // Painting title
-                creator: entry.creatorName, // Name of the creator
-                status: (entry.status || "active").toLowerCase(), // Normalize status
-                preview: "",                // No image for now
-                number: entry.number,       // UNICAT number, displayed in the table
-                description: entry.description, // Painting description
+                id: entry.number,                                   // Use UNICAT number as unique row ID
+                unicat: true,                                       // All are UNICAT (adjust if needed)
+                title: entry.name,                                  // Painting title
+                creator: entry.creatorName,                         // Name of the creator
+                status: (entry.status || "active").toLowerCase(),   // Normalize status
+                preview: "",                                        // No image for now
+                number: entry.number,                               // UNICAT number, displayed in the table
+                category: entry.category || "",                     // Category of the painting (E.g. Modernism)
+                description: entry.description,                     // Painting description
 
                 // Auction and tracking data: placeholders (fill with real data if/when available)
                 auction: {
