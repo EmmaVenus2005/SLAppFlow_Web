@@ -170,22 +170,25 @@ if ($messageParts[0] === "LOCKSCREEN" && AFIsUnsafe() !== true)
 }
 
 // When a piece of art is rezzed, checks if the owner changed
-// E. g. "REZZED|Painting_UNICAT0000000001_Astrid|{ JSON data }"
+// E. g. "REZZED|Painting_UNICAT0000000001|{ JSON data }"
 if ($messageParts[0] === "REZZED" && AFIsUnsafe() !== true) 
 {
+
+    // Gets the UNICAT number (without the leading Painting_ mention)
+    $unicatNumber = explode("_", $messageParts[1])[1];
     
     // Recovering the last known owner from the database 
-    $lastOwnerID = NVGetSessionValue($messageParts[1], "LastOwnerID");
+    $lastOwnerID = NVGetSessionValue($unicatNumber, "LastOwnerID");
 
     // We check if the last owner ID is different from the last known one
     if ($lastOwnerID !== AFGetSenderID()) 
     {
 
         // Sets the new owner ID in the database
-        NVSetSessionValue($messageParts[1], "LastOwnerID", AFGetSenderID());
+        NVSetSessionValue($unicatNumber, "LastOwnerID", AFGetSenderID());
         
         // Stores the last transaction in the list, with the JSON as additional data
-        NVSetSessionList($messageParts[1], "NewOwner", date('c'), $messageParts[2]);
+        NVSetSessionList($unicatNumber, "NewOwner", date('c'), $messageParts[2]);
 
     }
 
