@@ -62,13 +62,8 @@
     // Timer for countdown updates
     let timerInterval = null; 
 
-    // Utility: Extracts the auction reference (between first and second underscore)
-    // function extractReference(fullName) {
-    //     const first = fullName.indexOf('_');
-    //     const second = fullName.indexOf('_', first + 1);
-    //     if (first === -1 || second === -1) return null;
-    //     return fullName.substring(first + 1, second);
-    // }
+    // Variable to store the painting style (or category)
+    let boardStyle = null;
 
     // Utility: Parses the base and numeric part (if present) from the reference
     function parseReference(ref) {
@@ -92,7 +87,21 @@
 
     // Loads the list of active auctions and their info
     async function loadAuctions(force = false) {
+        
+        // Will store the curent date to check if the auction is over
         const now = Date.now();
+                
+        // Wait for the appID (could be async)
+        const appId = await AFGetAppID();
+
+        // Getting the token from the URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || ""; // or handle missing token as you want
+
+        // Get the board style
+        boardStyle = await AFSendFlowMessage(appId, "Global", "GETSTYLE|" + token);
+        console.log("Board style:", boardStyle);
+
         // Only reload if over 10min or force
         if (!force && auctionState.lastLoad && (now - auctionState.lastLoad < 10*60*1000)) return;
         auctionState.lastLoad = now;
@@ -101,13 +110,6 @@
         auctionState.auctions = {};
         auctionState.refs = [];
         auctionState.currentIdx = 0;
-
-        // Wait for the appID (could be async)
-        const appId = await AFGetAppID();
-
-        // Getting the token from the URL
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token') || ""; // or handle missing token as you want
 
         // Request active auction list        
         let auctionList = await AFSendFlowMessage(appId, "Global", "LISTACTIVE|" + token);
@@ -147,7 +149,9 @@
             if (typeof info === "string") {
                 try { info = JSON.parse(info); } catch {}
             }
-            if (isAuctionActive(info)) {
+            
+            // Check if the auction is still active AND category matches the board style
+            if (isAuctionActive(info) && info.category?.toLowerCase() === boardStyle?.toLowerCase()) {
                 auctionState.auctions[ref].info = info;
                 filteredRefs.push(ref);
             }

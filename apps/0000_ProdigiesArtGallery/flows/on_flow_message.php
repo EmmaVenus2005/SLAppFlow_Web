@@ -503,6 +503,26 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
 
 }
 
+// Gets the board style based on the token
+// CALLED FROM THE FRONT-END MEDIA
+// E. g. "GETSTYLE|<token>"
+if ($messageParts[0] === "GETSTYLE" && AFGetSenderID() === "Media")
+{
+
+    // Sanitize the thread as it's called from media
+    AFSetSafe();
+
+    // Gets the board ID using the token
+    $boardID = NVGetList("BoardToken", $messageParts[1]);
+
+    // If the board ID is not found, return null
+    if ($boardID === null) return null;
+
+    // Gets the style from the database
+    return NVGetList("BoardStyle", $boardID);
+
+}
+
 // Checks if the user is an admin
 // Called from WebControl authenticated user to "Global"
 // E. g. "ISADMIN"
