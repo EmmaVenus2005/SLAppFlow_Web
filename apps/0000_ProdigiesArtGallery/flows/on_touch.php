@@ -55,7 +55,7 @@ if (AFGetFlowAppMode() === "AuctionBoard")
             // Adding dialog for everyone
             $dialog = "\nThe Prodigies Art Gallery\n\n";
             $dialog .= "Current style : " . $style . "\n\n";
-            $dialog .= "[Money] : Autorize the money transactions\n";
+            $dialog .= "[Money] : Authorize the money transactions\n";
             $dialog .= "[Style] : Set-up the painting style\n";
             $dialog .= "[Done] : Unlocks the board\n";
 
