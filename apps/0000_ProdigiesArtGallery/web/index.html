@@ -148,6 +148,7 @@
             <table class="paintings-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
                         <th>Unicat</th>
                         <th>Title</th>
                         <th>Creator</th>
@@ -201,6 +202,16 @@
             const filtered = paintings.filter(p => activeFilters.includes(p.status));
             filtered.forEach((p, idx) => {
                 const row = document.createElement('tr');
+
+                // Leading checkbox
+                const selectTd = document.createElement('td');
+                const checkbox = document.createElement('input');
+                checkbox.type = "checkbox";
+                checkbox.classList.add("row-checkbox");
+                checkbox.dataset.id = p.id;
+                //checkbox.addEventListener('change', updateStartAuctionButton);
+                selectTd.appendChild(checkbox);
+                row.appendChild(selectTd);
                 
                 // UNICAT column (show number)
                 const unicatTd = document.createElement('td');
@@ -238,6 +249,10 @@
 
             // Add a row for new painting
             const newRow = document.createElement('tr');
+
+            // Empty space instead of the checkbox
+            const emptySelectTd = document.createElement('td');
+            newRow.appendChild(emptySelectTd);
 
             // Number input (manual UNICATxxx)
             const numberTd = document.createElement('td');
@@ -277,7 +292,7 @@
             // Add submit button in a new row below
             const btnRow = document.createElement('tr');
             const btnTd = document.createElement('td');
-            btnTd.colSpan = 4;
+            btnTd.colSpan = 5;
             btnTd.style.textAlign = "right";
 
             const addButton = document.createElement('button');
