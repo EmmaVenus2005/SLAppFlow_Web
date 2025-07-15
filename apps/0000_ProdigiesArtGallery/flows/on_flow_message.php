@@ -60,6 +60,7 @@ if (AFGetOwnerID() !== "Global") {
 }
 
 // Saves the board owner in the "Global" user context
+// Called from on_hooked event
 // E. g. "BOARDOWNER|<boardID>|<ownerID>"
 if ($messageParts[0] === "BOARDOWNER" && AFIsUnsafe() !== true)
 {
@@ -69,6 +70,31 @@ if ($messageParts[0] === "BOARDOWNER" && AFIsUnsafe() !== true)
 
     // Successfully saved the board owner
     return true;
+
+}
+
+// Saves the board painting style in the "Global" user context
+// Called from on_touch, when the owner touches it
+// E. g. "SETSTYLE|<boardID>|<style>"
+if ($messageParts[0] === "SETSTYLE" && AFIsUnsafe() !== true)
+{
+
+    // Saves the style in the database
+    NVSetList("BoardStyle", $messageParts[1], $messageParts[2]);
+
+    // Successfully saved the board style
+    return true;
+
+}
+
+// Returns the board painting style from the "Global" user context
+// Called from on_touch, when the owner touches it
+// E. g. "GETSTYLE|<boardID>"
+if ($messageParts[0] === "GETSTYLE" && AFIsUnsafe() !== true)
+{
+
+    // Returns the style in the database
+    return NVGetList("BoardStyle", $messageParts[1]);
 
 }
 

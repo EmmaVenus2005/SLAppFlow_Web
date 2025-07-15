@@ -27,7 +27,7 @@ if (AFGetFlowAppMode() === "AuctionBoard")
 {
 
     // Asking for "debit" permission (needed for the Auction Board)
-    SLAskPermission(AFGetFlowObjectID(), "debit");
+    //SLAskPermission(AFGetFlowObjectID(), "debit");
 
     // Updates the URL of the board with the new token
     $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());

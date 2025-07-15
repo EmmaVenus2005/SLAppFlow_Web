@@ -38,6 +38,64 @@
 if (AFGetFlowAppMode() === "AuctionBoard")
 {
 
+    // If the owner touches the board, offers some setting up options
+    if (AFGetFlowSession() === AFGetOwnerID())
+    {
+
+        // Navigation variables
+        $exit = false;
+
+        // Loops until Done is selected, or timeout
+        while ($exit === false)
+        {
+
+            // Gets the current style of the board (if already set)
+            $style = AFSendFlowMessage(AFGetAppID(), "Global", "GETSTYLE|" . AFGetFlowObjectID());
+
+            // Adding dialog for everyone
+            $dialog = "\nThe Prodigies Art Gallery\n\n";
+            $dialog .= "Current style : " . $style . "\n\n";
+            $dialog .= "[Money] : Autorize the money transactions\n";
+            $dialog .= "[Style] : Set-up the painting style\n";
+            $dialog .= "[Done] : Unlocks the board\n";
+
+            // Adding options for everyone
+            $options = ["Money", "Style", "Done"];
+            
+            // Sending the dialog to the avatar
+            $answer = SLDialog(AFGetFlowObjectID(), AFGetOwnerID(), $dialog, "", [], $options, false, false);
+
+            if ($answer === "Money")
+            {
+
+                // Asking for "debit" permission (needed for the Auction Board)
+                SLAskPermission(AFGetFlowObjectID(), "debit");
+
+            } elseif ($answer === "Style")
+            {
+
+                // Header of the dialog
+                $dialog = "\nThe Prodigies Art Gallery\n\n";
+                $dialog .= "Please enter the painting style";
+
+                // Opening the textbox		
+                $answer = SLTextBox(AFGetFlowObjectID(), AFGetOwnerID(), $dialog);
+
+                // If the owner gave an answer
+                if ($answer !== null)
+                {
+
+                    // Sets the style in the "Global" user
+                    AFSendFlowMessage(AFGetAppID(), "Global", "SETSTYLE|" . AFGetFlowObjectID() . "|" . $answer);
+
+                }
+
+            } else { $exit = true; }
+
+        }
+
+    }
+
     // Sets the BID button position in front of the screen (visible)
     SLSetLinkPosition(AFGetFlowObjectID(), 2, -2.353508, 0.002645, -1.615417);
     
