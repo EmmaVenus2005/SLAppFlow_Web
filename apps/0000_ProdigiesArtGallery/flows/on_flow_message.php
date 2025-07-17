@@ -752,6 +752,69 @@ if ($messageParts[0] === "STARTAUCTION" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Gets detailed auction info for a given UNICAT
+// E.g. "GETAUCTIONINFO|UNICAT123"
+if ($messageParts[0] === "GETAUCTIONINFO" && IsAdmin(AFGetSenderID()))
+{
+
+    // Gets the UNICAT number
+    $number = $messageParts[1];
+
+    // Get metadata from Active or Ended auction
+    $meta = NVGetList("ActiveAuction", $number);
+    if (!$meta) $meta = NVGetList("EndedAuction", $number);
+    if (!$meta) {
+        echo json_encode(["error" => "No auction data."]);
+        return;
+    }
+
+    $info = json_decode($meta, true);
+    $startPrice = (float)($info["start_price"] ?? 0);
+    $startDate  = $info["start_date"] ?? "";
+    $endDate    = $info["end_date"] ?? "";
+
+    // Get all Bid entries (JSON-encoded)
+    $bids = NVGetSessionLists($number, "Bid");
+
+    $entries = [];
+    $currentBid = 0;
+
+    if ($bids) 
+    {
+    
+        // Sort bids chronologically
+        usort($bids, fn($a, $b) => strtotime($a) <=> strtotime($b));
+
+        foreach ($bids as $timestamp) {
+            $json = NVGetSessionList($number, "Bid", $timestamp);
+            $data = json_decode($json, true);
+
+            if (!$data) continue;
+
+            $entries[] = [
+                "name"   => $data["name"],
+                "amount" => (float)$data["amount"],
+                "time"   => $timestamp
+            ];
+
+            $currentBid = max($currentBid, (float)$data["amount"]);
+            
+        }
+
+    }
+
+    // Returns the result
+    return json_encode([
+        "start_price"  => $startPrice,
+        "start_date"   => $startDate,
+        "end_date"     => $endDate,
+        "current_bid"  => $currentBid,
+        "bid_count"    => count($entries),
+        "bidders"      => $entries
+    ], JSON_UNESCAPED_UNICODE);
+
+}
+
 
 // Always return explicitely, because if not, PHP returns 1
 return;
