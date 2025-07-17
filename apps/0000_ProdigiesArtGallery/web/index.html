@@ -209,7 +209,8 @@
                 checkbox.type = "checkbox";
                 checkbox.classList.add("row-checkbox");
                 checkbox.dataset.id = p.id;
-                //checkbox.addEventListener('change', updateStartAuctionButton);
+                checkbox.addEventListener('click', e => e.stopPropagation());
+                checkbox.addEventListener('change', updateStartAuctionButton);
                 selectTd.appendChild(checkbox);
                 row.appendChild(selectTd);
                 
@@ -291,10 +292,48 @@
 
             // Add submit button in a new row below
             const btnRow = document.createElement('tr');
-            const btnTd = document.createElement('td');
-            btnTd.colSpan = 5;
-            btnTd.style.textAlign = "right";
 
+            // Left button (Start Auction)
+            const startTd = document.createElement('td');
+            startTd.colSpan = 2;
+            startTd.style.textAlign = "left";
+
+            const startAuctionButton = document.createElement('button');
+            startAuctionButton.textContent = "🎯 Start Auction";
+            startAuctionButton.disabled = true;
+            startAuctionButton.id = "start-auction-btn";
+            startAuctionButton.style.padding = "6px 12px";
+            startAuctionButton.style.marginRight = "12px";
+            startAuctionButton.style.opacity = 0.5;
+            startAuctionButton.style.cursor = "not-allowed";
+
+            // Action when Start Auction is pushed
+            startAuctionButton.onclick = async () => {
+                const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+                
+                // Debug
+                alert("Launching auction for: " + selected.join(", "));
+                
+                // Opens a dialog that asks for auction end date/time and start price
+                // Call AFSendFlowMessage(...)
+
+                // Refreshes the table
+                renderPaintingsTable();
+
+                // Unchecks all checkboxes
+                document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+
+                // Updates button state (since nothing selected, will be greyed out)
+                updateStartAuctionButton();
+
+            };
+
+            startTd.appendChild(startAuctionButton);
+
+            // Add painting button
+            const btnTd = document.createElement('td');
+            btnTd.colSpan = 3;
+            btnTd.style.textAlign = "right";
             const addButton = document.createElement('button');
             addButton.textContent = "➕ Add Painting";
             addButton.style.padding = "6px 12px";
@@ -334,11 +373,10 @@
                 renderPaintingsTable();
             };
 
-
             btnTd.appendChild(addButton);
+            btnRow.appendChild(startTd);
             btnRow.appendChild(btnTd);
             tbody.appendChild(btnRow);
-
 
             // Auto-select first painting if none selected
             if (!selectedPainting && filtered.length > 0) {
@@ -358,12 +396,32 @@
             }
         }
 
-        // Function to detect the next available number (highest + 1)
-        // function getNextUnicatNumber() {
-        //     if (paintings.length === 0) return 1;
-        //     const nums = paintings.map(p => parseInt(p.number.replace("UNICAT", ""), 10)).filter(n => !isNaN(n));
-        //     return Math.max(...nums) + 1;
-        // }
+        // Updates the state of the Start Auction button (greyed out or not)
+        function updateStartAuctionButton() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.id);
+            const selectedPaintings = paintings.filter(p => selectedIds.includes(p.id));
+            const allInactive = selectedPaintings.every(p => p.status === "inactive");
+
+            const btn = document.getElementById("start-auction-btn");
+            const isValid = selectedPaintings.length > 0 && allInactive;
+
+            if (btn) {
+                btn.disabled = !isValid;
+                btn.style.opacity = isValid ? "1" : "0.5";
+                btn.style.cursor = isValid ? "pointer" : "not-allowed";
+            }
+        }
+
+        function getSelectedIds() {
+            return Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+        }
+
+        function restoreSelection(ids) {
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = ids.includes(cb.dataset.id);
+            });
+        }
 
         // Handle filter changes
         document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
@@ -379,7 +437,11 @@
         async function selectPainting(painting) {
             
             selectedPainting = painting;
-            renderPaintingsTable(); // To highlight row
+
+            const previouslySelectedIds = getSelectedIds();
+            renderPaintingsTable();
+            restoreSelection(previouslySelectedIds);
+            updateStartAuctionButton();
 
             // Reference to the preview container
             const preview = document.getElementById('preview-image');
