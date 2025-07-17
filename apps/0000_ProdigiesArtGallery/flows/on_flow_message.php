@@ -709,5 +709,49 @@ if ($messageParts[0] === "SETCATEGORY" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Starts auctions for multiple UNICATs (same end date and price)
+// Format: STARTAUCTION|<end_date>|<start_price>|<unicat1>;<unicat2>;...
+if ($messageParts[0] === "STARTAUCTION" && IsAdmin(AFGetSenderID()))
+{
+    
+    $endDate    = $messageParts[1];              // "2025-07-15 20:00:00"
+    $startPrice = (float)$messageParts[2];       // e.g. 10
+    $unicats    = explode(";", $messageParts[3]); // UNICAT IDs
+
+    // Generate now
+    $startDate = date('Y-m-d H:i:s'); 
+
+    foreach ($unicats as $number) 
+    {
+
+        // SECURITY: skip if already active or ended
+        if (NVGetList("ActiveAuction", $number) !== null) continue;
+        if (NVGetList("EndedAuction", $number) !== null) continue;
+
+        // 1. Update status in Information
+        $infoJson = NVGetList("Information", $number);
+        if ($infoJson !== null) {
+            $info = json_decode($infoJson, true);
+            $info['status'] = 'Active';
+            NVSetList("Information", $number, json_encode($info, JSON_UNESCAPED_UNICODE));
+        }
+
+        // 2. Create ActiveAuction entry
+        $auctionData = [
+            "start_date"  => $startDate,
+            "end_date"    => $endDate,
+            "start_price" => $startPrice
+        ];
+
+        NVSetList("ActiveAuction", $number, json_encode($auctionData, JSON_UNESCAPED_UNICODE));
+
+    }
+
+    // Success
+    return true;
+
+}
+
+
 // Always return explicitely, because if not, PHP returns 1
 return;

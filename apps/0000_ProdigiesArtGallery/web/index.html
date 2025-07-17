@@ -307,26 +307,98 @@
             startAuctionButton.style.opacity = 0.5;
             startAuctionButton.style.cursor = "not-allowed";
 
-            // Action when Start Auction is pushed
-            startAuctionButton.onclick = async () => {
-                const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+            // // Action when Start Auction is pushed
+            // startAuctionButton.onclick = async () => {
+            //     const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
                 
-                // Debug
-                alert("Launching auction for: " + selected.join(", "));
+            //     // Debug
+            //     alert("Launching auction for: " + selected.join(", "));
                 
-                // Opens a dialog that asks for auction end date/time and start price
-                // Call AFSendFlowMessage(...)
+            //     // Opens a dialog that asks for auction end date/time and start price
+            //     // Call AFSendFlowMessage(...)
 
-                // Refreshes the table
+            //     // Refreshes the table
+            //     renderPaintingsTable();
+
+            //     // Unchecks all checkboxes
+            //     document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+
+            //     // Updates button state (since nothing selected, will be greyed out)
+            //     updateStartAuctionButton();
+
+            // };
+
+            // Binds the Start Auction button
+            startAuctionButton.onclick = () => {
+                // Populate default end date: now + 48h
+                const now = new Date();
+                const endDate = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48h ahead
+                const formattedEndDate = endDate.toISOString().replace('T', ' ').substring(0, 19);
+
+                document.getElementById("auction-end-date").value = formattedEndDate;
+                document.getElementById("auction-modal").style.display = "flex";
+            };
+
+            // Cancel button: hides modal
+            document.getElementById("auction-cancel-btn").onclick = () => {
+                document.getElementById("auction-modal").style.display = "none";
+            };
+
+            // Confirm button: sends auction start command
+            document.getElementById("auction-confirm-btn").onclick = async () => {
+                const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+                if (selected.length === 0) {
+                    alert("Please select at least one painting.");
+                    return;
+                }
+
+                const endDate = document.getElementById("auction-end-date").value.trim();
+                const startPriceInput = document.getElementById("auction-start-price").value.trim();
+                const startPrice = parseFloat(startPriceInput);
+
+                // Validation
+                if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(endDate)) {
+                    alert("Invalid end date format. Use: YYYY-MM-DD HH:MM:SS");
+                    return;
+                }
+
+                if (isNaN(startPrice) || startPrice < 0) {
+                    alert("Invalid starting price.");
+                    return;
+                }
+
+                // Compose and send the backend message
+                const message = `STARTAUCTION|${endDate}|${startPrice}|${selected.join(";")}`;
+                const appId = await AFGetAppID();
+                await AFSendFlowMessage(appId, "Global", message);
+
+                // Locally update the status to "active"
+                const now = new Date();
+                selected.forEach(id => {
+                    const p = paintings.find(p => p.id === id);
+                    if (p) {
+                        p.status = "active";
+                        p.auction = {
+                            startPrice: startPrice.toString(),
+                            currentBid: "?",
+                            bids: "?"
+                        };
+                        // Optional: you can store end date too if needed
+                    }
+                });
+
+                // Refreshes the list
                 renderPaintingsTable();
 
-                // Unchecks all checkboxes
+                // Close modal
+                document.getElementById("auction-modal").style.display = "none";
+
+                // Refresh UI
+                renderPaintingsTable();
                 document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-
-                // Updates button state (since nothing selected, will be greyed out)
                 updateStartAuctionButton();
-
             };
+
 
             startTd.appendChild(startAuctionButton);
 
@@ -693,5 +765,21 @@
 
     </script>
     <input type="file" id="image-upload-input" accept="image/png, image/jpeg" style="display:none;">
+
+    <div id="auction-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:20px 24px; border-radius:10px; min-width:320px; box-shadow:0 0 12px rgba(0,0,0,0.3);">
+        <h3 style="margin-top:0;">Start Auction</h3>
+        <label>End Date<br>
+            <input type="text" id="auction-end-date" style="width:100%; margin-bottom:10px;" placeholder="YYYY-MM-DD HH:MM:SS">
+        </label><br>
+        <label>Start Price<br>
+            <input type="number" id="auction-start-price" style="width:100%; margin-bottom:16px;" value="10">
+        </label><br>
+        <div style="text-align:right;">
+            <button id="auction-cancel-btn" style="margin-right:8px;">Cancel</button>
+            <button id="auction-confirm-btn" style="background:#28a745; color:white;">Start</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
