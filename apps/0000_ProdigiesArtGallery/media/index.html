@@ -9,10 +9,36 @@
         .image-artwork { float: left; width: 250px; height: 250px; background: #222; border-radius: 8px; overflow: hidden; position: relative; }
         .image-artwork img { width: 100%; height: 100%; object-fit: contain; background: #000; }
         .arrow-group { position: absolute; top: 16px; right: 24px; z-index: 10; display: flex; gap: 0; }
-        .arrow { font-size: 2em; color: #ffc833; background: #222a; border-radius: 50%; padding: 4px 14px; cursor: pointer; user-select: none; transition: background 0.2s, color 0.2s; margin-left: 4px; }
+        .arrow {
+            font-size: 2em;
+            color: #ffc833;
+            background: #222a;
+            border-radius: 50%;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s, color 0.2s;
+            margin-left: 4px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 48px;
+            min-width: 48px;
+            box-sizing: border-box;
+        }
         .arrow:hover { background: #ffc833; color: #222; }
-        .info-block { margin-left: 280px; min-height: 220px; }
-        .title { font-size: 2em; letter-spacing: 4px; font-weight: bold; margin-top: 0; color: #ffc833; }
+        .info-block { 
+            margin-left: 280px; 
+            min-height: 220px;
+        }
+        .title { 
+            font-size: 2em; 
+            letter-spacing: 4px; 
+            font-weight: bold; 
+            margin-top: 0; 
+            color: #ffc833;
+            max-width: 300px;
+        }
         .timer { font-size: 1.2em; margin-bottom: 14px; color: #fff; }
         .start-info, .bidders, .creator-desc { color: #eee; }
         .bidders { margin-top: 22px; }
