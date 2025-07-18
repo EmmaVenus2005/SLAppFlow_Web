@@ -104,11 +104,11 @@
 
     // Utility: Checks if end_date is still valid (not expired)
     function isAuctionActive(info) {
-        if (!info || !info.end_date) return false;
+        if (!info || !info.start_date || !info.end_date) return false;
         const now = Date.now();
-        // Parse end_date as local time
-        const end = new Date(info.end_date.replace(" ", "T"));
-        return now < end.getTime();
+        const start = new Date(info.start_date.replace(" ", "T") + "Z");
+        const end = new Date(info.end_date.replace(" ", "T") + "Z");
+        return now >= start.getTime() && now < end.getTime();
     }
 
     // Loads the list of active auctions and their info
@@ -249,7 +249,7 @@
         document.getElementById('artworkTitle').textContent = info.name ? info.name : "(No name)";
         document.getElementById('startPrice').textContent = info.start_price ? info.start_price + " L$" : "";
         document.getElementById('startDate').textContent = info.start_date ?
-            new Date(info.start_date.replace(" ", "T")).toLocaleString() : "";
+            new Date(info.start_date.replace(" ", "T") + "Z").toLocaleString('en-US', { timeZone: 'UTC' }) + " UTC" : "";
 
         // Show cached image or a loading placeholder
         const imgElem = document.getElementById('artworkImage');
@@ -365,14 +365,6 @@
         };
     }
 
-    // Get the part after the second underscore
-    // function getDisplayTitle(fullName) {
-    //     if (!fullName) return "";
-    //     const parts = fullName.split("_");
-    //     if (parts.length < 3) return fullName; // fallback if structure is unexpected
-    //     return parts.slice(2).join("_");
-    // }
-
     // Updates the countdown timer based on the end date
     function updateCountdown(endDateStr) {
         const timerElem = document.getElementById('auctionTimer');
@@ -383,29 +375,37 @@
 
         function refresh() {
             const now = new Date();
-            const end = new Date(endDateStr.replace(" ", "T"));
+            const end = new Date(endDateStr.replace(" ", "T") + "Z");
             let diff = Math.floor((end - now) / 1000); // seconds
 
-            if (diff < 0) diff = 0;
-            const days = Math.floor(diff / 86400);
-            const hours = Math.floor((diff % 86400) / 3600);
-            const minutes = Math.floor((diff % 3600) / 60);
-            const seconds = diff % 60;
-
-            if (diff === 0) {
-                timerElem.textContent = "Auction ended";
+            if (diff <= 0) {
                 clearInterval(timerInterval);
+                timerElem.textContent = "Auction ended";
+
+                // Wait a short time, then reload and go to next
+                setTimeout(async () => {
+                    await loadAuctions(true); // force reload to remove ended
+                    if (auctionState.refs.length) {
+                        await goToAuction(auctionState.currentIdx); // stay or shift if current is gone
+                    } else {
+                        document.getElementById('auctionBoard').style.display = "none";
+                    }
+                }, 1500); // short delay before switching
             } else {
+                const days = Math.floor(diff / 86400);
+                const hours = Math.floor((diff % 86400) / 3600);
+                const minutes = Math.floor((diff % 3600) / 60);
+                const seconds = diff % 60;
+
                 timerElem.textContent = `⏳ Time left: ${days}d ${hours}h ${minutes}m ${seconds}s`;
             }
         }
 
-        // Clear previous timer if any
         if (timerInterval) clearInterval(timerInterval);
         refresh();
         timerInterval = setInterval(refresh, 1000);
-
     }
+
 
     // Updates the best bidders for the current auction (without reloading all auction data)
     async function updateBiddersForCurrentAuction() {
