@@ -26,18 +26,15 @@
 if (AFGetFlowAppMode() === "AuctionBoard") 
 {
 
-    // Asking for "debit" permission (needed for the Auction Board)
-    //SLAskPermission(AFGetFlowObjectID(), "debit");
+    // Saves the board owner, so the message to reset the lock screen timer can
+    // be sent when the front-end uses the selection arrows
+    AFSendFlowMessage(AFGetAppID(), "Global", "BOARDOWNER|" . AFGetFlowObjectID() . "|" . AFGetOwnerID());
 
     // Updates the URL of the board with the new token
     $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 
     // Applies the received texture to the board
     SLApplyTexture(AFGetFlowObjectID(), $texture);
-
-    // Saves the board owner, so the message to reset the lock screen timer can
-    // be sent when the front-end uses the selection arrows
-    AFSendFlowMessage(AFGetAppID(), "Global", "BOARDOWNER|" . AFGetFlowObjectID() . "|" . AFGetOwnerID());
 
     // Successfully updated the URL
     return true; 
