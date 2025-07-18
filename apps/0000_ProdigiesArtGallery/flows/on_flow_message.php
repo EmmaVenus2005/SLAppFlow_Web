@@ -125,13 +125,13 @@ if ($messageParts[0] === "UPDATEURL" && AFIsUnsafe() !== true)
         "rotation" => 0.0,          // No rotation
 
         "media" => [
-            "url" => "https://wwwtest.slappflow.net/webcontrol/wcmedia.php?token={$token}&app=" . AFGetAppID(),
+            "url" => WCGetURL() . "/webcontrol/wcmedia.php?token={$token}&app=" . AFGetAppID(),
             "width" => 1024,           // Optional: adjust if known
             "height" => 768,           // Optional: adjust if known
             "auto_play" => 1,          // Media auto-start
             "auto_scale" => 0,         // Disable auto-scale (respects PRIM_TEXTURE scaling)
             "whitelist" => [
-                "https://wwwtest.slappflow.net"
+                WCGetURL()
             ],
             "interact" => "anyone",     // Who can click/interact
             "control" => "none"       // Who can control (navigate, reload)
@@ -798,7 +798,7 @@ if ($messageParts[0] === "GETAUCTIONINFO" && IsAdmin(AFGetSenderID()))
             ];
 
             $currentBid = max($currentBid, (float)$data["amount"]);
-            
+
         }
 
     }
