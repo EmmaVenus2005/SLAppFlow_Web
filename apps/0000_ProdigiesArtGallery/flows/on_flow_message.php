@@ -234,8 +234,17 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     // Get the current page related to the boardID
     $currentPage = NVGetList("CurrentPage", $messageParts[1]);
 
+    // Force active state check (may archive and return false)
+    if (!IsUNICATActive($currentPage)) {
+        return "EXPIRED|" . GetUNICATName($currentPage);
+    }
+
+    // Determine correct session key for Bid (could be UNICAT123 or UNICAT123@2 etc.)
+    $bidKey = GetCurrentKey($currentPage);
+    if ($bidKey === null) return "EXPIRED|" . GetUNICATName($currentPage);
+
     // Get the list of existing bids for this painting
-    $bidsList = NVGetSessionLists($currentPage, "Bid");
+    $bidsList = NVGetSessionLists($bidKey, "Bid");
 
     // Removes the ending Resident from the bidder's name
     $username = $messageParts[3];
@@ -261,7 +270,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         ];
         
         // Save the new bid to the database
-        NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
+        NVSetSessionList($bidKey, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
         
         // Nothing to refund since it's the first bid
         return "FIRSTBID|" . GetUNICATName($currentPage);
@@ -277,7 +286,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     $lastBidKey = end($bidsList);
 
     // Retrieve the JSON-encoded last bid details from storage
-    $lastBidJson = NVGetSessionList($currentPage, "Bid", $lastBidKey);
+    $lastBidJson = NVGetSessionList($bidKey, "Bid", $lastBidKey);
     $lastBidDetails = json_decode($lastBidJson, true);
 
     // If the new bid amount is not greater than the previous, reject the bid
@@ -294,7 +303,7 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     ];
 
     // Save the new bid to the database
-    NVSetSessionList($currentPage, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
+    NVSetSessionList($bidKey, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
 
     // Returns "REFUNDPREV|<painting name>|<previous bidder>|<previous best bid>"
     return "REFUNDPREV|" . GetUNICATName($currentPage) . "|" . $lastBidDetails['uuid'] . "|" . $lastBidDetails['amount'];
@@ -472,8 +481,12 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
     // If the board doesn't exist, returns null
     if ($boardID === null) return null;
 
+    // Gets the key for the active auction
+    $key = GetCurrentKey($messageParts[2]);
+    if ($key === null) return null;
+
     // Gets the list of buids for the painting
-    $bidsList = NVGetSessionLists($messageParts[2], "Bid");
+    $bidsList = NVGetSessionLists($key, "Bid");
 
     // If no bid on this painting, returns an empty array
     if ($bidsList === null || count($bidsList) === 0) return [];
@@ -494,7 +507,7 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
     {
      
         // Gets the elements of each bid (including the name, UUID and price)
-        $bidderDetails[] = [$bid, NVGetSessionList($messageParts[2], "Bid", $bid)];
+        $bidderDetails[] = [$bid, NVGetSessionList($key, "Bid", $bid)];
 
     }
 
@@ -601,6 +614,11 @@ if ($messageParts[0] === "ADDUNICAT" && IsAdmin(AFGetSenderID()))
     $unicatName   = $messageParts[2];
     $creatorName  = $messageParts[3];
     $description  = $messageParts[4];
+
+    // Check if this UNICAT number already exists
+    if (NVGetList("Information", $number) !== null) {
+        return false;
+    }
 
     // Create the JSON structure (status is forced to "Inactive")
     $data = [
@@ -714,9 +732,9 @@ if ($messageParts[0] === "SETCATEGORY" && IsAdmin(AFGetSenderID()))
 if ($messageParts[0] === "STARTAUCTION" && IsAdmin(AFGetSenderID()))
 {
     
-    $endDate    = $messageParts[1];              // "2025-07-15 20:00:00"
-    $startPrice = (float)$messageParts[2];       // e.g. 10
-    $unicats    = explode(";", $messageParts[3]); // UNICAT IDs
+    $endDate    = $messageParts[1];                 // "2025-07-15 20:00:00"
+    $startPrice = (float)$messageParts[2];          // e.g. 10
+    $unicats    = explode(";", $messageParts[3]);   // UNICAT IDs
 
     // Generate now
     $startDate = date('Y-m-d H:i:s'); 
@@ -724,9 +742,8 @@ if ($messageParts[0] === "STARTAUCTION" && IsAdmin(AFGetSenderID()))
     foreach ($unicats as $number) 
     {
 
-        // SECURITY: skip if already active or ended
+        // SECURITY: skip if already active
         if (NVGetList("ActiveAuction", $number) !== null) continue;
-        if (NVGetList("EndedAuction", $number) !== null) continue;
 
         // 1. Update status in Information
         $infoJson = NVGetList("Information", $number);
@@ -743,6 +760,7 @@ if ($messageParts[0] === "STARTAUCTION" && IsAdmin(AFGetSenderID()))
             "start_price" => $startPrice
         ];
 
+        // Activates the auction
         NVSetList("ActiveAuction", $number, json_encode($auctionData, JSON_UNESCAPED_UNICODE));
 
     }
@@ -760,61 +778,80 @@ if ($messageParts[0] === "GETAUCTIONINFO" && IsAdmin(AFGetSenderID()))
     // Gets the UNICAT number
     $number = $messageParts[1];
 
-    // Get metadata from Active or Ended auction
-    $meta = NVGetList("ActiveAuction", $number);
-    if (!$meta) $meta = NVGetList("EndedAuction", $number);
-    if (!$meta) {
-        echo json_encode(["error" => "No auction data."]);
-        return;
-    }
+    // Initializing the array
+    $result = [];
 
-    $info = json_decode($meta, true);
-    $startPrice = (float)($info["start_price"] ?? 0);
-    $startDate  = $info["start_date"] ?? "";
-    $endDate    = $info["end_date"] ?? "";
+    // Utility function to load the bidding data
+    function LoadAuctionDataWithBids($key, $metaJson, $status) {
+        $info = json_decode($metaJson, true);
+        if (!is_array($info)) return null;
 
-    // Get all Bid entries (JSON-encoded)
-    $bids = NVGetSessionLists($number, "Bid");
+        $startPrice = (float)($info["start_price"] ?? 0);
+        $startDate  = $info["start_date"] ?? "";
+        $endDate    = $info["end_date"] ?? "";
 
-    $entries = [];
-    $currentBid = 0;
+        $bids = NVGetSessionLists($key, "Bid");
+        $entries = [];
+        $currentBid = 0;
 
-    if ($bids) 
-    {
-    
-        // Sort bids chronologically
-        usort($bids, fn($a, $b) => strtotime($a) <=> strtotime($b));
-
-        foreach ($bids as $timestamp) {
-            $json = NVGetSessionList($number, "Bid", $timestamp);
-            $data = json_decode($json, true);
-
-            if (!$data) continue;
-
-            $entries[] = [
-                "name"   => $data["name"],
-                "amount" => (float)$data["amount"],
-                "time"   => $timestamp
-            ];
-
-            $currentBid = max($currentBid, (float)$data["amount"]);
-
+        if ($bids) {
+            usort($bids, fn($a, $b) => strtotime($a) <=> strtotime($b));
+            foreach ($bids as $timestamp) {
+                $json = NVGetSessionList($key, "Bid", $timestamp);
+                $data = json_decode($json, true);
+                if (!$data) continue;
+                $entries[] = [
+                    "name"   => $data["name"],
+                    "amount" => (float)$data["amount"],
+                    "time"   => $timestamp
+                ];
+                $currentBid = max($currentBid, (float)$data["amount"]);
+            }
         }
 
+        return [
+            "status"       => $status,
+            "start_price"  => $startPrice,
+            "start_date"   => $startDate,
+            "end_date"     => $endDate,
+            "current_bid"  => $currentBid,
+            "bid_count"    => count($entries),
+            "bidders"      => $entries
+        ];
+    }
+
+    // ActiveAuction
+    $activeMeta = NVGetList("ActiveAuction", $number);
+    if ($activeMeta !== null) {
+        $entry = LoadAuctionDataWithBids(GetCurrentKey($number), $activeMeta, "Active");
+        if ($entry) $result[] = $entry;
+    }
+
+    // EndedAuction (first, no suffix)
+    $endedMeta = NVGetList("EndedAuction", $number);
+    if ($endedMeta !== null) {
+        $entry = LoadAuctionDataWithBids($number, $endedMeta, "Ended");
+        if ($entry) $result[] = $entry;
+    }
+
+    // Reauctions
+    $count = NVGetList("ReauctionCount", $number);
+    if ($count && is_numeric($count)) {
+        for ($i = 2; $i < $count; $i++) {
+            $suffix = '@' . $i;
+            $key = $number . $suffix;
+            $meta = NVGetList("EndedAuction", $key);
+            if ($meta !== null) {
+                $entry = LoadAuctionDataWithBids($key, $meta, "Ended");
+                if ($entry) $result[] = $entry;
+            }
+        }
     }
 
     // Returns the result
-    return json_encode([
-        "start_price"  => $startPrice,
-        "start_date"   => $startDate,
-        "end_date"     => $endDate,
-        "current_bid"  => $currentBid,
-        "bid_count"    => count($entries),
-        "bidders"      => $entries
-    ], JSON_UNESCAPED_UNICODE);
+    return json_encode($result, JSON_UNESCAPED_UNICODE);
 
 }
-
 
 // Always return explicitely, because if not, PHP returns 1
 return;

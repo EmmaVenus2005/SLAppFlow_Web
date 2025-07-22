@@ -46,9 +46,31 @@ function IsUNICATActive($unicat)
 
         // Scenario C: The auction has ended — we need to archive it
 
-        // Move this auction to "EndedAuction" list
-        NVSetList("EndedAuction", $unicat, $activeData);
+        // Checks if it's the first auction
+        $alreadyEnded = NVGetList("EndedAuction", $unicat);
 
+        if ($alreadyEnded === null) {
+            
+            // First auction : legacy behaviour 
+            NVSetList("EndedAuction", $unicat, $activeData);
+            
+        } else {
+            
+            // Reauction count (2 by default)
+            $count = NVGetList("ReauctionCount", $unicat);
+            if (!$count) { $count = 2; }
+
+            // Creates the suffix for reauction count
+            $suffix = '@' . $count;
+
+            // Writes the data into EndedAuction class
+            NVSetList("EndedAuction", $unicat . $suffix, $activeData);
+
+            // Stores the count if there's more reauction
+            NVSetList("ReauctionCount", $unicat, $count + 1);
+
+        }
+        
         // Remove from "ActiveAuction" list
         NVDelList("ActiveAuction", $unicat);
 
