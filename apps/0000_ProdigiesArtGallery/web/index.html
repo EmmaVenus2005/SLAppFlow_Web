@@ -198,6 +198,9 @@
         // Unicat image cache
         const imageCache = {}; // UNICAT number → Data URL
 
+        // Keep track of the selected tab
+        let currentTab = "general";
+
         // State & Rendering Logic
         let selectedPainting = null;
         let activeFilters = ["active", "inactive", "ended", "sold"];
@@ -521,8 +524,12 @@
                     fileInput.click();
                 };
 
-                setActiveTab("general");
+                // Restore last used tab
+                setActiveTab(currentTab);
+
+                // No need to reload the image
                 return;
+
             }
 
             // Show a loading state
@@ -551,15 +558,15 @@
                 `;
             }
 
-            // Show "General" tab by default
-            setActiveTab("general");
-
             // After inserting the HTML preview
             const uploadIcon = preview.querySelector(".preview-upload-icon");
             uploadIcon.onclick = () => {
                 const fileInput = document.getElementById("image-upload-input");
                 fileInput.click();
             };
+
+            // Restore last used tab
+            setActiveTab(currentTab);
 
         }
 
@@ -599,6 +606,10 @@
 
         // Set active tab and render its content
         function setActiveTab(tab) {
+
+            // Memorize selected tab
+            currentTab = tab;
+
             document.querySelectorAll('.tab').forEach(tabEl => {
                 tabEl.classList.toggle('active', tabEl.getAttribute('data-tab') === tab);
             });
