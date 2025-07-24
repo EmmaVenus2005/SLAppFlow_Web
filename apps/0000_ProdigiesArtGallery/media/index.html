@@ -324,33 +324,54 @@
 
     // This function polls the backend to get the current page (auction) that should be displayed.
     // It only triggers a page change if the page has actually changed, avoiding unnecessary reloads.
-    async function getCurrentPageFromBackend() {
+    async function getCurrentPageFromBackend() 
+    {
+    
         const appId = await AFGetAppID();
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token') || "";
+        
+        // Ask the backend which auction page should currently be displayed
         let page = await AFSendFlowMessage(appId, "Global", "GETPAGE|" + token);
 
-        // Output the polled value for debugging
-        console.log(`[Polling] Backend says current page is:`, page);
+        //console.log(`[Polling] Backend says current page is:`, page);
 
-        // The backend should return the fullName of the currently displayed auction.
+        // Try to locate the page (fullName) in the current list of auctions
+        let idx = -1;
         if (typeof page === "string" && page.length > 0) {
-            // Find the index of the auction that matches the backend response
-            const idx = auctionState.refs.findIndex(ref =>
+            idx = auctionState.refs.findIndex(ref =>
                 auctionState.auctions[ref].fullName === page
             );
-            if (idx >= 0 && idx !== auctionState.currentIdx) {
-                console.log(`[Polling] Page changed! Navigating to auction at index ${idx} (${page})`);
-                // Only navigate if the page index is different (to avoid unnecessary reloads)
-                await goToAuction(idx);
-            } else {
-                console.log(`[Polling] No page change needed.`);
-            }
-        } else {
-            console.log(`[Polling] Backend did not return a valid page.`);
         }
 
-        // Update best bidders for the current page every poll
+        // Case 1: The page exists and is different from the current one → switch to it
+        if (idx >= 0 && idx !== auctionState.currentIdx) {
+            //console.log(`[Polling] Page changed! Navigating to auction at index ${idx} (${page})`);
+            await goToAuction(idx);
+
+        // Case 2: The page is missing, invalid, or not found → fallback to first auction and notify backend
+        } else if ((idx === -1 || typeof page !== "string" || !page.length) && auctionState.refs.length > 0) {
+            
+            //console.log(`[Polling] Invalid or missing page. Defaulting to index 0.`);
+
+            // Set current index to 0 and update the UI accordingly
+            auctionState.currentIdx = 0;
+            await displayCurrentAuction();
+
+            // Inform the backend of the new current page so it stays in sync
+            const ref = auctionState.refs[0];
+            const fullName = auctionState.auctions[ref]?.fullName;
+            if (fullName) {
+                await AFSendFlowMessage(appId, "Global", "PAGECHANGE|" + token + "|" + fullName);
+                //console.log(`[Polling] Sent PAGECHANGE to server for default page: ${fullName}`);
+            }
+
+        // Case 3: The current page is already correct or there are no auctions
+        } else {
+            //console.log(`[Polling] No page change needed.`);
+        }
+
+        // Always update bidders even if no visible change
         await updateBiddersForCurrentAuction();
 
     }
