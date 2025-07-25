@@ -53,6 +53,29 @@ if ($messageParts[0] === "RESETLOCK" && AFIsUnsafe() !== true)
 
 }
 
+// Sent to the board owner, updates the payment options on the board
+// E.g. "SETPAYMENT|<boardID>|<default>|<b1>|<b2>|<b3>|<b4>"
+if ($messageParts[0] === "SETPAYMENT" && AFIsUnsafe() !== true)
+{
+    
+    // Sanity check
+    if (count($messageParts) !== 7) return false;
+
+    // Extract values
+    $default = (int)$messageParts[2];
+    $b1 = (int)$messageParts[3];
+    $b2 = (int)$messageParts[4];
+    $b3 = (int)$messageParts[5];
+    $b4 = (int)$messageParts[6];
+
+    // Apply to the current object (board)
+    SLPaymentOptions($messageParts[1], $default, $b1, $b2, $b3, $b4);
+
+    // Success
+    return true;
+
+}
+
 // Messages are sent to the "Global" user, which is not an actual avatar
 // but a common user for the ArtGallery app.
 if (AFGetOwnerID() !== "Global") {
@@ -271,6 +294,9 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
         
         // Save the new bid to the database
         NVSetSessionList($bidKey, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
+
+        // Updates payment options based on new minimum bid
+        SetPaymentOptions($currentPage, $messageParts[1]);
         
         // Nothing to refund since it's the first bid
         return "FIRSTBID|" . GetUNICATName($currentPage);
@@ -305,6 +331,9 @@ if ($messageParts[0] === "BID" && AFIsUnsafe() !== true)
     // Save the new bid to the database
     NVSetSessionList($bidKey, "Bid", date('Y-m-d H:i:s'), json_encode($bid));
 
+    // Updates payment options based on new minimum bid
+    SetPaymentOptions($currentPage, $messageParts[1]);
+
     // Returns "REFUNDPREV|<painting name>|<previous bidder>|<previous best bid>"
     return "REFUNDPREV|" . GetUNICATName($currentPage) . "|" . $lastBidDetails['uuid'] . "|" . $lastBidDetails['amount'];
 
@@ -330,6 +359,9 @@ if ($messageParts[0] === "PAGECHANGE" && AFGetSenderID() === "Media")
 
     // Sending a message to the board owner to reset the lock screen timer
     AFSendFlowMessage(AFGetAppID(), $ownerID, "RESETLOCK|" . $boardID);
+
+    // Apply payment options based on minimum bid
+    SetPaymentOptions($messageParts[2], $boardID);
 
     // Updates the current page in the database
     NVSetList("CurrentPage", $boardID, $messageParts[2]);
