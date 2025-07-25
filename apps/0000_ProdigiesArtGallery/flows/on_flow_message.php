@@ -885,5 +885,42 @@ if ($messageParts[0] === "GETAUCTIONINFO" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Marks one or more UNICATs as sold
+// Format: DECLARESOLD|<unicat1>;<unicat2>;...
+if ($messageParts[0] === "DECLARESOLD" && IsAdmin(AFGetSenderID()))
+{
+
+    // Explodes the list of selected UNICATS
+    $unicats = explode(";", $messageParts[1]);
+
+    // Looping through each
+    foreach ($unicats as $number) 
+    {
+        
+        // Retrieve current info
+        $infoJson = NVGetList("Information", $number);
+        if ($infoJson === null) continue;
+
+        // Decodes the JSON elements
+        $info = json_decode($infoJson, true);
+
+        // Checks if ended, goes to the next UNICAT if ever 
+        // (security, this control is also done on the front-end)
+        if ($info['status'] !== 'Ended') continue;
+
+        // Update status and sold_on
+        $info['status'] = 'Sold';
+        $info['sold_on'] = date('c'); // ISO 8601 UTC timestamp
+
+        // Save updated info
+        NVSetList("Information", $number, json_encode($info, JSON_UNESCAPED_UNICODE));
+
+    }
+
+    // Success
+    return true;
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;

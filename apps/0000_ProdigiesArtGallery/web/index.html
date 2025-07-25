@@ -328,6 +328,51 @@
                 document.getElementById("auction-modal").style.display = "flex";
             };
 
+            // Declare Sold button
+            const declareSoldButton = document.createElement('button');
+            declareSoldButton.textContent = "✅ Declare Sold";
+            declareSoldButton.disabled = true;
+            declareSoldButton.id = "declare-sold-btn";
+            declareSoldButton.style.padding = "6px 12px";
+            declareSoldButton.style.opacity = 0.5;
+            declareSoldButton.style.cursor = "not-allowed";
+
+            // Binds the Declare Sold button
+            declareSoldButton.onclick = async () => {
+                const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+                if (selected.length === 0) {
+                    alert("Please select at least one painting.");
+                    return;
+                }
+
+                // Get the titles to show in confirmation
+                const names = selected.map(id => {
+                    const p = paintings.find(p => p.id === id);
+                    return p ? `${p.number} (${p.title})` : id;
+                });
+
+                const confirmText = `Are you sure you want to declare the following items as sold?\n\n${names.join("\n")}`;
+
+                // User cancelled
+                if (!confirm(confirmText)) { return; }
+
+                const appId = await AFGetAppID();
+                await AFSendFlowMessage(appId, "Global", `DECLARESOLD|${selected.join(";")}`);
+
+                // Update local state
+                selected.forEach(id => {
+                    const p = paintings.find(p => p.id === id);
+                    if (p) {
+                        p.status = "sold";
+                    }
+                });
+
+                renderPaintingsTable();
+                document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+                updateStartAuctionButton(); // Also updates Declare Sold
+
+            };
+
             // Cancel button: hides modal
             document.getElementById("auction-cancel-btn").onclick = () => {
                 document.getElementById("auction-modal").style.display = "none";
@@ -388,8 +433,9 @@
                 updateStartAuctionButton();
             };
 
-
+            // Addint Start Auction and Declare Sold
             startTd.appendChild(startAuctionButton);
+            startTd.appendChild(declareSoldButton);
 
             // Add painting button
             const btnTd = document.createElement('td');
@@ -433,7 +479,7 @@
                 selectedPainting = newPainting;
                 renderPaintingsTable();
                 selectPainting(newPainting);
-                
+
             };
 
             btnTd.appendChild(addButton);
@@ -460,23 +506,35 @@
         }
 
         // Updates the state of the Start Auction button (greyed out or not)
-        function updateStartAuctionButton() {
+        function updateStartAuctionButton() 
+        {
+        
             const checkboxes = document.querySelectorAll('.row-checkbox:checked');
             const selectedIds = Array.from(checkboxes).map(cb => cb.dataset.id);
             const selectedPaintings = paintings.filter(p => selectedIds.includes(p.id));
-            
-            // Ensures all selected are non-active items
+
+            const startAuctionBtn = document.getElementById("start-auction-btn");
+            const declareSoldBtn = document.getElementById("declare-sold-btn");
+
+            // Start Auction: only if all selected are NOT active
             const allNonActive = selectedPaintings.every(p => p.status !== "active");
+            const enableStartAuction = selectedPaintings.length > 0 && allNonActive;
 
-            // Changes the button state
-            const btn = document.getElementById("start-auction-btn");
-            const isValid = selectedPaintings.length > 0 && allNonActive;
-
-            if (btn) {
-                btn.disabled = !isValid;
-                btn.style.opacity = isValid ? "1" : "0.5";
-                btn.style.cursor = isValid ? "pointer" : "not-allowed";
+            if (startAuctionBtn) {
+                startAuctionBtn.disabled = !enableStartAuction;
+                startAuctionBtn.style.opacity = enableStartAuction ? "1" : "0.5";
+                startAuctionBtn.style.cursor = enableStartAuction ? "pointer" : "not-allowed";
             }
+
+            // Declare Sold: only if all selected are ended
+            const allEnded = selectedPaintings.length > 0 && selectedPaintings.every(p => p.status === "ended");
+
+            if (declareSoldBtn) {
+                declareSoldBtn.disabled = !allEnded;
+                declareSoldBtn.style.opacity = allEnded ? "1" : "0.5";
+                declareSoldBtn.style.cursor = allEnded ? "pointer" : "not-allowed";
+            }
+
         }
 
         function getSelectedIds() {
