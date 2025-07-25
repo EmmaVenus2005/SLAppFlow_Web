@@ -874,13 +874,63 @@
                 })();
 
             }
-            else if (tab === "tracking") {
-                content.innerHTML = `
-                    <div><span class="field-label">Owner:</span> ${selectedPainting.tracking.owner}</div>
-                    <div><span class="field-label">Provenance:</span> ${selectedPainting.tracking.provenance.join(" → ")}</div>
-                    <div><span class="field-label">Last Moved:</span> ${selectedPainting.tracking.lastMoved}</div>
-                `;
+            else if (tab === "tracking") 
+            {
+            
+                content.innerHTML = `<div style="color:#999;">Loading tracking info...</div>`;
+
+                (async () => {
+                    const appId = await AFGetAppID();
+                    const raw = await AFSendFlowMessage(appId, "Global", `GETTRACKING|${selectedPainting.number}`);
+
+                    let entries = [];
+                    try {
+                        entries = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    } catch (e) {
+                        content.innerHTML = `<div style="color:red;">Error loading tracking info.</div>`;
+                        return;
+                    }
+
+                    if (!entries || entries.length === 0) {
+                        content.innerHTML = `<div style="color:#999;">No tracking information available.</div>`;
+                        return;
+                    }
+
+                    // Sort from latest to oldest
+                    entries.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+                    // Build the HTML
+                    let html = `<div style="margin-bottom: 10px;"><strong>Last Owner:</strong> ${entries[0].OwnerName}</div>`;
+                    html += `<table style="width:100%; border-collapse:collapse; font-size:0.9em;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; padding:4px;">Date</th>
+                                <th style="text-align:left; padding:4px;">Owner</th>
+                                <th style="text-align:left; padding:4px;">Position</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                    for (const entry of entries) {
+                        const date = entry.time;
+                        const owner = entry.OwnerName;
+                        const pos = entry.FlowObjectPosition;
+                        const region = entry.FlowRegionName || "Unknown";
+                        const posText = pos ? `${region} (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})` : region;
+                        html += `<tr>
+                                    <td style="padding:4px;">${date}</td>
+                                    <td style="padding:4px;">${owner}</td>
+                                    <td style="padding:4px;">${posText}</td>
+                                </tr>`;
+                    }
+
+                    html += `</tbody></table>`;
+                    content.innerHTML = html;
+
+                })();
+
             }
+
         }
 
         // Function to manage to grey out the update when not needed

@@ -922,5 +922,38 @@ if ($messageParts[0] === "DECLARESOLD" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Gets the tracking information for a UNICAT
+// E.g. "GETTRACKING|<unicatNumber>"
+if ($messageParts[0] === "GETTRACKING" && IsAdmin(AFGetSenderID()))
+{
+    
+    // UNICAT number (no suffix)
+    $number = $messageParts[1];
+
+    // Get the list of timestamps (keys) for "NewOwner" entries
+    $entries = NVGetSessionLists($number, "NewOwner");
+
+    // If no entries found, return empty array
+    if ($entries === null || count($entries) === 0) return [];
+
+    // Sort by timestamp (ascending)
+    usort($entries, fn($a, $b) => strtotime($a) <=> strtotime($b));
+
+    // Prepare output array
+    $result = [];
+
+    // Loop through each timestamp and get the corresponding data
+    foreach ($entries as $timestamp) {
+        $json = NVGetSessionList($number, "NewOwner", $timestamp);
+        $data = json_decode($json, true);
+        if (!$data) continue;
+        $result[] = array_merge(['time' => $timestamp], $data);
+    }
+
+    // Return the result as JSON
+    return json_encode($result, JSON_UNESCAPED_UNICODE);
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;
