@@ -26,6 +26,9 @@
  * 
  */
 
+// Only manages payments for the AuctionBoard
+if (AFGetFlowAppMode() !== 'AuctionBoard') return;
+
 // Registers the bidding, 3 possible options :
 // - "LOWERSTARTPRICE|<painting name>|<start price>" : The minimum price hasn't been paid
 // - "FIRSTBID|<painting name>" : First who bid on that painting
