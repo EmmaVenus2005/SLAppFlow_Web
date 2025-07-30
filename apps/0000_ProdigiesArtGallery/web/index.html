@@ -18,14 +18,22 @@
             align-items: flex-start;
         }
         .left-panel {
-            flex: 2;
-            display: flex;
-            flex-direction: column;
+            flex: 1;
+            margin-right: 400px;
         }
         .right-panel {
-            position: sticky;
+            flex: 1.2;
+            background: #fff;
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: fixed;
             top: 24px;
-            max-height: calc(100vh - 48px); /* Pour éviter de dépasser la fenêtre */
+            right: 24px;
+            width: 350px;
+            height: calc(100vh - 48px);
             overflow-y: auto;
         }
         .filters {
@@ -63,15 +71,6 @@
         .status-inactive { color: #888; }
         .status-ended { color: #ff9800; }
         .status-sold { color: #2196f3; }
-        .right-panel {
-            flex: 1.2;
-            background: #fff;
-            border-radius: 12px;
-            padding: 18px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
         .preview {
             width: 230px;
             height: 230px;
