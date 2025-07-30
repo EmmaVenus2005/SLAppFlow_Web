@@ -31,10 +31,10 @@ if (AFGetFlowAppMode() === "AuctionBoard")
     AFSendFlowMessage(AFGetAppID(), "Global", "BOARDOWNER|" . AFGetFlowObjectID() . "|" . AFGetOwnerID());
 
     // Updates the URL of the board with the new token
-    $texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
+    //$texture = AFSendFlowMessage(AFGetAppID(), "Global", "UPDATEURL|" . AFGetFlowObjectID());
 
     // Applies the received texture to the board
-    SLApplyTexture(AFGetFlowObjectID(), $texture);
+    //SLApplyTexture(AFGetFlowObjectID(), $texture);
 
     // Successfully updated the URL
     return true; 
