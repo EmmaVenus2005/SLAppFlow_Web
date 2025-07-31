@@ -248,9 +248,19 @@
         //document.getElementById('artworkTitle').textContent = getDisplayTitle(data.fullName);
         document.getElementById('artworkTitle').textContent = info.name ? info.name : "(No name)";
         document.getElementById('startPrice').textContent = info.start_price ? info.start_price + " L$" : "";
+        
+        // Transforms the date to SLT (uses UTC-0 internally)
         document.getElementById('startDate').textContent = info.start_date ?
-            new Date(info.start_date.replace(" ", "T") + "Z").toLocaleString('en-US', { timeZone: 'UTC' }) + " UTC" : "";
-
+        new Date(info.start_date.replace(" ", "T") + "Z").toLocaleString('en-US', {
+            timeZone: 'America/Los_Angeles',
+            hour: 'numeric',
+            minute: '2-digit',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour12: true
+        }) + " SLT" : "";
+        
         // Show cached image or a loading placeholder
         const imgElem = document.getElementById('artworkImage');
         imgElem.src = auctionState.images[ref] || "https://dummyimage.com/250x250/444/fff?text=Loading...";
@@ -454,13 +464,30 @@
         const biddersListElem = document.getElementById('biddersList');
         biddersListElem.innerHTML = "<div><b>Bidders:</b></div>";
 
+        // Function to format UTC date to SLT
+        function formatToSLT(utcStr) {
+            if (!utcStr) return "";
+            // Accept both with or without time portion
+            let date = new Date(utcStr.replace(" ", "T") + "Z");
+            return date.toLocaleString('en-US', {
+                timeZone: 'America/Los_Angeles',
+                hour: 'numeric',
+                minute: '2-digit',
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour12: true
+            }) + " SLT";
+        }
+
+        // Displays the bidders
         if (Array.isArray(bids) && bids.length) {
             bids.reverse().forEach(bid => {
                 let info = {};
                 try {
                     info = typeof bid[1] === "string" ? JSON.parse(bid[1]) : bid[1];
                 } catch { /* ignore parse errors */ }
-                const dateStr = bid[0] || "";
+                const dateStr = formatToSLT(bid[0]) || "";
                 biddersListElem.innerHTML += `<div>
                     <span style="color:#ffc833;">${info.name || "(unknown)"}</span> 
                     - <b>${info.amount || "?"} L$</b>
