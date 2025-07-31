@@ -486,6 +486,25 @@
             btnRow.appendChild(btnTd);
             tbody.appendChild(btnRow);
 
+            // Function to enable/disable Add Painting button based on inputs
+            function checkAddButtonState() {
+                const allFilled = numberInput.value.trim() !== "" &&
+                                titleInput.value.trim() !== "" &&
+                                creatorInput.value.trim() !== "";
+
+                addButton.disabled = !allFilled;
+                addButton.style.opacity = allFilled ? "1" : "0.5";
+                addButton.style.cursor = allFilled ? "pointer" : "not-allowed";
+            }
+
+            // Listen for input changes in the three fields
+            [numberInput, titleInput, creatorInput].forEach(input => {
+                input.addEventListener('input', checkAddButtonState);
+            });
+
+            // Initial check to disable the button by default
+            checkAddButtonState();
+
             // Auto-select first painting if none selected
             if (!selectedPainting && filtered.length > 0) {
                 selectPainting(filtered[0]);
