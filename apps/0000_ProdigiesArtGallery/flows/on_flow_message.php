@@ -513,38 +513,11 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
     // If the board doesn't exist, returns null
     if ($boardID === null) return null;
 
-    // Gets the key for the active auction
-    $key = GetCurrentKey($messageParts[2]);
-    if ($key === null) return null;
+    // Use the dedicated function to get the best bids from last auction session
+    $bestBids = GetBestBids($messageParts[2], 3);
 
-    // Gets the list of buids for the painting
-    $bidsList = NVGetSessionLists($key, "Bid");
-
-    // If no bid on this painting, returns an empty array
-    if ($bidsList === null || count($bidsList) === 0) return [];
-
-    // Sort bids by date ascending
-    usort($bidsList, function($a, $b) {
-        return strtotime($a) <=> strtotime($b);
-    });
-
-    // Keep only the latest 3 bids
-    $lastBids = array_slice($bidsList, -3);
-
-    // Creating a new empty array
-    $bidderDetails = [];
-
-    // For each bid, recovering the bidder name
-    foreach($lastBids as &$bid) 
-    {
-     
-        // Gets the elements of each bid (including the name, UUID and price)
-        $bidderDetails[] = [$bid, NVGetSessionList($key, "Bid", $bid)];
-
-    }
-
-    // Returns the list of bidders
-    return json_encode($bidderDetails, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    // Return the best bids as JSON
+    return json_encode($bestBids, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
 }
 
