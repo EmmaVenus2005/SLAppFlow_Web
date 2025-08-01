@@ -426,6 +426,7 @@
                     const p = paintings.find(p => p.id === id);
                     if (p) {
                         p.status = "active";
+                        p.bestBid = null;
                         p.auction = {
                             startPrice: startPrice.toString(),
                             currentBid: "?",

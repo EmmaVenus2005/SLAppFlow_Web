@@ -12,7 +12,12 @@ function GetBestBids($unicat, $number = 3)
     
     // Get the key for the latest/current auction session
     $key = GetCurrentKey($unicat);
-    if ($key === null) return [];
+    
+    // If there's no active session, try the last ended session
+    if ($key === null) {
+        $key = GetLastEndedKey($unicat);
+        if ($key === null) return [];
+    }
 
     // Fetch all bids (list of timestamps)
     $bidsList = NVGetSessionLists($key, "Bid");
