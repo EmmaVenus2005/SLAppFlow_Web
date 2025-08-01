@@ -579,6 +579,20 @@ if ($messageParts[0] === "LISTUNICATS" && IsAdmin(AFGetSenderID()))
         $jsonInfo = NVGetList("Information", $unicat);
         $info = json_decode($jsonInfo, true);
 
+        // Get the best bid amount using the helper (returns an array of [timestamp, json])
+        $bestBidArr = GetBestBids($unicat, 1);
+
+        // Default best bid to null or 0
+        $bestBid = null;
+
+        if ($bestBidArr && isset($bestBidArr[0][1])) {
+            $bidJson = json_decode($bestBidArr[0][1], true);
+            $bestBid = $bidJson['amount'] ?? null;
+        }
+
+        // Add the best_bid parameter to info
+        $info['best_bid'] = $bestBid;
+
         // Merge the UNICAT number into the output array
         $output[] = array_merge(['number' => $unicat], $info);
 

@@ -158,6 +158,7 @@
                         <th>Unicat</th>
                         <th>Title</th>
                         <th>Creator</th>
+                        <th>Best Bid</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -237,6 +238,15 @@
                 const creatorTd = document.createElement('td');
                 creatorTd.textContent = p.creator;
                 row.appendChild(creatorTd);
+
+                // Best Bid
+                const bestBidTd = document.createElement('td');
+                if (p.bestBid !== null && p.bestBid !== undefined && !isNaN(p.bestBid) && Number(p.bestBid) > 0) {
+                    bestBidTd.textContent = Number(p.bestBid) + " L$";
+                } else {
+                    bestBidTd.textContent = "-";
+                }
+                row.appendChild(bestBidTd);
                 
                 // Status
                 const statusTd = document.createElement('td');
@@ -290,6 +300,11 @@
             creatorInput.style.width = "95%";
             creatorInputTd.appendChild(creatorInput);
             newRow.appendChild(creatorInputTd);
+
+            // Empty cell for Best Bid
+            const bestBidEmptyTd = document.createElement('td');
+            bestBidEmptyTd.textContent = "";
+            newRow.appendChild(bestBidEmptyTd);
 
             // Static status: always inactive
             const statusTd = document.createElement('td');
@@ -974,11 +989,9 @@
         WebControlReady.then(async function() 
         {
 
-            //console.log(await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS"));
-
             // Send a message to the backend to retrieve the list of UNICAT paintings
             const result = await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS");
-            console.log(result); // For debugging: print the raw data to the console
+            //console.log(result); // For debugging: print the raw data to the console
 
             // Parse the result if it's a JSON string; otherwise, use as is
             let data = typeof result === 'string' ? JSON.parse(result) : result;
@@ -989,6 +1002,7 @@
                 unicat: true,                                       // All are UNICAT (adjust if needed)
                 title: entry.name,                                  // Painting title
                 creator: entry.creatorName,                         // Name of the creator
+                bestBid: entry.best_bid,                           // Best bid amount (if available)
                 status: (entry.status || "active").toLowerCase(),   // Normalize status
                 preview: "",                                        // No image for now
                 number: entry.number,                               // UNICAT number, displayed in the table
