@@ -103,7 +103,8 @@
             window.optionalColumns = [
                 { key: "bestBid", label: "Best bid", checked: true  },
                 { key: "winnerName", label: "Winner", checked: false  },
-                { key: "sessionEnd", label: "Session end", checked: false }
+                { key: "endDate", label: "Auction end date", checked: false },
+                { key: "endTime", label: "Auction end time", checked: false }
             ];
 
             // Handle filter changes
@@ -175,21 +176,23 @@
 
                 // Map each backend entry to the format expected by the UI
                 paintings = data.map((entry, idx) => ({
-                    id: entry.number,                                   // Use UNICAT number as unique row ID
-                    unicat: true,                                       // All are UNICAT (adjust if needed)
-                    title: entry.name,                                  // Painting title
-                    creator: entry.creatorName,                         // Name of the creator
-                    status: (entry.status || "active").toLowerCase(),   // Normalize status
-                    preview: "",                                        // No image for now
-                    number: entry.number,                               // UNICAT number, displayed in the table
-                    category: entry.category || "",                     // Category of the painting (E.g. Modernism)
-                    description: entry.description,                     // Painting description
-                    winnerName: entry.winner_name || "",                // Winner name (if available)
+                    id: entry.number,                                                   // Use UNICAT number as unique row ID
+                    unicat: true,                                                       // All are UNICAT (adjust if needed)
+                    title: entry.name,                                                  // Painting title
+                    creator: entry.creatorName,                                         // Name of the creator
+                    status: (entry.status || "active").toLowerCase(),                   // Normalize status
+                    preview: "",                                                        // No image for now
+                    number: entry.number,                                               // UNICAT number, displayed in the table
+                    category: entry.category || "",                                     // Category of the painting (E.g. Modernism)
+                    description: entry.description,                                     // Painting description
+                    winnerName: entry.winner_name || "",                                // Winner name (if available)
+                    endDate: entry.end_date ? entry.end_date.substring(0, 10) : "",     // Session end date (if available)
+                    endTime: entry.end_date ? entry.end_date.substring(11, 16) : "",    // Session end time (if available)
 
                     // Best bid amount (if available)
                     bestBid: (entry.best_bid !== null && entry.best_bid !== undefined && !isNaN(entry.best_bid) && Number(entry.best_bid) > 0) 
                     ? Number(entry.best_bid) + " L$" 
-                    : "-",
+                    : "",
 
                     // Auction and tracking data: placeholders (fill with real data if/when available)
                     auction: {

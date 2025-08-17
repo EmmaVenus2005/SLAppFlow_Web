@@ -596,6 +596,19 @@ if ($messageParts[0] === "LISTUNICATS" && IsAdmin(AFGetSenderID()))
         $info['best_bid'] = $bestBid;
         $info['winner_name'] = $winnerName;
 
+        // Gets the end date of the auction
+        $lastAuctionJson = GetLastAuction($unicat);
+        $endDate = null;
+        if ($lastAuctionJson) {
+            $arr = json_decode($lastAuctionJson, true);
+            if (is_array($arr)) {
+                $endDate = $arr['end_date'] ?? null;
+            }
+        }
+
+        // Extracts the "end_date" from the last auction (if existing)
+        $info['end_date'] = $endDate;
+
         // Merge the UNICAT number into the output array
         $output[] = array_merge(['number' => $unicat], $info);
 
