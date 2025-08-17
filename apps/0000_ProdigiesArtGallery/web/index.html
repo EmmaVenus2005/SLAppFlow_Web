@@ -14,13 +14,20 @@
                         <option>Paintings List</option>
                     </select>
                 </div>
-                <!-- Filters section -->
+                <!-- Filters + Columns button in one row -->
                 <div class="filters">
-                    <!-- Paintings status filters -->
-                    <label><input type="checkbox" class="filter-checkbox" value="active" checked> Active</label>
-                    <label><input type="checkbox" class="filter-checkbox" value="inactive" checked> Inactive</label>
-                    <label><input type="checkbox" class="filter-checkbox" value="ended" checked> Ended</label>
-                    <label><input type="checkbox" class="filter-checkbox" value="sold" checked> Sold</label>
+                    <div>
+                        <label><input type="checkbox" class="filter-checkbox" value="active" checked> Active</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="inactive" checked> Inactive</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="ended" checked> Ended</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="sold" checked> Sold</label>
+                    </div>
+                    <div class="column-options" id="column-options">
+                        <button id="column-options-btn">⚙️</button>
+                        <div id="column-options-menu">
+                            <!-- Content is injected via JS -->
+                        </div>
+                    </div>
                 </div>
                 <!-- Paintings table: main listing -->
                 <table class="paintings-table">
@@ -30,7 +37,6 @@
                             <th>Unicat</th>
                             <th>Title</th>
                             <th>Creator</th>
-                            <th>Best Bid</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -93,6 +99,13 @@
             let selectedPainting = null;
             let activeFilters = ["active", "inactive", "ended", "sold"];
 
+            // Optional columns declaration
+            window.optionalColumns = [
+                { key: "bestBid", label: "Best bid", checked: true  },
+                { key: "winnerName", label: "Winner", checked: false  },
+                { key: "sessionEnd", label: "Session end", checked: false }
+            ];
+
             // Handle filter changes
             document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', e => {
@@ -150,6 +163,9 @@
                 script.textContent = jsCode;
                 document.head.appendChild(script);
 
+                // Initialize optional columns
+                await initializeOptionalColumns();
+
                 // Send a message to the backend to retrieve the list of UNICAT paintings
                 const result = await AFSendFlowMessage(await AFGetAppID(), "Global", "LISTUNICATS");
                 //console.log(result); // For debugging: print the raw data to the console
@@ -163,12 +179,16 @@
                     unicat: true,                                       // All are UNICAT (adjust if needed)
                     title: entry.name,                                  // Painting title
                     creator: entry.creatorName,                         // Name of the creator
-                    bestBid: entry.best_bid,                            // Best bid amount (if available)
                     status: (entry.status || "active").toLowerCase(),   // Normalize status
                     preview: "",                                        // No image for now
                     number: entry.number,                               // UNICAT number, displayed in the table
                     category: entry.category || "",                     // Category of the painting (E.g. Modernism)
                     description: entry.description,                     // Painting description
+
+                    // Best bid amount (if available)
+                    bestBid: (entry.best_bid !== null && entry.best_bid !== undefined && !isNaN(entry.best_bid) && Number(entry.best_bid) > 0) 
+                    ? Number(entry.best_bid) + " L$" 
+                    : "-",
 
                     // Auction and tracking data: placeholders (fill with real data if/when available)
                     auction: {

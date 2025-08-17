@@ -2,10 +2,32 @@
 function renderPaintingsTable() 
 {
 
+    // Reference the tbody element
     const tbody = document.getElementById('paintings-tbody');
+    
+    // Clear existing rows
     tbody.innerHTML = '';
+
+    // Optional columns
+    const enabledCols = (window.optionalColumns || []).filter(c => c.checked);
+
+    // Clears the optional columns from the header
+    const theadRow = document.querySelector('.paintings-table thead tr');
+    theadRow.querySelectorAll('th[data-optional="1"]').forEach(th => th.remove());
+
+    // Adds the header row with checked optional columns
+    enabledCols.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    th.setAttribute('data-optional', '1');
+    theadRow.appendChild(th);
+    });
+    
+    // Loop through paintings and add values to the columns
     const filtered = paintings.filter(p => activeFilters.includes(p.status));
     filtered.forEach((p, idx) => {
+
+        // Create a new row
         const row = document.createElement('tr');
 
         // Leading checkbox
@@ -33,15 +55,6 @@ function renderPaintingsTable()
         const creatorTd = document.createElement('td');
         creatorTd.textContent = p.creator;
         row.appendChild(creatorTd);
-
-        // Best Bid
-        const bestBidTd = document.createElement('td');
-        if (p.bestBid !== null && p.bestBid !== undefined && !isNaN(p.bestBid) && Number(p.bestBid) > 0) {
-            bestBidTd.textContent = Number(p.bestBid) + " L$";
-        } else {
-            bestBidTd.textContent = "-";
-        }
-        row.appendChild(bestBidTd);
         
         // Status
         const statusTd = document.createElement('td');
@@ -49,6 +62,14 @@ function renderPaintingsTable()
         let statusText = p.status.charAt(0).toUpperCase() + p.status.slice(1);
         statusTd.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
         row.appendChild(statusTd);
+
+        // Adds values for optional columns
+        enabledCols.forEach(col => {
+            const td = document.createElement('td');
+            td.setAttribute('data-optional', '1');
+            td.textContent = String(p[col.key] ?? "");
+            row.appendChild(td);
+        });
 
         // Row click: select painting
         row.style.cursor = 'pointer';
@@ -59,7 +80,9 @@ function renderPaintingsTable()
             row.style.background = '#ffecf5';
         }
 
+        // Appens the line to the tbody
         tbody.appendChild(row);
+
     });
 
     // Add a row for new painting
@@ -96,15 +119,18 @@ function renderPaintingsTable()
     creatorInputTd.appendChild(creatorInput);
     newRow.appendChild(creatorInputTd);
 
-    // Empty cell for Best Bid
-    const bestBidEmptyTd = document.createElement('td');
-    bestBidEmptyTd.textContent = "";
-    newRow.appendChild(bestBidEmptyTd);
-
     // Static status: always inactive
     const statusTd = document.createElement('td');
     statusTd.innerHTML = `<span class="status-inactive">Inactive</span>`;
     newRow.appendChild(statusTd);
+
+    // Pad optional columns for the "new painting" row
+    enabledCols.forEach(() => {
+        const td = document.createElement('td');
+        td.textContent = "";
+        td.setAttribute('data-optional', '1');
+        newRow.appendChild(td);
+    });
 
     // Append the row
     tbody.appendChild(newRow);
@@ -241,6 +267,7 @@ function renderPaintingsTable()
         renderPaintingsTable();
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
         updateStartAuctionButton();
+
     };
 
     // Addint Start Auction and Declare Sold
@@ -249,7 +276,7 @@ function renderPaintingsTable()
 
     // Add painting button
     const btnTd = document.createElement('td');
-    btnTd.colSpan = 4;
+    btnTd.colSpan = 3 + enabledCols.length;
     btnTd.style.textAlign = "right";
     const addButton = document.createElement('button');
     addButton.textContent = "➕ Add Painting";
@@ -737,4 +764,61 @@ function enableUpdateButtonIfChanged() {
     const catChanged = catInput.value.trim() !== (selectedPainting.category || "").trim();
 
     btn.disabled = !(descChanged || catChanged);
+}
+
+// Build menu, wire events, and provide rendering helpers (no initial render here)
+async function initializeOptionalColumns() 
+{
+
+  const container = document.getElementById('column-options');
+  const btn  = document.getElementById('column-options-btn');
+  const menu = document.getElementById('column-options-menu');
+  if (!container || !btn || !menu) return;
+
+  // (Optional) Load per-user prefs from backend — keep commented for now
+  // try {
+  //   const appId = await AFGetAppID();
+  //   const raw = await AFSendFlowMessage(appId, "Global", "GET_USER_COL_PREFS");
+  //   const prefs = typeof raw === "string" ? JSON.parse(raw) : raw; // e.g., ["category","owner"]
+  //   if (Array.isArray(prefs)) {
+  //     optionalColumns.forEach(c => c.checked = prefs.includes(c.key));
+  //   }
+  // } catch(e) { console.warn("Column prefs load failed; using defaults.", e); }
+
+  // Build the menu from config
+  menu.innerHTML = optionalColumns.map(c => `
+    <label class="column-option-item">
+      <input type="checkbox" value="${c.key}" ${c.checked ? "checked" : ""}>
+      <span>${c.label}</span>
+    </label>
+  `).join("");
+
+  // Toggle open/close
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    container.classList.toggle('open');
+  });
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => container.classList.remove('open'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') container.classList.remove('open'); });
+
+  // On checkbox change: sync flags + (optional) persist + re-render
+  menu.addEventListener('change', async () => {
+    menu.querySelectorAll('input[type="checkbox"]').forEach(input => {
+      const col = optionalColumns.find(c => c.key === input.value);
+      if (col) col.checked = input.checked;
+    });
+
+    // (Optional) persist user choice
+    // const payload = JSON.stringify(optionalColumns.filter(c=>c.checked).map(c=>c.key));
+    // await AFSendFlowMessage(await AFGetAppID(), "Global", `SET_USER_COL_PREFS|${payload}`);
+
+    if (typeof renderPaintingsTable === 'function') 
+        {
+            renderPaintingsTable();
+            console.log("Optional columns updated and table re-rendered.");
+
+        }
+  });
+
 }
