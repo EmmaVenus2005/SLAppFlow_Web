@@ -184,6 +184,7 @@
                     number: entry.number,                               // UNICAT number, displayed in the table
                     category: entry.category || "",                     // Category of the painting (E.g. Modernism)
                     description: entry.description,                     // Painting description
+                    winnerName: entry.winner_name || "",                // Winner name (if available)
 
                     // Best bid amount (if available)
                     bestBid: (entry.best_bid !== null && entry.best_bid !== undefined && !isNaN(entry.best_bid) && Number(entry.best_bid) > 0) 
