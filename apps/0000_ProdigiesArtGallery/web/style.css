@@ -1,12 +1,14 @@
-body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #f5f6fa;
+html, body {
     margin: 0;
     padding: 0;
+    height: auto;
+    overflow: auto;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f5f6fa;
 }
 .container {
     display: flex;
-    height: 100vh;
+    min-height: 100vh;
     padding: 24px;
     gap: 24px;
     align-items: flex-start;
