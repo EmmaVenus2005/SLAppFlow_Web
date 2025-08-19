@@ -2,76 +2,94 @@
 function renderPaintingsTable() 
 {
 
-    // Reference the tbody element
+    // Reference the table elements
+    const thead = document.querySelector('.paintings-table thead');
     const tbody = document.getElementById('paintings-tbody');
-    
-    // Clear existing rows
-    tbody.innerHTML = '';
 
-    // Optional columns
-    const enabledCols = (window.optionalColumns || []).filter(c => c.checked);
+    // Clear previous rows
+    tbody.innerHTML = "";
 
-    // Clears the optional columns from the header
-    const theadRow = document.querySelector('.paintings-table thead tr');
-    theadRow.querySelectorAll('th[data-optional="1"]').forEach(th => th.remove());
+    // Build the list of visible columns (base + checked optionals)
+    const visibleCols = [
+        ...baseColumns,
+        ...(window.optionalColumns || []).filter(c => c.checked).map(c => ({ key: c.key, label: c.label }))
+    ];
 
-    // Adds the header row with checked optional columns
-    enabledCols.forEach(col => {
-    const th = document.createElement('th');
-    th.textContent = col.label;
-    th.setAttribute('data-optional', '1');
-    theadRow.appendChild(th);
+    // How many of the visible columns are optional
+    const optionalCount = visibleCols.length - baseColumns.length;
+
+    // THEAD: rebuild entirely from visible columns
+    thead.innerHTML = "";
+    const theadRow = document.createElement('tr');
+    thead.appendChild(theadRow);
+
+    // Add header cells from visibleCols
+    visibleCols.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.label || "";
+        if (col.width) th.style.width = col.width;
+        
+        // Store the data key for sorting
+        th.dataset.key = col.key;
+
+        // Adds the header to the row
+        theadRow.appendChild(th);
+
     });
-    
-    // Loop through paintings and add values to the columns
-    const filtered = paintings.filter(p => activeFilters.includes(p.status));
-    filtered.forEach((p, idx) => {
 
+    // Apply filters safely (status normalized to lowercase)
+    const filtered = paintings.filter(p => activeFilters.includes((p.status || "").toLowerCase()));
+
+    // Loop through each painting (filtered by active filters)
+    filtered.forEach(p => {
+    
         // Create a new row
         const row = document.createElement('tr');
 
-        // Leading checkbox
-        const selectTd = document.createElement('td');
-        const checkbox = document.createElement('input');
-        checkbox.type = "checkbox";
-        checkbox.classList.add("row-checkbox");
-        checkbox.dataset.id = p.id;
-        checkbox.addEventListener('click', e => e.stopPropagation());
-        checkbox.addEventListener('change', updateStartAuctionButton);
-        selectTd.appendChild(checkbox);
-        row.appendChild(selectTd);
-        
-        // UNICAT column (show number)
-        const unicatTd = document.createElement('td');
-        unicatTd.textContent = p.number;
-        row.appendChild(unicatTd);
-        
-        // Title
-        const titleTd = document.createElement('td');
-        titleTd.textContent = p.title;
-        row.appendChild(titleTd);
-        
-        // Creator
-        const creatorTd = document.createElement('td');
-        creatorTd.textContent = p.creator;
-        row.appendChild(creatorTd);
-        
-        // Status
-        const statusTd = document.createElement('td');
-        let statusClass = 'status-' + p.status;
-        let statusText = p.status.charAt(0).toUpperCase() + p.status.slice(1);
-        statusTd.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
-        row.appendChild(statusTd);
-
-        // Adds values for optional columns
-        enabledCols.forEach(col => {
+        // Build each cell in the order of visibleCols
+        visibleCols.forEach(col => {
             const td = document.createElement('td');
-            td.setAttribute('data-optional', '1');
+
+            // Leading checkbox placeholder for the special "_row" column
+            if (col.key === "_row") 
+            {
+            
+                // Adds the checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = "checkbox";
+                checkbox.classList.add("row-checkbox");
+                checkbox.dataset.id = p.id;
+                
+                // Prevent row click when toggling checkbox
+                checkbox.addEventListener('click', e => e.stopPropagation());
+                checkbox.addEventListener('change', updateStartAuctionButton);
+                td.appendChild(checkbox);
+                row.appendChild(td);
+                return;
+
+            }
+
+            // Status column: keep the badge styling
+            if (col.key === "status") 
+            {
+            
+                const status = (p.status || "").toLowerCase();
+                const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
+                td.innerHTML = `<span class="status-${status}">${label}</span>`;
+                row.appendChild(td);
+                return;
+            
+            }
+
+            // Default rendering for all other columns
             td.textContent = String(p[col.key] ?? "");
+            
+            // Appends the cell to the row
             row.appendChild(td);
+
         });
 
-        // Row click: select painting
+        // Row click: select the painting
         row.style.cursor = 'pointer';
         row.onclick = () => selectPainting(p);
 
@@ -80,7 +98,7 @@ function renderPaintingsTable()
             row.style.background = '#ffecf5';
         }
 
-        // Appens the line to the tbody
+        // Append row
         tbody.appendChild(row);
 
     });
@@ -124,13 +142,12 @@ function renderPaintingsTable()
     statusTd.innerHTML = `<span class="status-inactive">Inactive</span>`;
     newRow.appendChild(statusTd);
 
-    // Pad optional columns for the "new painting" row
-    enabledCols.forEach(() => {
+    // Pad one empty cell per visible optional column
+    for (let i = 0; i < optionalCount; i++) {
         const td = document.createElement('td');
         td.textContent = "";
-        td.setAttribute('data-optional', '1');
         newRow.appendChild(td);
-    });
+    }
 
     // Append the row
     tbody.appendChild(newRow);
@@ -154,6 +171,7 @@ function renderPaintingsTable()
 
     // Binds the Start Auction button
     startAuctionButton.onclick = () => {
+        
         // Populate default end date: now + 48h
         const now = new Date();
         const endDate = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48h ahead
@@ -161,6 +179,7 @@ function renderPaintingsTable()
 
         document.getElementById("auction-end-date").value = formattedEndDate;
         document.getElementById("auction-modal").style.display = "flex";
+
     };
 
     // Declare Sold button
@@ -202,9 +221,14 @@ function renderPaintingsTable()
             }
         });
 
+        // Refresh the list
         renderPaintingsTable();
+
+        // Uncheck all checkboxes
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-        updateStartAuctionButton(); // Also updates Declare Sold
+        
+        // Update the Start Auction and Declare Sold buttons
+        updateStartAuctionButton();
 
     };
 
@@ -257,15 +281,16 @@ function renderPaintingsTable()
             }
         });
 
-        // Refreshes the list
-        renderPaintingsTable();
-
         // Close modal
         document.getElementById("auction-modal").style.display = "none";
 
-        // Refresh UI
+        // Refresh the list
         renderPaintingsTable();
+
+        // Uncheck all checkboxes
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+
+        // Update the Start Auction and Declare Sold buttons
         updateStartAuctionButton();
 
     };
@@ -276,7 +301,7 @@ function renderPaintingsTable()
 
     // Add painting button
     const btnTd = document.createElement('td');
-    btnTd.colSpan = 3 + enabledCols.length;
+    btnTd.colSpan = 3 + optionalCount;
     btnTd.style.textAlign = "right";
     const addButton = document.createElement('button');
     addButton.textContent = "➕ Add Painting";
@@ -359,6 +384,7 @@ function renderPaintingsTable()
     else if (filtered.length === 0) {
         clearDetails();
     }
+    
 }
 
 // Select a painting and show its details

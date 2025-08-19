@@ -32,13 +32,7 @@
                 <!-- Paintings table: main listing -->
                 <table class="paintings-table">
                     <thead>
-                        <tr>
-                            <th style="width: 40px;"></th>
-                            <th>Unicat</th>
-                            <th>Title</th>
-                            <th>Creator</th>
-                            <th>Status</th>
-                        </tr>
+                        <!-- Content is injected via JS -->
                     </thead>
                     <tbody id="paintings-tbody">
                         <!-- Content is injected via JS -->
@@ -98,6 +92,15 @@
             // State & Rendering Logic
             let selectedPainting = null;
             let activeFilters = ["active", "inactive", "ended", "sold"];
+
+            // The base columns (always visible)
+            const baseColumns = [
+                { key: "_row",   label: "", width: "40px" },   // Checkbox
+                { key: "number", label: "UNICAT" },
+                { key: "title",  label: "Title" },
+                { key: "creator",label: "Creator" },
+                { key: "status", label: "Status" }
+            ];
 
             // Optional columns declaration
             window.optionalColumns = [
@@ -192,19 +195,8 @@
                     // Best bid amount (if available)
                     bestBid: (entry.best_bid !== null && entry.best_bid !== undefined && !isNaN(entry.best_bid) && Number(entry.best_bid) > 0) 
                     ? Number(entry.best_bid) + " L$" 
-                    : "",
+                    : ""
 
-                    // Auction and tracking data: placeholders (fill with real data if/when available)
-                    auction: {
-                        startingPrice: "?",
-                        currentBid: "?",
-                        bids: "?"
-                    },
-                    tracking: {
-                        owner: "?",
-                        provenance: [],
-                        lastMoved: "?"
-                    }
                 }));
 
                 // Re-render the table using the updated paintings array
