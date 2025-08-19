@@ -93,6 +93,10 @@
             let selectedPainting = null;
             let activeFilters = ["active", "inactive", "ended", "sold"];
 
+            // Variables for sorting
+            let sortKey = "number";      // default: UNICAT
+            let sortDirection = "asc";   // "asc" or "desc"
+
             // The base columns (always visible)
             const baseColumns = [
                 { key: "_row",   label: "", width: "40px" },   // Checkbox
@@ -199,7 +203,7 @@
 
                 }));
 
-                // Re-render the table using the updated paintings array
+                // Render the table for the first time using the loaded paintings array
                 renderPaintingsTable();
                 
             });

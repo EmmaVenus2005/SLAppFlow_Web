@@ -32,6 +32,43 @@ function renderPaintingsTable()
         // Store the data key for sorting
         th.dataset.key = col.key;
 
+        // If this is the active sort column, add arrow
+        if (col.key === sortKey) {
+            const arrow = sortDirection === "asc" ? "▲ " : "▼ ";
+            th.textContent = arrow + th.textContent;
+        }
+
+        // Make sortable except for the special "_row" column
+        if (col.key !== "_row")
+        {
+
+            // Cursor for sorting
+            th.style.cursor = "pointer";
+
+            // Add click handler for sorting
+            th.addEventListener("click", () => {
+                if (sortKey === col.key) 
+                {
+                    
+                    // Same column → toggle direction
+                    sortDirection = (sortDirection === "asc") ? "desc" : "asc";
+                
+                } else 
+                {
+
+                    // New column → default to ascending
+                    sortKey = col.key;
+                    sortDirection = "asc";
+
+                }
+
+                // Re-render the table with new sorting
+                renderPaintingsTable();
+
+            });
+
+        }
+
         // Adds the header to the row
         theadRow.appendChild(th);
 
@@ -39,6 +76,26 @@ function renderPaintingsTable()
 
     // Apply filters safely (status normalized to lowercase)
     const filtered = paintings.filter(p => activeFilters.includes((p.status || "").toLowerCase()));
+
+    // Sort by current sortKey/direction
+    filtered.sort((a, b) => {
+        let va = a[sortKey];
+        let vb = b[sortKey];
+
+        // Normalize numbers vs strings
+        const na = parseFloat(va);
+        const nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) {
+            va = na; vb = nb;
+        } else {
+            va = (va || "").toString().toLowerCase();
+            vb = (vb || "").toString().toLowerCase();
+        }
+
+        if (va < vb) return sortDirection === "asc" ? -1 : 1;
+        if (va > vb) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+    });
 
     // Loop through each painting (filtered by active filters)
     filtered.forEach(p => {
@@ -384,7 +441,7 @@ function renderPaintingsTable()
     else if (filtered.length === 0) {
         clearDetails();
     }
-    
+
 }
 
 // Select a painting and show its details
