@@ -606,6 +606,9 @@ if ($messageParts[0] === "LISTUNICATS" && IsAdmin(AFGetSenderID()))
             }
         }
 
+        // Gets the current owner name (if tracking info already exists)
+        $info['current_owner'] = GetCurrentOwner($unicat)['name'] ?? null;
+
         // Extracts the "end_date" from the last auction (if existing)
         $info['end_date'] = $endDate;
 

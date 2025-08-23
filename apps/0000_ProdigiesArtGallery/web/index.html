@@ -115,7 +115,8 @@
                 { key: "bestBid", label: "Best bid", checked: true  },
                 { key: "winnerName", label: "Winner", checked: false  },
                 { key: "endDate", label: "Auction end date", checked: false },
-                { key: "endTime", label: "Auction end time", checked: false }
+                { key: "endTime", label: "Auction end time", checked: false },
+                { key: "currentOwner", label: "Current owner", checked: false }
             ];
 
             // Handle filter changes
@@ -199,6 +200,7 @@
                     winnerName: entry.winner_name || "",                                // Winner name (if available)
                     endDate: entry.end_date ? entry.end_date.substring(0, 10) : "",     // Session end date (if available)
                     endTime: entry.end_date ? entry.end_date.substring(11, 16) : "",    // Session end time (if available)
+                    currentOwner: entry.current_owner || "",                            // Current owner name (if available)
 
                     // Best bid amount (if available)
                     bestBid: (entry.best_bid !== null && entry.best_bid !== undefined && !isNaN(entry.best_bid) && Number(entry.best_bid) > 0) 
