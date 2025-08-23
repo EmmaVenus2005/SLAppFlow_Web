@@ -79,22 +79,21 @@ function renderPaintingsTable()
 
     // Sort by current sortKey/direction
     filtered.sort((a, b) => {
-        let va = a[sortKey];
-        let vb = b[sortKey];
 
-        // Normalize numbers vs strings
-        const na = parseFloat(va);
-        const nb = parseFloat(vb);
-        if (!isNaN(na) && !isNaN(nb)) {
-            va = na; vb = nb;
-        } else {
-            va = (va || "").toString().toLowerCase();
-            vb = (vb || "").toString().toLowerCase();
-        }
+        // Normalize values to strings; null/undefined become empty strings
+        let sa = (a[sortKey] ?? "").toString();
+        let sb = (b[sortKey] ?? "").toString();
 
-        if (va < vb) return sortDirection === "asc" ? -1 : 1;
-        if (va > vb) return sortDirection === "asc" ? 1 : -1;
-        return 0;
+        // Natural (numeric-aware) compare:
+        // - "100 L$" > "40 L$" (compares 100 vs 40 correctly)
+        // - "2025-08-22" > "2025-07-19"
+        // - "17:28" > "11:58"
+        // Case-insensitive thanks to sensitivity:"base"
+        const cmp = sa.localeCompare(sb, undefined, { numeric: true, sensitivity: "base" });
+
+        // Apply direction
+        return sortDirection === "asc" ? cmp : -cmp;
+
     });
 
     // Loop through each painting (filtered by active filters)
