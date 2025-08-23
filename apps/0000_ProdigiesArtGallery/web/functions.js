@@ -852,55 +852,94 @@ function enableUpdateButtonIfChanged() {
 async function initializeOptionalColumns() 
 {
 
-  const container = document.getElementById('column-options');
-  const btn  = document.getElementById('column-options-btn');
-  const menu = document.getElementById('column-options-menu');
-  if (!container || !btn || !menu) return;
+    // References to key elements
+    const container = document.getElementById('column-options');
+    const btn  = document.getElementById('column-options-btn');
+    const menu = document.getElementById('column-options-menu');
+    if (!container || !btn || !menu) return;
 
-  // (Optional) Load per-user prefs from backend — keep commented for now
-  // try {
-  //   const appId = await AFGetAppID();
-  //   const raw = await AFSendFlowMessage(appId, "Global", "GET_USER_COL_PREFS");
-  //   const prefs = typeof raw === "string" ? JSON.parse(raw) : raw; // e.g., ["category","owner"]
-  //   if (Array.isArray(prefs)) {
-  //     optionalColumns.forEach(c => c.checked = prefs.includes(c.key));
-  //   }
-  // } catch(e) { console.warn("Column prefs load failed; using defaults.", e); }
+    // Build the menu from config
+    menu.innerHTML = optionalColumns.map(c => `
+        <label class="column-option-item">
+        <input type="checkbox" value="${c.key}" ${c.checked ? "checked" : ""}>
+        <span>${c.label}</span>
+        </label>
+    `).join("");
 
-  // Build the menu from config
-  menu.innerHTML = optionalColumns.map(c => `
-    <label class="column-option-item">
-      <input type="checkbox" value="${c.key}" ${c.checked ? "checked" : ""}>
-      <span>${c.label}</span>
-    </label>
-  `).join("");
+    // Toggle open/close
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        container.classList.toggle('open');
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => container.classList.remove('open'));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') container.classList.remove('open'); });
 
-  // Toggle open/close
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    container.classList.toggle('open');
-  });
-  menu.addEventListener('click', (e) => e.stopPropagation());
-  document.addEventListener('click', () => container.classList.remove('open'));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') container.classList.remove('open'); });
+    // On checkbox change: sync flags + (optional) persist + re-render
+    menu.addEventListener('change', async () => {
+        menu.querySelectorAll('input[type="checkbox"]').forEach(input => {
+            const col = optionalColumns.find(c => c.key === input.value);
+            if (col) col.checked = input.checked;
+        });
 
-  // On checkbox change: sync flags + (optional) persist + re-render
-  menu.addEventListener('change', async () => {
-    menu.querySelectorAll('input[type="checkbox"]').forEach(input => {
-      const col = optionalColumns.find(c => c.key === input.value);
-      if (col) col.checked = input.checked;
+        // Build minimal payload (only selected keys)
+        const activeCols = (window.optionalColumns || [])
+        .filter(c => c.checked)
+        .map(c => c.key);
+
+        // Keep JS cache in sync
+        window.preferences.active_columns = activeCols;
+
+        // Persist to backend (server merges automatically)
+        const payload = JSON.stringify({ active_columns: activeCols });
+        const appId = await AFGetAppID();
+        AFSendFlowMessage(appId, "Global", `SETPREFERENCES|${payload}`);
+
+        // Re-render the table with new columns
+        renderPaintingsTable();
+
     });
 
-    // (Optional) persist user choice
-    // const payload = JSON.stringify(optionalColumns.filter(c=>c.checked).map(c=>c.key));
-    // await AFSendFlowMessage(await AFGetAppID(), "Global", `SET_USER_COL_PREFS|${payload}`);
+}
 
-    if (typeof renderPaintingsTable === 'function') 
-        {
-            renderPaintingsTable();
-            console.log("Optional columns updated and table re-rendered.");
+// Load preferences from backend and apply to UI state
+async function loadPreferences() 
+{
+  
+    try {
+        
+        // Request preferences from backend
+        const appId = await AFGetAppID();
+        const raw = await AFSendFlowMessage(appId, "Global", "GETPREFERENCES");
+        const prefs = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : {};
+        window.preferences = (prefs && typeof prefs === "object") ? prefs : {};
+        
+    } catch (e) {
+        
+        console.log("GETPREFERENCES failed; using empty preferences.", e);
+  
+    }
 
-        }
-  });
+    // Apply active_columns to UI flags
+    const activeKeys = Array.isArray(window.preferences.active_columns)
+        ? window.preferences.active_columns
+        : [];
+
+    (window.optionalColumns || []).forEach(c => {
+        c.checked = activeKeys.includes(c.key);
+    });
+
+    // Apply active_filters
+    if (Array.isArray(window.preferences.active_filters)) {
+        
+        // Set activeFilters from preferences
+        activeFilters = window.preferences.active_filters.slice();
+
+        // Reflect into the UI checkboxes (no 'change' event fired)
+        document.querySelectorAll('.filter-checkbox').forEach(cb => {
+            cb.checked = activeFilters.includes(cb.value);
+        });
+
+    }
 
 }

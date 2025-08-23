@@ -961,5 +961,72 @@ if ($messageParts[0] === "GETTRACKING" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Called from WebControl to set user preferences
+// E. g. "SETPREFERENCES|<json>"
+if ($messageParts[0] === "SETPREFERENCES" && IsAdmin(AFGetSenderID()))
+{
+    
+    // Admin verified; mark thread safe
+    AFSetSafe();
+
+    // Require JSON payload in $messageParts[1]
+    if (!isset($messageParts[1])) return false;
+
+    // Target user = sender by default
+    $user = AFGetSenderID();
+
+    // Decode incoming JSON as assoc array
+    $incoming = json_decode($messageParts[1], true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($incoming)) {
+        return false;
+    }
+
+    // Load existing preferences for this user (if any)
+    $existingJson = NVGetList("Preferences", $user);
+    $existing = [];
+    if ($existingJson !== null) {
+        $existing = json_decode($existingJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($existing)) {
+            // Malformed existing; ignore it
+            $existing = [];
+        }
+    }
+
+    // Start from existing
+    $final = array_replace($existing, $incoming);
+
+    // Persist as JSON (keep it human-readable for URLs/unicode)
+    NVSetList("Preferences", $user, json_encode($final, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+    // Aknowledge success
+    return true;
+
+}
+
+// Called from WebControl to get user preferences
+// E. g. "GETPREFERENCES"
+// Returns the stored JSON for AFGetSenderID(), or "{}" if none.
+if ($messageParts[0] === "GETPREFERENCES" && IsAdmin(AFGetSenderID()))
+{
+    
+    // Admin verified; mark thread safe
+    AFSetSafe();
+
+    // Target user = sender by default
+    $user = AFGetSenderID();
+
+    // Read stored JSON
+    $prefsJson = NVGetList("Preferences", $user);
+
+    // If none found, return empty object
+    if ($prefsJson === null) {
+        return "{}";
+    }
+
+    // Return stored JSON as-is
+    return $prefsJson;
+
+}
+
 // Always return explicitely, because if not, PHP returns 1
 return;

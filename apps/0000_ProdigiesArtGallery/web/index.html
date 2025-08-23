@@ -101,6 +101,9 @@
             let sortKey = "number";      // default: UNICAT
             let sortDirection = "asc";   // "asc" or "desc"
 
+            // User preferences (loaded from backend)
+            let preferences = {}; 
+
             // The base columns (always visible)
             const baseColumns = [
                 { key: "_row",   label: "", width: "40px" },   // Checkbox
@@ -112,20 +115,36 @@
 
             // Optional columns declaration
             window.optionalColumns = [
-                { key: "bestBid", label: "Best bid", checked: true  },
-                { key: "winnerName", label: "Winner", checked: false  },
-                { key: "endDate", label: "Auction end date", checked: false },
-                { key: "endTime", label: "Auction end time", checked: false },
-                { key: "currentOwner", label: "Current owner", checked: false }
+                { key: "bestBid", label: "Best bid" },
+                { key: "winnerName", label: "Winner" },
+                { key: "endDate", label: "Auction end date" },
+                { key: "endTime", label: "Auction end time"},
+                { key: "currentOwner", label: "Current owner" }
             ];
 
             // Handle filter changes
             document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', e => {
+                checkbox.addEventListener('change', async () => {
                     activeFilters = Array.from(document.querySelectorAll('.filter-checkbox'))
                         .filter(cb => cb.checked)
                         .map(cb => cb.value);
+                    
+                    // Update client cache
+                    window.preferences.active_filters = activeFilters;
+
+                    // Persist to backend (server merges)
+                    try {
+                        const appId = await AFGetAppID();
+                        const payload = JSON.stringify({ active_filters: activeFilters });
+                        AFSendFlowMessage(appId, "Global", `SETPREFERENCES|${payload}`);
+                        //console.log("Persisted active_filters:", payload);
+                    } catch (e) {
+                        console.warn("Failed to persist active_filters", e);
+                    }
+                    
+                    // Re-render the table based on the new filters
                     renderPaintingsTable();
+
                 });
             });
 
@@ -175,6 +194,9 @@
                 const script = document.createElement("script");
                 script.textContent = jsCode;
                 document.head.appendChild(script);
+
+                // Loading user preferences
+                await loadPreferences();
 
                 // Initialize optional columns
                 await initializeOptionalColumns();
