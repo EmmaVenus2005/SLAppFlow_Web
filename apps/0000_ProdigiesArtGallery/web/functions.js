@@ -253,6 +253,7 @@ function renderPaintingsTable()
     declareSoldButton.disabled = true;
     declareSoldButton.id = "declare-sold-btn";
     declareSoldButton.style.padding = "6px 12px";
+    declareSoldButton.style.marginRight = "12px";
     declareSoldButton.style.opacity = 0.5;
     declareSoldButton.style.cursor = "not-allowed";
 
@@ -363,6 +364,50 @@ function renderPaintingsTable()
     // Addint Start Auction and Declare Sold
     startTd.appendChild(startAuctionButton);
     startTd.appendChild(declareSoldButton);
+
+    // "Set on Hold" button
+    const setOnHoldButton = document.createElement('button');
+    setOnHoldButton.textContent = "⏸️ Set on Hold";
+    setOnHoldButton.disabled = true;
+    setOnHoldButton.id = "set-on-hold-btn";
+    setOnHoldButton.style.padding = "6px 12px";
+    setOnHoldButton.style.marginRight = "12px";
+    setOnHoldButton.style.opacity = 0.5;
+    setOnHoldButton.style.cursor = "not-allowed";
+
+    // Bind click: send DECLAREHOLD for selected items
+    setOnHoldButton.onclick = async () => {
+        const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id);
+        if (selected.length === 0) {
+            alert("Please select at least one painting.");
+            return;
+        }
+
+        const names = selected.map(id => {
+            const p = paintings.find(p => p.id === id);
+            return p ? `${p.number} (${p.title})` : id;
+        });
+
+        const confirmText = `Set the following items to Hold?\n\n${names.join("\n")}`;
+        if (!confirm(confirmText)) return;
+
+        const appId = await AFGetAppID();
+        await AFSendFlowMessage(appId, "Global", `DECLAREHOLD|${selected.join(";")}`);
+
+        // Local state update
+        selected.forEach(id => {
+            const p = paintings.find(p => p.id === id);
+            if (p) p.status = "hold";
+        });
+
+        renderPaintingsTable();
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        updateStartAuctionButton();
+
+    };
+
+    // Add to left cell with the other action buttons
+    startTd.appendChild(setOnHoldButton);
 
     // Add painting button
     const btnTd = document.createElement('td');
@@ -652,8 +697,11 @@ function setActiveTab(tab) {
             allAuctions.forEach((auction, index) => {
                 const option = document.createElement('option');
 
-                const isActive = auction.current_bid !== "?" && auction.end_date && new Date(auction.end_date) > new Date();
+                // Checks if auction is currently active based on end_date
+                const end = new Date(auction.end_date.replace(' ', 'T') + 'Z'); // ISO UTC
+                const isActive = !isNaN(end) && end.getTime() > Date.now();
 
+                // Display label with active status if applicable
                 const label = `${auction.start_date} → ${auction.end_date}` + (isActive ? " (Currently Active)" : "");
                 option.textContent = label;
                 option.value = index;
@@ -804,6 +852,7 @@ function updateStartAuctionButton()
 
     const startAuctionBtn = document.getElementById("start-auction-btn");
     const declareSoldBtn = document.getElementById("declare-sold-btn");
+    const setOnHoldBtn    = document.getElementById("set-on-hold-btn");
 
     // Start Auction: only if all selected are NOT active
     const allNonActive = selectedPaintings.every(p => p.status !== "active");
@@ -822,6 +871,18 @@ function updateStartAuctionButton()
         declareSoldBtn.disabled = !allEnded;
         declareSoldBtn.style.opacity = allEnded ? "1" : "0.5";
         declareSoldBtn.style.cursor = allEnded ? "pointer" : "not-allowed";
+    }
+
+    // Set on Hold: allowed if ALL selected are NOT active and NOT sold and NOT already on hold
+    // (i.e., allowed for inactive, ended)
+    const allNotActiveNorSold = selectedPaintings.length > 0 &&
+        selectedPaintings.every(p => p.status !== "active" && p.status !== "sold" && p.status !== "hold");
+
+    const canHold = allNotActiveNorSold;
+    if (setOnHoldBtn) {
+        setOnHoldBtn.disabled = !canHold;
+        setOnHoldBtn.style.opacity = canHold ? "1" : "0.5";
+        setOnHoldBtn.style.cursor  = canHold ? "pointer" : "not-allowed";
     }
 
 }

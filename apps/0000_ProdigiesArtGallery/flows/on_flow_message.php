@@ -928,6 +928,49 @@ if ($messageParts[0] === "DECLARESOLD" && IsAdmin(AFGetSenderID()))
 
 }
 
+// Puts one or more UNICATs on hold
+// Format: DECLAREHOLD|<unicat1>;<unicat2>;...
+if ($messageParts[0] === "DECLAREHOLD" && IsAdmin(AFGetSenderID()))
+{
+
+    // Explodes the list of selected UNICATS
+    $unicats = explode(";", $messageParts[1]);
+
+    // Looping through each
+    foreach ($unicats as $number) 
+    {
+        
+        // Retrieve current info
+        $infoJson = NVGetList("Information", $number);
+        if ($infoJson === null) continue;
+
+        // Decodes the JSON elements
+        $info = json_decode($infoJson, true);
+
+        // Checks if cannot be put on hold; goes to the next UNICAT if ever
+        // (security, this control is also done on the front-end)
+        // Not allowed when Active or Sold, or when already Hold (idempotent)
+        if (
+            ($info['status'] ?? 'Inactive') === 'Active' ||
+            ($info['status'] ?? 'Inactive') === 'Sold'  ||
+            ($info['status'] ?? 'Inactive') === 'Hold'
+        ) continue;
+
+        // Update status and hold_on
+        $info['status']  = 'Hold';
+        $info['hold_on'] = date('c'); // ISO 8601 UTC timestamp
+        $info['hold_by'] = AFGetSenderName();
+
+        // Save updated info
+        NVSetList("Information", $number, json_encode($info, JSON_UNESCAPED_UNICODE));
+
+    }
+
+    // Success
+    return true;
+
+}
+
 // Gets the tracking information for a UNICAT
 // E.g. "GETTRACKING|<unicatNumber>"
 if ($messageParts[0] === "GETTRACKING" && IsAdmin(AFGetSenderID()))

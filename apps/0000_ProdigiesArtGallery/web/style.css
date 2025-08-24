@@ -70,6 +70,7 @@ html, body {
 .status-inactive { color: #888; }
 .status-ended { color: #ff9800; }
 .status-sold { color: #2196f3; }
+.status-hold { color: #c14a42; }
 .preview {
     width: 230px;
     height: 230px;
