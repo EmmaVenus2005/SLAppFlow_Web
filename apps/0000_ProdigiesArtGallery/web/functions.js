@@ -338,12 +338,14 @@ function renderPaintingsTable()
             if (p) {
                 p.status = "active";
                 p.bestBid = null;
+                p.winnerName = null;
+                p.endDate = endDate.slice(0, 10);   // "YYYY-MM-DD" (UTC0 string as provided)
+                p.endTime = endDate.slice(11, 16);  // "HH:MM"      (UTC0 string as provided)
                 p.auction = {
                     startPrice: startPrice.toString(),
                     currentBid: "?",
                     bids: "?"
                 };
-                // Optional: you can store end date too if needed
             }
         });
 
