@@ -46,7 +46,7 @@ function renderPaintingsTable()
             th.style.cursor = "pointer";
 
             // Add click handler for sorting
-            th.addEventListener("click", () => {
+            th.addEventListener("click", async () => {
                 if (sortKey === col.key) 
                 {
                     
@@ -60,6 +60,15 @@ function renderPaintingsTable()
                     sortKey = col.key;
                     sortDirection = "asc";
 
+                }
+
+                // Persist current sorting preferences (server merges automatically)
+                try {
+                    const payload = JSON.stringify({ sort_key: sortKey, sort_dir: sortDirection });
+                    const appId = await AFGetAppID();
+                    await AFSendFlowMessage(appId, "Global", `SETPREFERENCES|${payload}`);
+                } catch (e) {
+                    console.warn("Failed to persist sorting prefs", e);
                 }
 
                 // Re-render the table with new sorting
@@ -940,6 +949,16 @@ async function loadPreferences()
             cb.checked = activeFilters.includes(cb.value);
         });
 
+    }
+
+    // Apply sort prefs if provided (use values as-is)
+    if (typeof window.preferences.sort_key === "string") 
+    {
+        sortKey = window.preferences.sort_key;
+    }
+    if (window.preferences.sort_dir === "asc" || window.preferences.sort_dir === "desc") 
+    {
+        sortDirection = window.preferences.sort_dir;
     }
 
 }
