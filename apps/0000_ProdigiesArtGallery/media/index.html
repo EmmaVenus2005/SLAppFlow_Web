@@ -86,10 +86,7 @@
     };
 
     // Timer for countdown updates
-    let timerInterval = null; 
-
-    // Variable to store the painting style (or category)
-    let boardStyle = null;
+    let timerInterval = null;
 
     // Utility: Parses the base and numeric part (if present) from the reference
     function parseReference(ref) {
@@ -122,11 +119,7 @@
 
         // Getting the token from the URL
         const params = new URLSearchParams(window.location.search);
-        const token = params.get('token') || ""; // or handle missing token as you want
-
-        // Get the board style
-        boardStyle = await AFSendFlowMessage(appId, "Global", "GETSTYLE|" + token);
-        console.log("Board style:", boardStyle);
+        const token = params.get('token') || ""; 
 
         // Only reload if over 10min or force
         if (!force && auctionState.lastLoad && (now - auctionState.lastLoad < 10*60*1000)) return;
@@ -176,8 +169,9 @@
                 try { info = JSON.parse(info); } catch {}
             }
             
-            // Check if the auction is still active AND category matches the board style
-            if (isAuctionActive(info) && info.category?.toLowerCase() === boardStyle?.toLowerCase()) {
+            // Check if the auction is still active
+            if (isAuctionActive(info)) 
+            {
                 auctionState.auctions[ref].info = info;
                 filteredRefs.push(ref);
             }

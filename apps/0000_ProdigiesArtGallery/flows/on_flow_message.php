@@ -444,28 +444,38 @@ if ($messageParts[0] === "LISTACTIVE" && AFGetSenderID() === "Media")
     // Since called from media, we have to sanitize the thread
     AFSetSafe();
 
-    // Gets the board using the token
+    // Resolve board id from the token; if unknown, nothing to do
     $boardID = NVGetList("BoardToken", $messageParts[1]);
-
-    // If the board doesn't exist, returns null
     if ($boardID === null) return null;
 
-    // Gets the list of paintings from the database
-    $paintingsList = NVGetLists("ActiveAuction");
+    // Board must define one or more styles (comma-separated). If not, stop here.
+    $styleStr = NVGetList("BoardStyle", $boardID);
+    if ($styleStr === null) return null;
+    $styles = array_map('trim', explode(',', $styleStr));
 
-    // If there are no paintings, return an empty array
-    if ($paintingsList === null) return [];
+    // Enumerate all currently known ActiveAuction entries
+    $paintings = NVGetLists("ActiveAuction") ?: [];
 
-    // Filter out expired paintings
-    $filteredList = [];
-    foreach ($paintingsList as $painting) {
-        if (IsUNICATActive($painting)) {
-            $filteredList[] = $painting;
-        }
+    // Preparing an empty array for the output
+    $filtered  = [];
+
+    // Looping through each painting
+    foreach ($paintings as $u) {
+        
+        // Housekeeping: may archive ended items and skip them
+        if (!IsUNICATActive($u)) continue;
+
+        // Read painting metadata to access its category
+        $info = json_decode(NVGetList("Information", $u), true);
+        if (!$info || !isset($info['category'])) continue;
+
+        // Keep only if the category matches one of the board styles
+        if (in_array(trim((string)$info['category']), $styles, true)) $filtered[] = $u;
+        
     }
 
     // Returns the list of paintings as JSON
-    return json_encode($filteredList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return json_encode($filtered, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
 }
 
@@ -518,26 +528,6 @@ if ($messageParts[0] === "GETBESTBIDS" && AFGetSenderID() === "Media")
 
     // Return the best bids as JSON
     return json_encode($bestBids, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-}
-
-// Gets the board style based on the token
-// CALLED FROM THE FRONT-END MEDIA
-// E. g. "GETSTYLE|<token>"
-if ($messageParts[0] === "GETSTYLE" && AFGetSenderID() === "Media")
-{
-
-    // Sanitize the thread as it's called from media
-    AFSetSafe();
-
-    // Gets the board ID using the token
-    $boardID = NVGetList("BoardToken", $messageParts[1]);
-
-    // If the board ID is not found, return null
-    if ($boardID === null) return null;
-
-    // Gets the style from the database
-    return NVGetList("BoardStyle", $boardID);
 
 }
 
