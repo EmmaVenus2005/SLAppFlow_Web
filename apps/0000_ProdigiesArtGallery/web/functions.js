@@ -433,7 +433,13 @@ function renderPaintingsTable()
         // Send to backend
         const msg = `ADDUNICAT|${number}|${title}|${creator}|${description}`;
         const appId = await AFGetAppID();
-        await AFSendFlowMessage(appId, "Global", msg);
+        const resp = await AFSendFlowMessage(appId, "Global", msg);
+
+        // If the response is false, it means the number already exists
+        if (resp == false) {
+            alert(`A painting with number ${number} already exists.`);
+            return; // stop here, don't add locally
+        }
 
         // Optional: Add locally
         const newPainting = {
