@@ -875,12 +875,24 @@ function updateStartAuctionButton()
         declareSoldBtn.style.cursor = allEnded ? "pointer" : "not-allowed";
     }
 
-    // Set on Hold: allowed if ALL selected are NOT active and NOT sold and NOT already on hold
+    // Set on Hold: allowed if ALL selected are NOT active with bids and NOT sold and NOT already on hold
     // (i.e., allowed for inactive, ended)
-    const allNotActiveNorSold = selectedPaintings.length > 0 &&
-        selectedPaintings.every(p => p.status !== "active" && p.status !== "sold" && p.status !== "hold");
+    
+    // Base rule: allowed if all selected are NOT sold and NOT already on hold
+    let canHold = selectedPaintings.length > 0 &&
+                selectedPaintings.every(p => p.status !== "sold" && p.status !== "hold");
 
-    const canHold = allNotActiveNorSold;
+    // Extra rule: block if any selected item is ACTIVE and has a non-empty bestBid
+    if (canHold) {
+        const hasActiveWithBids = selectedPaintings.some(p => {
+            const status = (p.status || "").toLowerCase();
+            // Treat "", null, undefined as "no bids"
+            const hasBid = p.bestBid != null && String(p.bestBid).trim() !== "";
+            return status === "active" && hasBid;
+        });
+        if (hasActiveWithBids) canHold = false;
+    }
+
     if (setOnHoldBtn) {
         setOnHoldBtn.disabled = !canHold;
         setOnHoldBtn.style.opacity = canHold ? "1" : "0.5";

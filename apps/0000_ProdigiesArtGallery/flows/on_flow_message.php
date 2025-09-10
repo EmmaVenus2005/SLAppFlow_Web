@@ -929,6 +929,34 @@ if ($messageParts[0] === "DECLAREHOLD" && IsAdmin(AFGetSenderID()))
     // Looping through each
     foreach ($unicats as $number) 
     {
+
+        // If currently Active, force-close now and let IsUNICATActive() archive it
+        // Doesn't do it if there is a bid (front-end should prevent this)
+        if (IsUNICATActive($number) && empty(GetBestBids($number, 1))) 
+        {
+        
+            // Get current ActiveAuction data
+            $activeJson = NVGetList('ActiveAuction', $number);
+            
+            // If exists, update end_date to now - 1 second (should always exist here)
+            if ($activeJson !== null) 
+            {
+            
+                // Gets the JSON payload
+                $active = json_decode($activeJson, true) ?: [];
+                
+                // Ensure no overlap: set end_date to now - 1 second (same format you use elsewhere)
+                $active['end_date'] = date('Y-m-d H:i:s', time() - 1);
+                
+                // Save back the updated ActiveAuction data    
+                NVSetList('ActiveAuction', $number, json_encode($active, JSON_UNESCAPED_UNICODE));
+            
+            }
+
+            // Triggers the lazy archive (moves to Ended, clears ActiveAuction, etc.)
+            IsUNICATActive($number);
+
+        }
         
         // Retrieve current info
         $infoJson = NVGetList("Information", $number);
