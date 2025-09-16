@@ -47,12 +47,6 @@ if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trust
     //     "Name" => "EleTest"
     // ]));
 
-    // Testing the gateway version
-    //SLOwnerSay(AFGetFlowObjectID(), "Gateway version: " . AFGetFlowGatewayVersion());
-
-    //SLOwnerSay(AFGetFlowObjectID(), json_encode($trusteds));
-
-
     Main(AFGetFlowObjectID(), AFGetFlowSession(), AFGetFlowParameter(0));
 
 } else {
@@ -61,14 +55,3 @@ if (AFGetOwnerID() === AFGetFlowSession() || in_array(AFGetFlowSession(), $trust
     AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), "SAY|" . AFGetFlowParameter(0) . " touched the collar !");
 
 }
-
-
-// Test attach leash to 80413ca8-777f-dec6-65e1-965af2c01ceb
-
-//SLRegionSayTo(AFGetFlowObjectID(), AFGetOwnerID(), 0, $msgParts[2]);
-
-//AFSendFlowMessage("0000_DressUp", AFGetOwnerID(), AFGetFlowParameter(0) . " touched the collar !");
-
-
-// Triggering the main dialog flow through the function
-//(AFGetFlowObjectID(), AFGetFlowSession());
