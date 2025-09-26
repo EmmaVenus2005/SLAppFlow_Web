@@ -7,7 +7,7 @@ function NVDelLists($listClass)
     // Ensure that the required global variables are set
     global $conn, $appid, $uuid;
 
-    if (!isset($conn, $appid, $uuide)) {
+    if (!isset($conn, $appid, $uuid)) {
         error_log("NVDelLists: Required variables are not set.");
         return false;
     }
