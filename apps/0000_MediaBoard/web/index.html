@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Events List</title>
+    </head>
+    <body>
+        <div class="container">
+            
+            <!-- Left panel: Filters and paintings list -->
+            <div class="left-panel">
+
+                <!-- Dropdown for variants/lists (future extension) -->
+                <div class="board-set" style="margin-bottom:8px;">
+                    <select>
+                        <!-- Injected by JS -->
+                        <option>EmmaVenus2005 - The Dawn Star</option>
+                    </select>
+                </div>
+                
+                <!-- Dropdown for variants/lists (future extension) -->
+                <div class="main-view" style="margin-bottom:8px;">
+                    <select>
+                        <option>Events List</option>
+                        <option>Artists List</option>
+                        <option>Venues List</option>
+                        <option>Boards List</option>
+                    </select>
+                </div>
+                
+                <!-- Filters + Columns button in one row -->
+                <div class="filters">
+                    <div>
+                        <label><input type="checkbox" class="filter-checkbox" value="inactive" checked> Inactive</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="upcoming" checked> Upcoming</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="active" checked> Active</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="ended" checked> Ended</label>
+                        <label><input type="checkbox" class="filter-checkbox" value="hold" checked> Cancelled</label>
+                    </div>
+                    <div class="settings-buttons">
+                        <div class="settings" id="settings">
+                            <button id="settings-btn">⚙️</button>
+                            <div id="settings-menu"><!-- Injected by JS --></div>
+                        </div>
+                        <div class="column-options" id="column-options">
+                            <button id="column-options-btn">☰</button>
+                            <div id="column-options-menu"><!-- Injected by JS --></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Events table: main listing -->
+                <table class="events-table">
+                    <thead>
+                        <!-- Content is injected via JS -->
+                    </thead>
+                    <tbody id="events-tbody">
+                        <!-- Content is injected via JS -->
+                    </tbody>
+                </table>
+
+                <!-- Artists table: main listing -->
+                <table class="artists-table">
+                    <thead>
+                        <!-- Content is injected via JS -->
+                    </thead>
+                    <tbody id="artists-tbody">
+                        <!-- Content is injected via JS -->
+                    </tbody>
+                </table>
+
+                <!-- Venues table: main listing -->
+                <table class="venues-table">
+                    <thead>
+                        <!-- Content is injected via JS -->
+                    </thead>
+                    <tbody id="venues-tbody">
+                        <!-- Content is injected via JS -->
+                    </tbody>
+                </table>
+
+                <!-- Boards table: main listing -->
+                <table class="boards-table">
+                    <thead>
+                        <!-- Content is injected via JS -->
+                    </thead>
+                    <tbody id="boards-tbody">
+                        <!-- Content is injected via JS -->
+                    </tbody>
+                </table>
+
+            </div>
+
+            <!-- Right panel: Preview and details (tabs) -->
+            <div class="right-panel">
+
+                <!-- Artwork preview -->
+                <div class="preview" id="preview-image">
+                    <!-- <span class="preview-upload-icon" title="Upload image">⬆️</span> -->
+                    <span style="color:#bbb;">No preview</span>
+                </div>
+                
+                <!-- Tabs for details -->
+                <div class="tabs">
+                    <div class="tab active" data-tab="general">General</div>
+                    <div class="tab" data-tab="auction">Auction</div>
+                    <div class="tab" data-tab="tracking">Tracking</div>
+                </div>
+                
+                <!-- Tab content area -->
+                <div class="tab-content" id="tab-content">
+                    <!-- Content is injected via JS -->
+                </div>
+            
+            </div>
+        </div>
+
+        <input type="file" id="image-upload-input" accept="image/png, image/jpeg" style="display:none;">
+        <div id="auction-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:#fff; padding:20px 24px; border-radius:10px; min-width:320px; box-shadow:0 0 12px rgba(0,0,0,0.3);">
+                <h3 style="margin-top:0;">Start Auction</h3>
+                <label>End Date<br>
+                    <input type="text" id="auction-end-date" style="width:100%; margin-bottom:10px;" placeholder="YYYY-MM-DD HH:MM:SS">
+                </label><br>
+                <label>Start Price<br>
+                    <input type="number" id="auction-start-price" style="width:100%; margin-bottom:16px;" value="10">
+                </label><br>
+                <div style="text-align:right;">
+                    <button id="auction-cancel-btn" style="margin-right:8px;">Cancel</button>
+                    <button id="auction-confirm-btn" style="background:#28a745; color:white;">Start</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Include SLAppFlow public functions -->
+        <script src="/webcontrol/include_functions.js"></script>
+
+        <script>
+
+            // Constants and variables
+            // ...
+
+            // Adding event listeners
+            // ...
+
+            // Main async flow
+            WebControlReady.then(async function() 
+            {
+
+                // Load the CSS styles using WCGetInclude()
+                document.head.insertAdjacentHTML("beforeend",`<style>${await WCGetInclude("style.css")}</style>`)
+
+                // Loads the JavaScript functions using WCGetInclude()
+                const jsCode = await WCGetInclude( "functions.js");
+                const script = document.createElement("script");
+                script.textContent = jsCode;
+                document.head.appendChild(script);
+
+                // More code to initialize the app
+                // ... 
+
+            });
+
+        </script>
+
+    </body>
+</html>

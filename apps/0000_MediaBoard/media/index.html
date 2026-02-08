@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Events List</title>
+    </head>
+    <body>
+        <div id="container">
+        <!-- Will be populated by JS -->
+        </div>
+    
+        <!-- Include SLAppFlow public functions -->
+        <script src="/webcontrol/include_functions.js"></script>
+
+        <script>
+            
+            // Function to get the board ID from the URL query parameters
+            async function getBoardID() 
+            {
+
+                // Gets the board ID from the URL query parameter board_id
+                const params = new URLSearchParams(window.location.search);
+                return params.get('board_id') || null;
+
+            }
+
+            // Function to populate the container with content
+            async function populateContainer(content)
+            {
+
+                const container = document.querySelector('container');
+                container.innerHTML = content;
+
+            }
+
+            // Temp
+            // appID = AFGetAppID();
+            // boardID = await getBoardID();
+
+            //populateContainer("test");
+
+            // populateContainer(`
+            //     <h1>MediaBoard App</h1>
+            //     <p>App ID: ${appID}</p>
+            //     <p>Board ID: ${boardID}</p>
+            // `);
+
+        </script>
+
+        <!-- Displays in full screen -->
+        <img src="https://assets.simpleviewinc.com/simpleview/image/upload/c_fill,h_650,q_75,w_952/v1/clients/scilly/A_Trip_to_Bishop_Rock_624983e8-ebac-4ebf-a975-333712c4b04d.jpg" alt="Media Board" style="width: 100vw; height: 100vh; object-fit: cover;">
+    
+    </body>
+</html>
