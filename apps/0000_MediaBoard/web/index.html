@@ -16,6 +16,10 @@
                         <!-- Injected by JS -->
                         <option>EmmaVenus2005 - The Dawn Star</option>
                     </select>
+
+                    <div class="add-project" id="add-project">
+                        <button id="add-project-btn">➕</button>
+                    </div>
                 </div>
                 
                 <!-- Dropdown for variants/lists (future extension) -->
@@ -38,6 +42,10 @@
                         <label><input type="checkbox" class="filter-checkbox" value="hold" checked> Cancelled</label>
                     </div>
                     <div class="settings-buttons">
+                        <div class="add-entity" id="add-entity">
+                            <button id="add-entity-btn">➕</button>
+                            <div id="add-entity-menu"><!-- Injected by JS --></div>
+                        </div>                        
                         <div class="settings" id="settings">
                             <button id="settings-btn">⚙️</button>
                             <div id="settings-menu"><!-- Injected by JS --></div>
@@ -115,23 +123,19 @@
             </div>
         </div>
 
-        <input type="file" id="image-upload-input" accept="image/png, image/jpeg" style="display:none;">
-        <div id="auction-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
-            <div style="background:#fff; padding:20px 24px; border-radius:10px; min-width:320px; box-shadow:0 0 12px rgba(0,0,0,0.3);">
-                <h3 style="margin-top:0;">Start Auction</h3>
-                <label>End Date<br>
-                    <input type="text" id="auction-end-date" style="width:100%; margin-bottom:10px;" placeholder="YYYY-MM-DD HH:MM:SS">
-                </label><br>
-                <label>Start Price<br>
-                    <input type="number" id="auction-start-price" style="width:100%; margin-bottom:16px;" value="10">
-                </label><br>
-                <div style="text-align:right;">
-                    <button id="auction-cancel-btn" style="margin-right:8px;">Cancel</button>
-                    <button id="auction-confirm-btn" style="background:#28a745; color:white;">Start</button>
+        <!-- Add Entity Overlay (injected by JS) -->
+        <div id="add-entity-overlay" class="overlay" style="display:none;">
+            <div class="overlay-backdrop" data-overlay-close="1"></div>
+            <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="add-entity-title">
+                <div class="overlay-header">
+                    <div id="add-entity-title" class="overlay-title">Add</div>
+                    <button id="add-entity-close-btn" class="overlay-close-btn" title="Close">✕</button>
+                </div>
+                <div id="add-entity-content" class="overlay-content">
+                    <!-- Injected by JS -->
                 </div>
             </div>
         </div>
-
 
         <!-- Include SLAppFlow public functions -->
         <script src="/webcontrol/include_functions.js"></script>
@@ -141,10 +145,10 @@
             // Constants and variables
             // ...
 
-            // Adding event listeners
-            // ...
 
             // Main async flow
+            // ---------------
+
             WebControlReady.then(async function() 
             {
 
@@ -160,7 +164,35 @@
                 // More code to initialize the app
                 // ... 
 
-            });
+                // Adding event listeners
+                // ----------------------
+                
+                // Close interactions
+                document.addEventListener("click", (e) => {
+                    if (e.target && e.target.getAttribute("data-overlay-close") === "1") {
+                        closeAddEntityOverlay();
+                    }
+                });
+
+                document.getElementById("add-entity-close-btn")?.addEventListener("click", closeAddEntityOverlay);
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "Escape") closeAddEntityOverlay();
+                });
+
+                document.getElementById("add-entity-btn")?.addEventListener("click", () => {
+                    const view = document.getElementById("main-view-select")?.value || "Events List";
+
+                    if (view === "Events List") {
+                        openAddEntityOverlay("Add Event", `<div>…event form…</div>`);
+                    } else if (view === "Artists List") {
+                        openAddEntityOverlay("Add Artist", `<div>…artist form…</div>`);
+                    }
+                });
+
+                // Add project button listener
+                addCreateProjectListener();
+
+            }); // WC ready end
 
         </script>
 

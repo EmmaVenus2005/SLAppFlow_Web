@@ -73,16 +73,140 @@ if ($messageParts[0] === "GET_BOARD_IMAGE" && AFGetSenderID() === "Media")
     
 }
 
-// Message sent from WebControl to list the projects from the recipient the sender is allowed to access
-// The sender has a list of users who trust him in its own scope, but doesn't know which projects
-if ($messageParts[0] === "LIST_PROJECTS")
+// Message sent from WebControl by me to create a project
+// E.g. "ADD_PROJECT|<project_name>"
+if ($messageParts[0] === "ADD_PROJECT" && AFGetSenderID() === AFGetOwnerID())
+{
+
+    // Sanitize thread to allow backend write
+    AFSetSafe();
+
+    // Project name (allow '|' by rejoining)
+    $projectName = trim(implode("|", array_slice($messageParts, 1)));
+    if ($projectName === "") {
+        return;
+    }
+
+    // Create project using existing function
+    $projectId = ProjectCreate($projectName);
+    if (!$projectId) {
+        return;
+    }
+
+    // Return minimal payload to front-end
+    return [
+        "project_id" => $projectId,
+        "name" => $projectName
+    ];
+    
+}
+
+// Message sent from WebControl to list the projects from myself and those I am trusted
+if ($messageParts[0] === "LIST_PROJECTS" && AFGetSenderID() === AFGetOwnerID())
 {
     
-    // ... your code here ..
+    // Since called from WebControl, we have to sanitize the thread
+    AFSetSafe();
 
+    // Gets my projects
+    $myProjects = ProjectsList();
 
+    // Gets the list of trusters
+    $trusters = json_decode(NVGetList("Trusters", "List"), true) ?: [];
+
+    // Calls LIST_TRUSTER_PROJECTS for each truster and merges the results
+    $trustedProjects = [];
+    foreach ($trusters as $truster) {
+        $response = AFSendFlowMessage(AFGetAppID(), $truster, "LIST_TRUSTER_PROJECTS");
+        if (is_array($response)) {
+            $trustedProjects = array_merge($trustedProjects, $response);
+        }
+    }
+
+    // Returns the combined list of projects
+    return array_merge($myProjects, $trustedProjects);
 
 }
+
+// Message sent from LIST_PROJECTS in the context of a user who trusts me
+if ($messageParts[0] === "LIST_TRUSTER_PROJECTS" && AFIsUnsafe() !== true)
+{
+
+    // Checks if the sender is a truster of mine
+    if (!CheckTrusted(AFGetSenderID())) {
+        return [];
+    }
+
+    // My projects
+    $myProjects = ProjectsList(); // expected: [ ["project_id"=>..., "name"=>...], ... ]
+    if (!is_array($myProjects)) {
+        return [];
+    }
+
+    // Filter projects where senderId is trusted
+    $allowed = [];
+
+    foreach ($myProjects as $p) {
+        $projectId = is_array($p) ? ($p["project_id"] ?? "") : "";
+        if (!is_string($projectId) || $projectId === "") continue;
+
+        $trustedJson = NVGetList("Trusted", $projectId);
+        $trustedList = json_decode($trustedJson, true) ?: [];
+
+        if (is_array($trustedList) && in_array(AFGetSenderID(), $trustedList, true)) {
+            $allowed[] = $p; // keep original structure (project_id + name)
+        }
+    }
+
+    return $allowed;
+
+}
+
+// Message sent from WebControl by me to add a trusted user
+// E. g. "ADD_TRUSTED|<trusted_user_id>|<project_id>"
+if ($messageParts[0] === "ADD_TRUSTED" && AFGetSenderID() === AFGetOwnerID())
+{
+
+    // Since called from WebControl, we have to sanitize the thread
+    AFSetSafe();
+
+    // Gets the current list of trusted users for this project
+    $trusted = json_decode(NVGetList("Trusted", $messageParts[2]), true) ?: [];
+
+    // Only keep unique trusted users, avoid adding duplicates
+    $trusted = array_values(array_unique(array_merge($trusted, [$messageParts[1]])));
+
+    // Saves the updated list of trusted users for this project
+    NVSetList("Trusted", $messageParts[2], json_encode($trusted));
+
+    // Sends a message to the trusted user to add me as a truster
+    AFSendFlowMessage(AFGetAppID(), $messageParts[1], "ADD_TRUSTER|".AFGetOwnerID());
+
+    return;
+
+}
+
+// Message sent from ADD_TRUSTED in the context of a user who trusts me
+// (To update my Trusters table with the new truster user)
+// (Used to list the projects of the trusters in LIST_PROJECTS)
+// E. g. "ADD_TRUSTER|<truster_user_id>"
+if ($messageParts[0] === "ADD_TRUSTER" && AFIsUnsafe() !== true)
+{
+
+    // Reads the current list of trusters
+    $trusters = json_decode(NVGetList("Trusters", "List"), true) ?: [];
+
+    // Only keep unique trusters, avoid adding duplicates
+    $trusters = array_values(array_unique(array_merge($trusters, [$messageParts[1]])));
+
+    // Saves the updated list of trusters
+    NVSetList("Trusters", "List", json_encode($trusters));
+
+    return;
+
+}
+
+
 
 // List events
 
@@ -99,3 +223,7 @@ if ($messageParts[0] === "LIST_PROJECTS")
 // Get venue info
 
 // Get board info
+
+
+// Always return explicitely, because if not, PHP returns 1
+return;
