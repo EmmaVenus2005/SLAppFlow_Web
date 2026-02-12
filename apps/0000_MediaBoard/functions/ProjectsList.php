@@ -12,7 +12,7 @@
  *
  * @return array
  */
-function ProjectList()
+function ProjectsList()
 {
     
     $projectIds = NVGetLists("Project");
@@ -34,6 +34,7 @@ function ProjectList()
         $projects[] = [
             "project_id" => $projectId,
             "name" => $data["name"],
+            "owner" => AFGetOwnerID(),
             "owner_name" => $data["owner_name"] ?? ""
         ];
     }

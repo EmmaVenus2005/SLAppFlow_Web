@@ -12,13 +12,16 @@
 
                 <!-- Dropdown for variants/lists (future extension) -->
                 <div class="board-set" style="margin-bottom:8px;">
-                    <select>
+                    <select id="project-list">
                         <!-- Injected by JS -->
-                        <option>EmmaVenus2005 - The Dawn Star</option>
                     </select>
 
                     <div class="add-project" id="add-project">
-                        <button id="add-project-btn">➕</button>
+                        <button id="add-project-btn" title="Add project">➕</button>
+                    </div>
+
+                    <div class="add-trusted" id="add-trusted">
+                        <button id="add-trusted-btn" title="Add trusted user">👤➕</button>
                     </div>
                 </div>
                 
@@ -184,7 +187,13 @@
                 document.head.appendChild(script);
 
                 // Loadin the user Preferences
-                loadPreferences();
+                await loadPreferences();
+
+                // Loading the projects list
+                await loadProjects();
+
+                // Inits the add trusted button
+                await addTrusted();
 
                 // Inits the date filter for the event list
                 initializeDateFilters()

@@ -272,85 +272,258 @@ function addAddEntityListener() {
 }
 
 // ----------------------------------------------------------------------------
-// renderTable()  (Events only for now)
+// renderTable()
 // ----------------------------------------------------------------------------
-// Assumes globals:
-// - window.events = [ { id, name, status, ... }, ... ]
-// - activeFilters = ["inactive","upcoming","active","ended","hold"] (lowercase)
+// - Renders the active view table (Events for now, but supports other views).
+// - Builds the columns menu (☰) from columns marked as optional:true.
+// - Shows/hides optional columns based on preferences + menu checkboxes.
+// - Persists visible optional columns in preferences via savePreferences().
+//
+// Expected globals / functions:
+// - window.events (and later window.artists, window.venues, window.boards)
+// - activeFilters (array of status strings) OR you can ignore filters per view
 // - sortKey, sortDirection ("asc"|"desc")
-// - selectedEvent (or null)
-// - selectEvent(eventObj) exists (you can rename later)
+// - window.selectedEvent (optional) + selectEvent(ev) (optional)
+// - savePreferences(...pairs)  -> sends SETPREFERENCES with partial payload
+// - renderTable() can be called again safely
+//
+// Stored preference keys (per view):
+// - visible_columns_events: ["status", ...]
+// - visible_columns_artists: [...]
+// - visible_columns_venues: [...]
+// - visible_columns_boards: [...]
 // ----------------------------------------------------------------------------
 
 function renderTable() {
 
-    // ---------------------------
-    // 1) View + data source
-    // ---------------------------
-    // For now: only Events.
-    const view = "events";
-    const data = Array.isArray(window.events) ? window.events : [];
+    // ------------------------------------------------------------------------
+    // 1) Resolve current view
+    // ------------------------------------------------------------------------
+    const viewLabel = document.getElementById("main-view-select")?.value || "Events List";
+    const view = (viewLabel.split(" ")[0] || "Events").toLowerCase(); // "events","artists","venues","boards"
 
-    // ---------------------------
-    // 2) Columns configuration
-    // ---------------------------
-    // Each column can define:
-    // - key: unique key (used for sorting)
-    // - label: header text
-    // - width: optional CSS width
-    // - sortable: boolean (default true)
-    // - optional: boolean (default false)
-    // - render: (row) => string (or set td.innerHTML if you prefer)
-    // - sortValue: (row) => string (optional; defaults to row[key])
+    // ------------------------------------------------------------------------
+    // 2) Data sources (extend later)
+    // ------------------------------------------------------------------------
+    const dataByView = {
+        events:  Array.isArray(window.events)  ? window.events  : [],
+        artists: Array.isArray(window.artists) ? window.artists : [],
+        venues:  Array.isArray(window.venues)  ? window.venues  : [],
+        boards:  Array.isArray(window.boards)  ? window.boards  : [],
+    };
+
+    const data = dataByView[view] || [];
+
+    // ------------------------------------------------------------------------
+    // 3) Columns configuration (base + optional)
+    // ------------------------------------------------------------------------
+    // - optional columns are toggled from the ☰ menu.
+    // - base columns are always visible (optional:false or missing).
     const columnsByView = {
         events: [
-            {
-                key: "_row",
-                label: "",
-                width: "36px",
-                sortable: false,
-                render: (ev) => "", // handled as special case (checkbox)
-            },
+            { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
+
+            // Event name
             {
                 key: "name",
                 label: "Event",
                 render: (ev) => String(ev.name ?? ""),
-                sortValue: (ev) => String(ev.name ?? ""),
+                sortValue: (ev) => String(ev.name ?? "")
             },
+
+            // Artist name (ev.artist = uuid)
+            {
+                key: "artist",
+                label: "Artist",
+                optional: true,
+                render: (ev) => {
+                    const id = ev.artist;
+                    const name = window.artistsById?.[id]?.name;
+                    return name ? String(name) : (id ? "(unknown artist)" : "");
+                },
+                sortValue: (ev) => String(window.artistsById?.[ev.artist]?.name ?? "")
+            },
+
+            // Venue name (ev.artist = uuid)
+            {
+                key: "venue",
+                label: "Venue",
+                optional: true,
+                render: (ev) => {
+                    const id = ev.artist;
+                    const name = window.venuesById?.[id]?.name;
+                    return name ? String(name) : (id ? "(unknown venue)" : "");
+                },
+                sortValue: (ev) => String(window.venuesById?.[ev.venues]?.name ?? "")
+            },
+
+            // Date (expects ev.date = "YYYY-MM-DD")
+            {
+                key: "date",
+                label: "Date",
+                optional: true,
+                render: (ev) => String(ev.date ?? ""),
+                sortValue: (ev) => String(ev.date ?? "")
+            },
+
+            // Start time (expects ev.start_time = "HH:MM" or "HH:MM:SS")
+            {
+                key: "start_time",
+                label: "Start Time",
+                optional: true,
+                render: (ev) => String(ev.start_time ?? ""),
+                sortValue: (ev) => String(ev.start_time ?? "")
+            },
+
+            // End time (expects ev.end_time = "HH:MM" or "HH:MM:SS")
+            {
+                key: "end_time",
+                label: "End Time",
+                optional: true,
+                render: (ev) => String(ev.end_time ?? ""),
+                sortValue: (ev) => String(ev.end_time ?? "")
+            },
+
+            // Status badge (optional toggle via ☰ menu)
             {
                 key: "status",
                 label: "Status",
                 optional: true,
                 render: (ev) => String(ev.status ?? ""),
-                sortValue: (ev) => String(ev.status ?? ""),
-            },
-            // Add more later:
-            // { key:"start_date", label:"Start", render:(ev)=>formatDate(ev.start_date), sortValue:(ev)=>ev.start_date||"" },
+                sortValue: (ev) => String(ev.status ?? "")
+            }
+        ],
+        artists: [
+            { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
+            { key: "name", label: "Artist", render: (a) => String(a.name ?? ""), sortValue: (a) => String(a.name ?? "") },
+            // add optional columns later
+        ],
+        venues: [
+            { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
+            { key: "name", label: "Venue", render: (v) => String(v.name ?? ""), sortValue: (v) => String(v.name ?? "") },
+        ],
+        boards: [
+            { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
+            { key: "name", label: "Board", render: (b) => String(b.name ?? ""), sortValue: (b) => String(b.name ?? "") },
         ],
     };
 
-    const baseColumns = columnsByView[view] || [];
-    const visibleCols = baseColumns; // optional columns later
+    const allCols = columnsByView[view] || [];
+    const baseCols = allCols.filter(c => !c.optional);
+    const optCols  = allCols.filter(c => c.optional);
 
-    // ---------------------------
-    // 3) Table targets (Events table)
-    // ---------------------------
-    const table = document.querySelector(".events-table");
-    if (!table) return;
+    // ------------------------------------------------------------------------
+    // 4) Read visible optional columns from preferences (per view)
+    // ------------------------------------------------------------------------
+    const prefKey = `visible_columns_${view}`;
+    const prefList = (window.preferences && Array.isArray(window.preferences[prefKey]))
+        ? window.preferences[prefKey]
+        : [];
 
-    const thead = table.querySelector("thead");
-    const tbody = document.getElementById("events-tbody");
-    if (!thead || !tbody) return;
+    // Visible columns = base + (optional keys present in prefs)
+    const visibleCols = [
+        ...baseCols,
+        ...optCols.filter(c => prefList.includes(c.key)),
+    ];
 
-    // Clear previous
+    // ------------------------------------------------------------------------
+    // 5) Show only the active table (hide others)
+    // ------------------------------------------------------------------------
+    const tableByView = {
+        events:  { tableSel: ".events-table",  tbodyId: "events-tbody"  },
+        artists: { tableSel: ".artists-table", tbodyId: "artists-tbody" },
+        venues:  { tableSel: ".venues-table",  tbodyId: "venues-tbody"  },
+        boards:  { tableSel: ".boards-table",  tbodyId: "boards-tbody"  },
+    };
+
+    // Hide all tables, then show the active one
+    Object.values(tableByView).forEach(({ tableSel }) => {
+        const t = document.querySelector(tableSel);
+        if (t) t.style.display = "none";
+    });
+
+    const activeMeta = tableByView[view];
+    const table = activeMeta ? document.querySelector(activeMeta.tableSel) : null;
+    const tbody = activeMeta ? document.getElementById(activeMeta.tbodyId) : null;
+    const thead = table ? table.querySelector("thead") : null;
+
+    if (!table || !thead || !tbody) return;
+    table.style.display = "";
+
+    // ------------------------------------------------------------------------
+    // 6) Build / wire the optional columns menu (☰)
+    // ------------------------------------------------------------------------
+    // One handler that re-renders + saves prefs when checkboxes change.
+    (function buildOptionalColumnsMenu() {
+
+        const container = document.getElementById("column-options");
+        const btn  = document.getElementById("column-options-btn");
+        const menu = document.getElementById("column-options-menu");
+
+        if (!container || !btn || !menu) return;
+
+        // If no optional columns for this view, hide the menu button.
+        if (optCols.length === 0) {
+            container.style.display = "none";
+            return;
+        }
+
+        container.style.display = "";
+
+        // Build menu HTML
+        menu.innerHTML = optCols.map(c => {
+            const checked = prefList.includes(c.key);
+            return `
+                <label class="column-option-item">
+                    <input type="checkbox" value="${c.key}" ${checked ? "checked" : ""}>
+                    <span>${c.label || c.key}</span>
+                </label>
+            `;
+        }).join("");
+
+        // Bind open/close once
+        if (!container.dataset.bound) {
+            container.dataset.bound = "1";
+
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                container.classList.toggle("open");
+            });
+
+            menu.addEventListener("click", (e) => e.stopPropagation());
+            document.addEventListener("click", () => container.classList.remove("open"));
+            document.addEventListener("keydown", (e) => { if (e.key === "Escape") container.classList.remove("open"); });
+        }
+
+        // Bind change (rebound each render because menu HTML is rebuilt)
+        menu.onchange = () => {
+            const selectedKeys = Array.from(menu.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(i => i.value);
+
+            // Keep local prefs cache in sync
+            if (!window.preferences || typeof window.preferences !== "object") window.preferences = {};
+            window.preferences[prefKey] = selectedKeys;
+
+            // Persist only the key for this view
+            if (typeof savePreferences === "function") {
+                savePreferences(prefKey, selectedKeys);
+            }
+
+            // Re-render table with new columns
+            renderTable();
+        };
+
+    })();
+
+    // ------------------------------------------------------------------------
+    // 7) Build THEAD (sortable)
+    // ------------------------------------------------------------------------
     thead.innerHTML = "";
-    tbody.innerHTML = "";
-
-    // ---------------------------
-    // 4) Build THEAD (sortable)
-    // ---------------------------
     const theadRow = document.createElement("tr");
     thead.appendChild(theadRow);
+
+    // Map for sorting
+    const colMap = new Map(visibleCols.map(c => [c.key, c]));
 
     visibleCols.forEach((col) => {
         const th = document.createElement("th");
@@ -360,8 +533,7 @@ function renderTable() {
         let label = col.label || "";
 
         if (col.key === sortKey) {
-            const arrow = sortDirection === "asc" ? "▲ " : "▼ ";
-            label = arrow + label;
+            label = (sortDirection === "asc" ? "▲ " : "▼ ") + label;
         }
 
         th.textContent = label;
@@ -377,7 +549,7 @@ function renderTable() {
                     sortDirection = "asc";
                 }
 
-                // Persist sorting preferences (optional, keep your current logic)
+                // Persist sorting preferences (optional)
                 try {
                     const payload = JSON.stringify({ sort_key: sortKey, sort_dir: sortDirection });
                     const appId = await AFGetAppID();
@@ -393,12 +565,20 @@ function renderTable() {
         theadRow.appendChild(th);
     });
 
-    // ---------------------------
-    // 5) Filter + sort
-    // ---------------------------
-    const filtered = data.filter(ev => activeFilters.includes((ev.status || "").toLowerCase()));
+    // ------------------------------------------------------------------------
+    // 8) Filter + sort (keep it minimal; status filtering mainly for events)
+    // ------------------------------------------------------------------------
+    let filtered = data;
 
-    const colMap = new Map(visibleCols.map(c => [c.key, c]));
+    // If you keep "activeFilters", apply it for rows that have a status
+    if (Array.isArray(window.activeFilters) || Array.isArray(activeFilters)) {
+        const filters = Array.isArray(activeFilters) ? activeFilters : window.activeFilters;
+        filtered = data.filter(r => {
+            const s = (r.status || "").toLowerCase();
+            return !s || filters.includes(s);
+        });
+    }
+
     const getSortValue = (row) => {
         const col = colMap.get(sortKey);
         if (!col) return "";
@@ -406,65 +586,67 @@ function renderTable() {
         return String(row[sortKey] ?? "");
     };
 
-    filtered.sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
         const sa = getSortValue(a);
         const sb = getSortValue(b);
         const cmp = sa.localeCompare(sb, undefined, { numeric: true, sensitivity: "base" });
         return sortDirection === "asc" ? cmp : -cmp;
     });
 
-    // ---------------------------
-    // 6) Build TBODY
-    // ---------------------------
-    filtered.forEach((ev) => {
-        const row = document.createElement("tr");
+    // ------------------------------------------------------------------------
+    // 9) Build TBODY
+    // ------------------------------------------------------------------------
+    tbody.innerHTML = "";
+
+    filtered.forEach((rowObj) => {
+        const tr = document.createElement("tr");
 
         visibleCols.forEach((col) => {
             const td = document.createElement("td");
 
-            // Special checkbox column
+            // Checkbox column
             if (col.key === "_row") {
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
                 checkbox.classList.add("row-checkbox");
-                checkbox.dataset.id = ev.id;
+                checkbox.dataset.id = rowObj.id || "";
 
                 checkbox.addEventListener("click", (e) => e.stopPropagation());
-                // checkbox.addEventListener("change", updateButtonsIfAny);
-
                 td.appendChild(checkbox);
-                row.appendChild(td);
+                tr.appendChild(td);
                 return;
             }
 
-            // Special status rendering
+            // Status badge rendering (if status exists)
             if (col.key === "status") {
-                const status = (ev.status || "").toLowerCase();
+                const status = (rowObj.status || "").toLowerCase();
                 const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
                 td.innerHTML = `<span class="status-${status}">${label}</span>`;
-                row.appendChild(td);
+                tr.appendChild(td);
                 return;
             }
 
-            // Default cell rendering via column.render
-            const text = (typeof col.render === "function") ? col.render(ev) : String(ev[col.key] ?? "");
+            // Default rendering (via column.render if provided)
+            const text = (typeof col.render === "function") ? col.render(rowObj) : String(rowObj[col.key] ?? "");
             td.textContent = String(text ?? "");
-            row.appendChild(td);
+            tr.appendChild(td);
         });
 
-        // Row click
-        row.style.cursor = "pointer";
-        row.onclick = () => selectEvent(ev);
+        // Row click (events only for now; keep safe if handler missing)
+        tr.style.cursor = "pointer";
+        tr.onclick = () => {
+            if (view === "events" && typeof selectEvent === "function") {
+                selectEvent(rowObj);
+            }
+        };
 
-        // Highlight selected
-        if (window.selectedEvent && window.selectedEvent.id === ev.id) {
-            row.style.background = "#ffecf5";
+        // Highlight selection (events only)
+        if (view === "events" && window.selectedEvent && window.selectedEvent.id === rowObj.id) {
+            tr.style.background = "#ffecf5";
         }
 
-        tbody.appendChild(row);
+        tbody.appendChild(tr);
     });
-
-    // No "new row / add painting" part for Events for now.
 }
 
 // Load preferences from backend and apply to UI state
@@ -690,4 +872,277 @@ function initializeDateFilters() {
             yearDec.click();
         }
     });
+}
+
+// -----------------------------------------------------------------------------
+// loadProjects()
+// -----------------------------------------------------------------------------
+// - Calls backend command "LIST_PROJECTS"
+// - Stores result into window.projects
+// - Logs content to console (debug only)
+//
+// Expected backend response:
+//   [
+//     { project_id: "...", name: "..." },
+//     ...
+//   ]
+//
+// Requires:
+//   - AFGetAppID()
+//   - AFGetOwnerID()
+//   - AFSendFlowMessage()
+// -----------------------------------------------------------------------------
+
+async function loadProjects() {
+
+    try {
+
+        const appId   = await AFGetAppID();
+        const ownerId = await AFGetOwnerID();
+
+        const res = await AFSendFlowMessage(
+            appId,
+            ownerId,
+            "LIST_PROJECTS"
+        );
+
+        // Normalize result
+        if (Array.isArray(res)) {
+            window.projects = res;
+        } else if (typeof res === "string") {
+            try {
+                const parsed = JSON.parse(res);
+                window.projects = Array.isArray(parsed) ? parsed : [];
+            } catch {
+                window.projects = [];
+            }
+        } else {
+            window.projects = [];
+        }
+
+        // Debug output
+        console.log("Projects loaded:", window.projects);
+
+        // Adds each entry as an option to <select id="project-list">
+        const projectSelect = document.getElementById("project-list");
+        if (projectSelect) {
+            projectSelect.innerHTML = ""; // Clear existing options
+
+            window.projects.forEach(proj => {
+                const opt = document.createElement("option");
+                opt.value = proj.project_id || "";
+                opt.textContent = proj.owner_name + " - " + proj.name;
+                projectSelect.appendChild(opt);
+            });
+        }
+
+    } catch (err) {
+
+        console.error("Failed to load projects:", err);
+        window.projects = [];
+
+    }
+
+}
+
+/**
+ * addTrusted
+ *
+ * Adds a "Trusted user" UI next to the Projects "+" button:
+ * - Opens the existing overlay
+ * - Lets you pick ONE project you own (from window.projects)
+ * - Lets you paste a trusted user's UUID
+ * - Sends: ADD_TRUSTED|<trusted_uuid>|<project_id>
+ *
+ * Requirements:
+ * - Overlay DOM exists: #add-entity-overlay, #add-entity-title, #add-entity-content
+ * - Backend command exists: ADD_TRUSTED|<trusted_user_id>|<project_id>
+ * - SLAppFlow funcs exist: AFGetAppID(), AFGetOwnerID(), AFSendFlowMessage()
+ * - window.projects is already loaded (LIST_PROJECTS); we filter by p.is_owner === true if present,
+ *   otherwise we assume all projects in window.projects are owned by you.
+ *
+ * @param {Object} opts
+ * @param {string} [opts.buttonId="add-trusted-btn"] DOM id for the button
+ */
+function addTrusted(opts = {}) {
+
+    const buttonId = opts.buttonId || "add-trusted-btn";
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+
+    // Prevent double-binding if called multiple times
+    if (btn.dataset.listenerBound === "1") return;
+    btn.dataset.listenerBound = "1";
+
+    // -----------------------------
+    // Overlay helpers (local only)
+    // -----------------------------
+    const openOverlay = (title, html) => {
+        const overlay = document.getElementById("add-entity-overlay");
+        const titleEl = document.getElementById("add-entity-title");
+        const content = document.getElementById("add-entity-content");
+        if (!overlay || !titleEl || !content) return;
+
+        titleEl.textContent = title || "Add";
+        content.innerHTML = html || "";
+        overlay.style.display = "block";
+    };
+
+    const closeOverlay = () => {
+        const overlay = document.getElementById("add-entity-overlay");
+        const content = document.getElementById("add-entity-content");
+        if (!overlay || !content) return;
+
+        overlay.style.display = "none";
+        content.innerHTML = "";
+    };
+
+    const showError = (el, msg) => {
+        if (!el) return;
+        el.textContent = msg;
+        el.style.display = "block";
+    };
+
+    // -----------------------------
+    // Projects helpers
+    // -----------------------------
+    const getOwnedProjects = () => {
+        const list = Array.isArray(window.projects) ? window.projects : [];
+
+        // If your objects later include an ownership flag, we honor it.
+        // Otherwise, assume the list is yours (owner-only list).
+        const owned = list.filter(p => {
+            if (p && typeof p === "object" && "is_owner" in p) return !!p.is_owner;
+            return true;
+        });
+
+        // Normalize to { project_id, name }
+        return owned
+            .map(p => ({
+                project_id: (p.project_id || p.id || p.projectId || "").toString(),
+                name: (p.name || p.project_name || p.projectName || p.project_id || p.id || "").toString()
+            }))
+            .filter(p => p.project_id);
+    };
+
+    // -----------------------------
+    // Main create flow
+    // -----------------------------
+    const doAddTrusted = async ({ projectSelect, uuidInput, confirmBtn, errorBox }) => {
+
+        const projectId = (projectSelect?.value || "").trim();
+        const trustedId = (uuidInput?.value || "").trim();
+
+        if (!projectId) {
+            showError(errorBox, "Please select one of your projects.");
+            return;
+        }
+        if (!trustedId) {
+            showError(errorBox, "Please enter the trusted user's UUID.");
+            return;
+        }
+
+        // Very light UUID sanity check (accepts SL UUID format)
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trustedId)) {
+            showError(errorBox, "Invalid UUID format.");
+            return;
+        }
+
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        try {
+            const appId = await AFGetAppID();
+            const ownerId = await AFGetOwnerID();
+
+            const msg = `ADD_TRUSTED|${trustedId}|${projectId}`;
+            const res = await AFSendFlowMessage(appId, ownerId, msg);
+
+            // Your backend returns "return;" (null) on success currently,
+            // but could also return true. Treat non-false as success.
+            if (res === false) {
+                showError(errorBox, "Failed to add trusted user.");
+                if (confirmBtn) confirmBtn.disabled = false;
+                return;
+            }
+
+            closeOverlay();
+        } catch (e) {
+            showError(errorBox, "Failed to add trusted user.");
+            if (confirmBtn) confirmBtn.disabled = false;
+        }
+    };
+
+    // -----------------------------
+    // Wire button
+    // -----------------------------
+    btn.addEventListener("click", () => {
+
+        const owned = getOwnedProjects();
+
+        openOverlay("Add Trusted User", `
+            <div style="display:flex; flex-direction:column; gap:10px;">
+
+                <label style="font-weight:600;">Project</label>
+                <select id="trusted-project-select"
+                        style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                    ${owned.length > 0
+                        ? owned.map(p => `<option value="${p.project_id}">${escapeHtml(p.name)}</option>`).join("")
+                        : `<option value="">(No owned projects found)</option>`
+                    }
+                </select>
+
+                <label style="font-weight:600;">Trusted user UUID</label>
+                <input id="trusted-user-uuid" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                       style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+                    <button id="add-trusted-cancel-btn"
+                            style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button id="add-trusted-confirm-btn"
+                            style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;"
+                            ${owned.length === 0 ? "disabled" : ""}>
+                        Add
+                    </button>
+                </div>
+
+                <div id="add-trusted-error" style="color:#c14a42; font-size:0.95em; display:none;"></div>
+            </div>
+        `);
+
+        const projectSelect = document.getElementById("trusted-project-select");
+        const uuidInput = document.getElementById("trusted-user-uuid");
+        const cancelBtn = document.getElementById("add-trusted-cancel-btn");
+        const confirmBtn = document.getElementById("add-trusted-confirm-btn");
+        const errorBox = document.getElementById("add-trusted-error");
+
+        cancelBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeOverlay();
+        });
+
+        confirmBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            doAddTrusted({ projectSelect, uuidInput, confirmBtn, errorBox });
+        });
+
+        uuidInput?.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") doAddTrusted({ projectSelect, uuidInput, confirmBtn, errorBox });
+        });
+
+        uuidInput?.focus();
+    });
+
+    // -----------------------------
+    // Tiny HTML escape for safety
+    // -----------------------------
+    function escapeHtml(s) {
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
 }

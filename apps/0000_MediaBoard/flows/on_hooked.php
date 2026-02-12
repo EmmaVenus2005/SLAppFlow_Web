@@ -49,3 +49,9 @@ $textureInfo = [[
 
 // Applies the received texture to the board
 SLApplyTexture(AFGetFlowObjectID(), $textureInfo);
+
+// Registers the board in the database if not existing (only timestamp), 
+// or updates the timestamp if existing
+$existing = NVGetList("Board", AFGetFlowObjectID());
+$existing["last_hooked"] = time();
+NVSetList("Board", AFGetFlowObjectID(), json_encode($existing, JSON_UNESCAPED_UNICODE));
