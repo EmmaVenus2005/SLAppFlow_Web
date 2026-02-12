@@ -24,7 +24,7 @@
                 
                 <!-- Dropdown for variants/lists (future extension) -->
                 <div class="main-view" style="margin-bottom:8px;">
-                    <select>
+                    <select id="main-view-select">
                         <option>Events List</option>
                         <option>Artists List</option>
                         <option>Venues List</option>
@@ -34,12 +34,23 @@
                 
                 <!-- Filters + Columns button in one row -->
                 <div class="filters">
-                    <div>
+                    <!-- <div>
                         <label><input type="checkbox" class="filter-checkbox" value="inactive" checked> Inactive</label>
                         <label><input type="checkbox" class="filter-checkbox" value="upcoming" checked> Upcoming</label>
                         <label><input type="checkbox" class="filter-checkbox" value="active" checked> Active</label>
                         <label><input type="checkbox" class="filter-checkbox" value="ended" checked> Ended</label>
                         <label><input type="checkbox" class="filter-checkbox" value="hold" checked> Cancelled</label>
+                    </div> -->
+                    <div class="date-filters">
+                        <select id="filter-month">
+                            <!-- Injected by JS -->
+                        </select>
+
+                        <div class="year-stepper" id="filter-year-stepper">
+                            <button type="button" id="year-dec" aria-label="Previous year">−</button>
+                            <input type="text" id="filter-year" value="" inputmode="numeric" maxlength="4" aria-label="Year">
+                            <button type="button" id="year-inc" aria-label="Next year">+</button>
+                        </div>
                     </div>
                     <div class="settings-buttons">
                         <div class="add-entity" id="add-entity">
@@ -143,8 +154,19 @@
         <script>
 
             // Constants and variables
-            // ...
+            // -----------------------
+            
+            // Defaults required by renderTable()
+            window.activeFilters = window.activeFilters || ["inactive", "upcoming", "active", "ended", "hold"];
+            window.sortKey = window.sortKey || "name";
+            window.sortDirection = window.sortDirection || "asc";
+            window.selectedEvent = window.selectedEvent || null;
 
+            // Temporary selection handler (so row clicks work)
+            window.selectEvent = window.selectEvent || function (ev) {
+                window.selectedEvent = ev;
+                renderTable();
+            };
 
             // Main async flow
             // ---------------
@@ -161,36 +183,24 @@
                 script.textContent = jsCode;
                 document.head.appendChild(script);
 
-                // More code to initialize the app
-                // ... 
+                // Loadin the user Preferences
+                loadPreferences();
+
+                // Inits the date filter for the event list
+                initializeDateFilters()
+
+                // Loads the initial list
+                window.events = [
+                    { id: "ev1", name: "Test Event", status: "upcoming" },
+                    { id: "ev2", name: "Live DJ Set", status: "active" }
+                ];
 
                 // Adding event listeners
-                // ----------------------
-                
-                // Close interactions
-                document.addEventListener("click", (e) => {
-                    if (e.target && e.target.getAttribute("data-overlay-close") === "1") {
-                        closeAddEntityOverlay();
-                    }
-                });
+                addAddEntityListener()          // Add entity button listener (event, artist, venue)
+                addCreateProjectListener();     // Add project button listener
 
-                document.getElementById("add-entity-close-btn")?.addEventListener("click", closeAddEntityOverlay);
-                document.addEventListener("keydown", (e) => {
-                    if (e.key === "Escape") closeAddEntityOverlay();
-                });
-
-                document.getElementById("add-entity-btn")?.addEventListener("click", () => {
-                    const view = document.getElementById("main-view-select")?.value || "Events List";
-
-                    if (view === "Events List") {
-                        openAddEntityOverlay("Add Event", `<div>…event form…</div>`);
-                    } else if (view === "Artists List") {
-                        openAddEntityOverlay("Add Artist", `<div>…artist form…</div>`);
-                    }
-                });
-
-                // Add project button listener
-                addCreateProjectListener();
+                // Displays the list of events on opening
+                renderTable();
 
             }); // WC ready end
 
