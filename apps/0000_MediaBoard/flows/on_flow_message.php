@@ -118,9 +118,19 @@ if ($messageParts[0] === "LIST_PROJECTS" && AFGetSenderID() === AFGetOwnerID())
     $trustedProjects = [];
     foreach ($trusters as $truster) {
         $response = AFSendFlowMessage(AFGetAppID(), $truster, "LIST_TRUSTER_PROJECTS");
+  
+        // LIST_TRUSTER_PROJECTS returns an array, but it's serialized, so must be decoded before merging
+        if (is_string($response)) {
+            $decoded = json_decode($response, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $response = $decoded;
+            }
+        }
+
         if (is_array($response)) {
             $trustedProjects = array_merge($trustedProjects, $response);
         }
+
     }
 
     // Returns the combined list of projects
