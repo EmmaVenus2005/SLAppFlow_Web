@@ -356,6 +356,54 @@ function addAddEntityListener()
     }
 
     // -------------------------------------------------------------------------
+    // 3.C) Refresh logic after creation (RENDER ONLY HERE)
+    // -------------------------------------------------------------------------
+    async function refreshAfterCreate(entityType) {
+
+        // ---------------------------------------------------------------------
+        // refreshAfterCreate(entityType)
+        // ---------------------------------------------------------------------
+        // Goal:
+        // - After an ADD_* succeeds, refresh the relevant dataset from backend,
+        //   then render exactly once (harmonized with loadArtists/loadVenues/loadEventsFromFilters).
+        //
+        // Rules:
+        // - loadArtists/loadVenues/loadEventsFromFilters MUST NOT render internally.
+        // - This function is the "UI commit" point: it calls renderTable().
+        // ---------------------------------------------------------------------
+
+        try {
+
+            if (entityType === "artist") {
+                if (typeof loadArtists === "function") await loadArtists();
+                if (typeof renderTable === "function") renderTable();
+                return;
+            }
+
+            if (entityType === "venue") {
+                if (typeof loadVenues === "function") await loadVenues();
+                if (typeof renderTable === "function") renderTable();
+                return;
+            }
+
+            if (entityType === "event") {
+                if (typeof loadEventsFromFilters === "function") await loadEventsFromFilters();
+                if (typeof renderTable === "function") renderTable();
+                return;
+            }
+
+            // Default: just re-render
+            if (typeof renderTable === "function") renderTable();
+
+        } catch (e) {
+
+            console.warn("refreshAfterCreate failed", e);
+            if (typeof renderTable === "function") renderTable();
+
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 4) Form HTML templates (one section per entity type)
     // -------------------------------------------------------------------------
 
@@ -460,11 +508,6 @@ function addAddEntityListener()
 
         // ---------------------------------------------------------------------
         // 4.B) ARTIST form
-        // Fields:
-        // - name
-        // - description
-        // Submit:
-        // - ADD_ARTIST|<infos_json>
         // ---------------------------------------------------------------------
         artist: () => `
             <div style="display:flex; flex-direction:column; gap:10px;">
@@ -499,11 +542,6 @@ function addAddEntityListener()
 
         // ---------------------------------------------------------------------
         // 4.C) VENUE form
-        // Fields:
-        // - name
-        // - description
-        // Submit:
-        // - ADD_VENUE|<infos_json>
         // ---------------------------------------------------------------------
         venue: () => `
             <div style="display:flex; flex-direction:column; gap:10px;">
@@ -679,7 +717,6 @@ function addAddEntityListener()
 
                 const infosJson = JSON.stringify(safePayload);
 
-                // UPDATED stride:
                 // ADD_EVENT|<project_uuid>|<infos_json>|<base64_img>
                 const msg = `ADD_EVENT|${projectId}|${infosJson}|${photoBase64 || ""}`;
 
@@ -692,7 +729,7 @@ function addAddEntityListener()
                 }
 
                 closeOverlay();
-                if (typeof renderTable === "function") renderTable();
+                await refreshAfterCreate("event");
 
             } catch (ex) {
                 console.warn("ADD_EVENT failed", ex);
@@ -771,7 +808,6 @@ function addAddEntityListener()
 
                 const infosJson = JSON.stringify(safePayload);
 
-                // UPDATED stride:
                 // ADD_ARTIST|<project_uuid>|<infos_json>
                 const msg = `ADD_ARTIST|${projectId}|${infosJson}`;
 
@@ -784,7 +820,7 @@ function addAddEntityListener()
                 }
 
                 closeOverlay();
-                if (typeof renderTable === "function") renderTable();
+                await refreshAfterCreate("artist");
 
             } catch (ex) {
                 console.warn("ADD_ARTIST failed", ex);
@@ -854,7 +890,6 @@ function addAddEntityListener()
 
                 const infosJson = JSON.stringify(safePayload);
 
-                // UPDATED stride:
                 // ADD_VENUE|<project_uuid>|<infos_json>
                 const msg = `ADD_VENUE|${projectId}|${infosJson}`;
 
@@ -867,7 +902,7 @@ function addAddEntityListener()
                 }
 
                 closeOverlay();
-                if (typeof renderTable === "function") renderTable();
+                await refreshAfterCreate("venue");
 
             } catch (ex) {
                 console.warn("ADD_VENUE failed", ex);
