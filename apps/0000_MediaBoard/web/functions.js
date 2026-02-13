@@ -202,16 +202,25 @@ function addAddEntityListener()
      * - Then: form templates by entity type (Events / Artists / Venues / Boards).
      * - Then: per-form wiring (validation, photo load in RAM, submit behavior).
      *
+     * Project routing (IMPORTANT):
+     * - The project is selected from <select id="project-list">.
+     * - window.projects is expected to contain objects like:
+     *     { project_id, name, owner, owner_name }
+     * - For ADD_* commands, the message is sent to the PROJECT OWNER (proj.owner),
+     *   not to the currently logged-in user.
+     * - The selected project_id is included in the stride as the 1st argument:
+     *     ADD_*|<project_uuid>|...
+     *
      * Backend contract:
      * - Event:
-     *     ADD_EVENT|<infos_json>|<base64_img>
+     *     ADD_EVENT|<project_uuid>|<infos_json>|<base64_img>
      *     - <infos_json> is a JSON string (no base64 inside).
      *     - <base64_img> is raw base64 (no "data:image/...;base64," prefix). Can be empty.
      * - Artist:
-     *     ADD_ARTIST|<infos_json>
+     *     ADD_ARTIST|<project_uuid>|<infos_json>
      *     - <infos_json> includes: name, description
      * - Venue:
-     *     ADD_VENUE|<infos_json>
+     *     ADD_VENUE|<project_uuid>|<infos_json>
      *     - <infos_json> includes: name, description
      *
      * Boards:
@@ -326,6 +335,24 @@ function addAddEntityListener()
     function closeOverlay() {
         overlay.style.display = "none";
         contentEl.innerHTML = "";
+    }
+
+    // -------------------------------------------------------------------------
+    // 3.B) Project context (selected project_id + project owner uuid)
+    // -------------------------------------------------------------------------
+    function getSelectedProjectContext() {
+
+        const projectSelect = document.getElementById("project-list");
+        const projectId = (projectSelect?.value || "").trim();
+
+        const list = Array.isArray(window.projects) ? window.projects : [];
+        const proj = list.find(p => String(p?.project_id || "") === projectId) || null;
+
+        const projectOwnerId = (proj && typeof proj === "object")
+            ? String(proj.owner || "")
+            : "";
+
+        return { projectId, projectOwnerId };
     }
 
     // -------------------------------------------------------------------------
@@ -559,15 +586,6 @@ function addAddEntityListener()
     // 6) EVENT form wiring (validation + photo RAM + backend call)
     // -------------------------------------------------------------------------
 
-    /**
-     * wireEventForm
-     *
-     * - Loads photo in RAM as base64 (WITHOUT data URL prefix)
-     * - On Add:
-     *     ADD_EVENT|<infos_json>|<base64_img>
-     * - infos_json includes:
-     *     name, artist_id, venue_id, date, start_time, end_time
-     */
     function wireEventForm() {
 
         const nameEl   = document.getElementById("ae_event_name");
@@ -644,11 +662,15 @@ function addAddEntityListener()
             if (!payload.name) { showError("Please enter an event name."); return; }
             if (!payload.date) { showError("Please select a date."); return; }
 
+            // Resolve project_id + destination owner (project owner)
+            const { projectId, projectOwnerId } = getSelectedProjectContext();
+            if (!projectId) { showError("Please select a project first."); return; }
+            if (!projectOwnerId) { showError("Project owner is missing for this project."); return; }
+
             if (addBtn) addBtn.disabled = true;
 
             try {
                 const appId = await AFGetAppID();
-                const ownerId = await AFGetOwnerID();
 
                 const safePayload = {
                     ...payload,
@@ -656,9 +678,12 @@ function addAddEntityListener()
                 };
 
                 const infosJson = JSON.stringify(safePayload);
-                const msg = `ADD_EVENT|${infosJson}|${photoBase64 || ""}`;
 
-                const res = await AFSendFlowMessage(appId, ownerId, msg);
+                // UPDATED stride:
+                // ADD_EVENT|<project_uuid>|<infos_json>|<base64_img>
+                const msg = `ADD_EVENT|${projectId}|${infosJson}|${photoBase64 || ""}`;
+
+                const res = await AFSendFlowMessage(appId, projectOwnerId, msg);
 
                 if (res === false) {
                     showError("Failed to add event.");
@@ -692,14 +717,6 @@ function addAddEntityListener()
     // 7) ARTIST form wiring (validation + backend call)
     // -------------------------------------------------------------------------
 
-    /**
-     * wireArtistForm
-     *
-     * - On Add:
-     *     ADD_ARTIST|<infos_json>
-     * - infos_json includes:
-     *     name, description
-     */
     function wireArtistForm() {
 
         const nameEl = document.getElementById("ae_artist_name");
@@ -736,11 +753,15 @@ function addAddEntityListener()
 
             if (!payload.name) { showError("Please enter an artist name."); return; }
 
+            // Resolve project_id + destination owner (project owner)
+            const { projectId, projectOwnerId } = getSelectedProjectContext();
+            if (!projectId) { showError("Please select a project first."); return; }
+            if (!projectOwnerId) { showError("Project owner is missing for this project."); return; }
+
             if (addBtn) addBtn.disabled = true;
 
             try {
                 const appId = await AFGetAppID();
-                const ownerId = await AFGetOwnerID();
 
                 const safePayload = {
                     ...payload,
@@ -749,9 +770,12 @@ function addAddEntityListener()
                 };
 
                 const infosJson = JSON.stringify(safePayload);
-                const msg = `ADD_ARTIST|${infosJson}`;
 
-                const res = await AFSendFlowMessage(appId, ownerId, msg);
+                // UPDATED stride:
+                // ADD_ARTIST|<project_uuid>|<infos_json>
+                const msg = `ADD_ARTIST|${projectId}|${infosJson}`;
+
+                const res = await AFSendFlowMessage(appId, projectOwnerId, msg);
 
                 if (res === false) {
                     showError("Failed to add artist.");
@@ -776,14 +800,6 @@ function addAddEntityListener()
     // 8) VENUE form wiring (validation + backend call)
     // -------------------------------------------------------------------------
 
-    /**
-     * wireVenueForm
-     *
-     * - On Add:
-     *     ADD_VENUE|<infos_json>
-     * - infos_json includes:
-     *     name, description
-     */
     function wireVenueForm() {
 
         const nameEl = document.getElementById("ae_venue_name");
@@ -820,11 +836,15 @@ function addAddEntityListener()
 
             if (!payload.name) { showError("Please enter a venue name."); return; }
 
+            // Resolve project_id + destination owner (project owner)
+            const { projectId, projectOwnerId } = getSelectedProjectContext();
+            if (!projectId) { showError("Please select a project first."); return; }
+            if (!projectOwnerId) { showError("Project owner is missing for this project."); return; }
+
             if (addBtn) addBtn.disabled = true;
 
             try {
                 const appId = await AFGetAppID();
-                const ownerId = await AFGetOwnerID();
 
                 const safePayload = {
                     ...payload,
@@ -833,9 +853,12 @@ function addAddEntityListener()
                 };
 
                 const infosJson = JSON.stringify(safePayload);
-                const msg = `ADD_VENUE|${infosJson}`;
 
-                const res = await AFSendFlowMessage(appId, ownerId, msg);
+                // UPDATED stride:
+                // ADD_VENUE|<project_uuid>|<infos_json>
+                const msg = `ADD_VENUE|${projectId}|${infosJson}`;
+
+                const res = await AFSendFlowMessage(appId, projectOwnerId, msg);
 
                 if (res === false) {
                     showError("Failed to add venue.");
@@ -1340,18 +1363,111 @@ async function savePreferences(...args) {
     }, 1000); // 1 second debounce
 }
 
-// -----------------------------------------------------------------------------
-// initializeDateFilters (Month dropdown + Year stepper)
-// -----------------------------------------------------------------------------
-// Defaults:
-//   - Month = current month
-//   - Year  = current year
-//
-// Still calls savePreferences(...) on change (as you already wired it),
-// but does NOT read window.preferences for defaults.
-// -----------------------------------------------------------------------------
+async function loadEventsFromFilters() 
+{
 
-function initializeDateFilters() {
+    // -------------------------------------------------------------------------
+    // loadEventsFromFilters()
+    // -------------------------------------------------------------------------
+    // - Reads current month/year from the date filter UI
+    // - Resolves selected project + PROJECT OWNER from window.projects
+    // - Calls backend to retrieve events for that project + period
+    // - Stores result into window.events
+    //
+    // Expected DOM:
+    // - #filter-month (value: "01".."12")
+    // - #filter-year  (value: "YYYY")
+    // - #project-list (selected project_id)
+    //
+    // NOTE:
+    // - Adjust the backend command format to your real contract.
+    // -------------------------------------------------------------------------
+
+    try {
+
+        const month = (document.getElementById("filter-month")?.value || "").trim(); // "02"
+        const year  = (document.getElementById("filter-year")?.value || "").trim();  // "2026"
+
+        // Resolve selected project + destination owner
+        const projectSelect = document.getElementById("project-list");
+        const projectId = (projectSelect?.value || "").trim();
+
+        const projects = Array.isArray(window.projects) ? window.projects : [];
+        const proj = projects.find(p => String(p?.project_id || "") === projectId) || null;
+
+        const projectOwnerId = (proj && typeof proj === "object")
+            ? String(proj.owner || "")
+            : "";
+
+        if (!projectId || !projectOwnerId) {
+            window.events = [];
+            if (typeof renderTable === "function") renderTable();
+            return [];
+        }
+
+        // Basic validation
+        if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
+            window.events = [];
+            if (typeof renderTable === "function") renderTable();
+            return [];
+        }
+
+        const appId = await AFGetAppID();
+
+        // TODO: Adapt to your backend protocol
+        // Example: LIST_EVENTS|<project_uuid>|<YYYY>|<MM>
+        const res = await AFSendFlowMessage(appId, projectOwnerId, `LIST_EVENTS|${projectId}|${year}|${month}`);
+
+        // Normalize
+        let list = [];
+        if (Array.isArray(res)) {
+            list = res;
+        } else if (typeof res === "string") {
+            try {
+                const parsed = JSON.parse(res);
+                list = Array.isArray(parsed) ? parsed : [];
+            } catch {
+                list = [];
+            }
+        } else {
+            list = [];
+        }
+
+        window.events = list;
+
+        return list;
+
+    } catch (err) {
+
+        console.error("Failed to load events:", err);
+        window.events = [];
+        if (typeof renderTable === "function") renderTable();
+        return [];
+
+    }
+}
+
+function initializeDateFilters() 
+{
+
+    // -------------------------------------------------------------------------
+    // initializeDateFilters()
+    // -------------------------------------------------------------------------
+    // Purpose:
+    // - Populates the Month dropdown (once)
+    // - Sets default Month/Year to the current local date
+    // - Binds UI listeners (once) so that any change triggers:
+    //     loadEventsFromFilters()  -> fetch from backend
+    // - Triggers an initial events load at the end (first screen)
+    //
+    // Expected DOM:
+    // - #filter-month (select)
+    // - #filter-year  (input)
+    // - #year-dec, #year-inc (buttons)
+    //
+    // Expected function:
+    // - loadEventsFromFilters() (async) must exist and will call renderTable()
+    // -------------------------------------------------------------------------
 
     const monthSelect = document.getElementById("filter-month");
     const yearInput   = document.getElementById("filter-year");
@@ -1360,24 +1476,17 @@ function initializeDateFilters() {
 
     if (!monthSelect || !yearInput || !yearDec || !yearInc) return;
 
-    // English month names
-    const months = [
-        "January","February","March","April","May","June",
-        "July","August","September","October","November","December"
-    ];
+    // -------------------------------------------------------------------------
+    // 1) Populate month options (idempotent)
+    // -------------------------------------------------------------------------
+    if (monthSelect.dataset.populated !== "1") {
 
-    // Avoid duplicating options if called twice
-    if (!monthSelect.dataset.populated) {
+        const months = [
+            "January","February","March","April","May","June",
+            "July","August","September","October","November","December"
+        ];
 
-        // Optional: keep "All Months" if you kept it in HTML
-        // If you don't want "All Months", remove that option in HTML.
-        // Here we ensure it exists only once.
-        // if (monthSelect.options.length === 0) {
-        //     const allOpt = document.createElement("option");
-        //     allOpt.value = "";
-        //     allOpt.textContent = "All Months";
-        //     monthSelect.appendChild(allOpt);
-        // }
+        monthSelect.innerHTML = "";
 
         for (let i = 0; i < 12; i++) {
             const opt = document.createElement("option");
@@ -1389,21 +1498,19 @@ function initializeDateFilters() {
         monthSelect.dataset.populated = "1";
     }
 
-    // Current date defaults (local)
+    // -------------------------------------------------------------------------
+    // 2) Defaults (current local month/year)
+    // -------------------------------------------------------------------------
     const now = new Date();
     const currentYear  = now.getFullYear();
     const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
 
-    // Set defaults (month + year current)
     monthSelect.value = currentMonth;
     yearInput.value = String(currentYear);
 
-    // Optionally persist defaults once (harmless)
-    // if (typeof savePreferences === "function") {
-    //     savePreferences("filter_month", currentMonth, "filter_year", String(currentYear));
-    // }
-
-    // Helpers
+    // -------------------------------------------------------------------------
+    // 3) Helpers
+    // -------------------------------------------------------------------------
     const clampYear = (y) => {
         if (!Number.isFinite(y)) return currentYear;
         if (y < 1970) return 1970;
@@ -1411,90 +1518,121 @@ function initializeDateFilters() {
         return y;
     };
 
-    const setYear = (y) => {
-        const yy = String(clampYear(parseInt(y, 10)));
-        yearInput.value = yy;
+    const sanitizeYearInput = () => {
+        yearInput.value = (yearInput.value || "").replace(/[^\d]/g, "").slice(0, 4);
+    };
 
-        // if (typeof savePreferences === "function") {
-        //     savePreferences("filter_year", yy);
-        // }
+    const normalizeYearOrReset = () => {
+        const v = yearInput.value || "";
+        if (!/^\d{4}$/.test(v)) {
+            yearInput.value = String(currentYear);
+        } else {
+            yearInput.value = String(clampYear(parseInt(v, 10)));
+        }
+    };
+
+    const reload = async () => {
+        if (typeof loadEventsFromFilters === "function") {
+            await loadEventsFromFilters();
+        }
         if (typeof renderTable === "function") {
             renderTable();
         }
     };
 
-    // Month change
-    monthSelect.addEventListener("change", () => {
-        // if (typeof savePreferences === "function") {
-        //     savePreferences("filter_month", monthSelect.value);
-        // }
-        if (typeof renderTable === "function") {
-            renderTable();
-        }
-    });
+    // -------------------------------------------------------------------------
+    // 4) Bind listeners once
+    // -------------------------------------------------------------------------
+    if (monthSelect.dataset.bound !== "1") {
+        monthSelect.dataset.bound = "1";
 
-    // Stepper buttons
-    yearDec.addEventListener("click", () => {
-        const y = clampYear(parseInt(yearInput.value || String(currentYear), 10));
-        setYear(y - 1);
-    });
+        // Month change -> reload events from backend
+        monthSelect.addEventListener("change", async () => {
+            await reload();
+        });
 
-    yearInc.addEventListener("click", () => {
-        const y = clampYear(parseInt(yearInput.value || String(currentYear), 10));
-        setYear(y + 1);
-    });
+        // Stepper buttons -> adjust year then reload
+        yearDec.addEventListener("click", async () => {
+            const y = clampYear(parseInt(yearInput.value || String(currentYear), 10));
+            yearInput.value = String(y - 1);
+            await reload();
+        });
 
-    // Manual typing
-    yearInput.addEventListener("input", () => {
-        yearInput.value = (yearInput.value || "").replace(/[^\d]/g, "").slice(0, 4);
-    });
+        yearInc.addEventListener("click", async () => {
+            const y = clampYear(parseInt(yearInput.value || String(currentYear), 10));
+            yearInput.value = String(y + 1);
+            await reload();
+        });
 
-    yearInput.addEventListener("blur", () => {
-        const v = yearInput.value;
-        if (!/^\d{4}$/.test(v)) {
-            setYear(currentYear);
-        } else {
-            setYear(v);
-        }
-    });
+        // Manual typing (digits only)
+        yearInput.addEventListener("input", () => {
+            sanitizeYearInput();
+        });
 
-    yearInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") yearInput.blur();
+        // Commit year change on blur -> normalize then reload
+        yearInput.addEventListener("blur", async () => {
+            sanitizeYearInput();
+            normalizeYearOrReset();
+            await reload();
+        });
 
-        if (e.key === "ArrowUp") {
-            e.preventDefault();
-            yearInc.click();
-        }
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            yearDec.click();
-        }
-    });
+        // Keyboard UX
+        yearInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") yearInput.blur();
+
+            if (e.key === "ArrowUp") {
+                e.preventDefault();
+                yearInc.click();
+            }
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                yearDec.click();
+            }
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 5) Initial events load (first screen)
+    // -------------------------------------------------------------------------
+    reload();
+
 }
 
-// -----------------------------------------------------------------------------
-// loadProjects()
-// -----------------------------------------------------------------------------
-// - Calls backend command "LIST_PROJECTS"
-// - Stores result into window.projects
-// - Logs content to console (debug only)
-//
-// Expected backend response:
-//   [
-//     { project_id: "...", name: "..." },
-//     ...
-//   ]
-//
-// Requires:
-//   - AFGetAppID()
-//   - AFGetOwnerID()
-//   - AFSendFlowMessage()
-// -----------------------------------------------------------------------------
+async function loadProjects() 
+{
 
-async function loadProjects() {
+    // -----------------------------------------------------------------------------
+    // loadProjects()
+    // -----------------------------------------------------------------------------
+    // Purpose:
+    // - Calls backend command "LIST_PROJECTS" to retrieve the projects list.
+    // - Stores the normalized result into window.projects.
+    // - Populates <select id="project-list"> with the projects.
+    // - Loads project-scoped data (artists + venues) for the currently selected project.
+    // - Binds UI listeners once:
+    //     - Project selection change -> reload artists + venues -> re-render table
+    //     - Main view selection change -> re-render table (switch which table is visible)
+    //
+    // Expected backend response:
+    // - Array of objects, or JSON string that parses to an array:
+    //     [
+    //       { project_id: "...", name: "...", owner: "...", owner_name: "...", ... },
+    //       ...
+    //     ]
+    //
+    // Requirements:
+    // - AFGetAppID()
+    // - AFGetOwnerID()
+    // - AFSendFlowMessage(appId, userId, message)
+    // - loadArtists(), loadVenues() (project-scoped lists)
+    // - renderTable() (safe to call repeatedly)
+    // -----------------------------------------------------------------------------
 
     try {
 
+        // -------------------------------------------------------------------------
+        // 1) Fetch projects from backend
+        // -------------------------------------------------------------------------
         const appId   = await AFGetAppID();
         const ownerId = await AFGetOwnerID();
 
@@ -1504,7 +1642,9 @@ async function loadProjects() {
             "LIST_PROJECTS"
         );
 
-        // Normalize result
+        // -------------------------------------------------------------------------
+        // 2) Normalize result into window.projects
+        // -------------------------------------------------------------------------
         if (Array.isArray(res)) {
             window.projects = res;
         } else if (typeof res === "string") {
@@ -1518,19 +1658,62 @@ async function loadProjects() {
             window.projects = [];
         }
 
-        // Debug output
+        // Debug output (keep if useful during dev)
         console.log("Projects loaded:", window.projects);
 
-        // Adds each entry as an option to <select id="project-list">
+        // -------------------------------------------------------------------------
+        // 3) Populate <select id="project-list">
+        // -------------------------------------------------------------------------
         const projectSelect = document.getElementById("project-list");
         if (projectSelect) {
-            projectSelect.innerHTML = ""; // Clear existing options
 
+            // Reset options
+            projectSelect.innerHTML = "";
+
+            // Populate options
             window.projects.forEach(proj => {
                 const opt = document.createElement("option");
                 opt.value = proj.project_id || "";
-                opt.textContent = proj.owner_name + " - " + proj.name;
+                opt.textContent = (proj.owner_name ? (proj.owner_name + " - ") : "") + (proj.name || "");
                 projectSelect.appendChild(opt);
+            });
+
+            // ---------------------------------------------------------------------
+            // 4) Initial load of project-scoped lists (artists + venues)
+            // ---------------------------------------------------------------------
+            await Promise.all([
+                loadArtists(),
+                loadVenues(),
+            ]);
+
+            // ---------------------------------------------------------------------
+            // 5) Bind main view change -> re-render which table is displayed
+            // ---------------------------------------------------------------------
+            const viewSelect = document.getElementById("main-view-select");
+            if (viewSelect && viewSelect.dataset.boundMainViewChange !== "1") {
+                viewSelect.dataset.boundMainViewChange = "1";
+
+                viewSelect.addEventListener("change", () => {
+                    if (typeof renderTable === "function") renderTable();
+                });
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // 6) Bind project change -> reload artists + venues for the selected project
+        //    and re-render (so UI stays consistent with the new context)
+        // -------------------------------------------------------------------------
+        if (projectSelect && projectSelect.dataset.boundProjectChange !== "1") {
+            projectSelect.dataset.boundProjectChange = "1";
+
+            projectSelect.addEventListener("change", async () => {
+
+                await Promise.all([
+                    loadArtists(),
+                    loadVenues(),
+                ]);
+
+                if (typeof renderTable === "function") renderTable();
             });
         }
 
@@ -1539,8 +1722,10 @@ async function loadProjects() {
         console.error("Failed to load projects:", err);
         window.projects = [];
 
-    }
+        // Optional: render an empty table state if you want predictable UI behavior
+        if (typeof renderTable === "function") renderTable();
 
+    }
 }
 
 /**
@@ -1744,3 +1929,160 @@ function addTrusted(opts = {}) {
             .replaceAll("'", "&#039;");
     }
 }
+
+async function loadArtists() 
+{
+
+    // -----------------------------------------------------------------------------
+    // loadArtists()
+    // -----------------------------------------------------------------------------
+    // - Reads selected project from <select id="project-list">
+    // - Resolves the PROJECT OWNER from window.projects ({ project_id, owner, ... })
+    // - Calls: LIST_ARTISTS|<project_uuid>  (sent to the project owner)
+    // - Stores result into:
+    //     window.artists   (array)
+    //     window.artistsById (map: { [artist_id]: artistObj })
+    //
+    // Expected backend response (array items):
+    //   { name, description, created_at, created_by, artist_id, ... }
+    // -----------------------------------------------------------------------------
+
+    try {
+
+        // 1) Resolve selected project + destination owner
+        const projectSelect = document.getElementById("project-list");
+        const projectId = (projectSelect?.value || "").trim();
+
+        const projects = Array.isArray(window.projects) ? window.projects : [];
+        const proj = projects.find(p => String(p?.project_id || "") === projectId) || null;
+
+        const projectOwnerId = (proj && typeof proj === "object")
+            ? String(proj.owner || "")
+            : "";
+
+        if (!projectId || !projectOwnerId) {
+            window.artists = [];
+            window.artistsById = {};
+            return [];
+        }
+
+        // 2) Call backend (to project owner)
+        const appId = await AFGetAppID();
+        const res = await AFSendFlowMessage(appId, projectOwnerId, `LIST_ARTISTS|${projectId}`);
+
+        // 3) Normalize
+        let list = [];
+        if (Array.isArray(res)) {
+            list = res;
+        } else if (typeof res === "string") {
+            try {
+                const parsed = JSON.parse(res);
+                list = Array.isArray(parsed) ? parsed : [];
+            } catch {
+                list = [];
+            }
+        }
+
+        // 4) Store globals
+        window.artists = list;
+
+        const byId = {};
+        for (const a of list) {
+            if (!a || typeof a !== "object") continue;
+            const id = String(a.artist_id ?? a.id ?? a.artistId ?? "").trim();
+            if (!id) continue;
+            byId[id] = a;
+        }
+        window.artistsById = byId;
+
+        return list;
+
+    } catch (err) {
+
+        console.error("Failed to load artists:", err);
+        window.artists = [];
+        window.artistsById = {};
+        return [];
+
+    }
+
+}
+
+async function loadVenues() 
+{
+
+    // -----------------------------------------------------------------------------
+    // loadVenues()
+    // -----------------------------------------------------------------------------
+    // - Reads selected project from <select id="project-list">
+    // - Resolves the PROJECT OWNER from window.projects ({ project_id, owner, ... })
+    // - Calls: LIST_VENUES|<project_uuid>  (sent to the project owner)
+    // - Stores result into:
+    //     window.venues   (array)
+    //     window.venuesById (map: { [venue_id]: venueObj })
+    //
+    // Expected backend response (array items):
+    //   { name, description, created_at, created_by, venue_id, ... }
+    // -----------------------------------------------------------------------------
+
+    try {
+
+        // 1) Resolve selected project + destination owner
+        const projectSelect = document.getElementById("project-list");
+        const projectId = (projectSelect?.value || "").trim();
+
+        const projects = Array.isArray(window.projects) ? window.projects : [];
+        const proj = projects.find(p => String(p?.project_id || "") === projectId) || null;
+
+        const projectOwnerId = (proj && typeof proj === "object")
+            ? String(proj.owner || "")
+            : "";
+
+        if (!projectId || !projectOwnerId) {
+            window.venues = [];
+            window.venuesById = {};
+            return [];
+        }
+
+        // 2) Call backend (to project owner)
+        const appId = await AFGetAppID();
+        const res = await AFSendFlowMessage(appId, projectOwnerId, `LIST_VENUES|${projectId}`);
+
+        // 3) Normalize
+        let list = [];
+        if (Array.isArray(res)) {
+            list = res;
+        } else if (typeof res === "string") {
+            try {
+                const parsed = JSON.parse(res);
+                list = Array.isArray(parsed) ? parsed : [];
+            } catch {
+                list = [];
+            }
+        }
+
+        // 4) Store globals
+        window.venues = list;
+
+        const byId = {};
+        for (const v of list) {
+            if (!v || typeof v !== "object") continue;
+            const id = String(v.venue_id ?? v.id ?? v.venueId ?? "").trim();
+            if (!id) continue;
+            byId[id] = v;
+        }
+        window.venuesById = byId;
+
+        return list;
+
+    } catch (err) {
+
+        console.error("Failed to load venues:", err);
+        window.venues = [];
+        window.venuesById = {};
+        return [];
+
+    }
+
+}
+

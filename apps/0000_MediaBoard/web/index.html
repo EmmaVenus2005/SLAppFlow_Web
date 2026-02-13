@@ -196,13 +196,13 @@
                 await addTrusted();
 
                 // Inits the date filter for the event list
-                initializeDateFilters()
+                initializeDateFilters();
 
                 // Loads the initial list
-                window.events = [
-                    { id: "ev1", name: "Test Event", status: "upcoming" },
-                    { id: "ev2", name: "Live DJ Set", status: "active" }
-                ];
+                // window.events = [
+                //     { id: "ev1", name: "Test Event", status: "upcoming" },
+                //     { id: "ev2", name: "Live DJ Set", status: "active" }
+                // ];
 
                 // Adding event listeners
                 addAddEntityListener()          // Add entity button listener (event, artist, venue)

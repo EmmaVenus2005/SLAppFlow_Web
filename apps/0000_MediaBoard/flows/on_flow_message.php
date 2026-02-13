@@ -282,7 +282,7 @@ if ($messageParts[0] === "GETPREFERENCES" && AFGetSenderID() === AFGetOwnerID())
 // E.g. "ADD_ARTIST|<project_uuid>|<json_info>"
 if ($messageParts[0] === "ADD_ARTIST")
 {
-    
+
     // Called from WebControl → allow backend write
     AFSetSafe();
 
@@ -301,21 +301,24 @@ if ($messageParts[0] === "ADD_ARTIST")
     $info = json_decode($jsonInfo, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($info)) return false;
 
-    $name = trim((string)($info["name"] ?? ""));
-    $desc = trim((string)($info["description"] ?? ""));
+    // Minimal required fields (keep it minimal so it's easy to extend later)
+    $artistName = trim((string)($info["name"] ?? ""));
+    if ($artistName === "") return false;
 
-    if ($name === "") return false;
-
-    // Create UUID + store
+    // Create UUID
     $artistId = AFGenerateUUID();
 
-    $final = [
-        "name"        => $name,
-        "description" => $desc,
-        "created_at"  => time(),
-        "created_by"  => AFGetSenderID(),
-    ];
+    // Start from input JSON and enrich (extensible design)
+    $final = $info;
 
+    // Ensure canonical required fields (avoid storing weird whitespace)
+    $final["name"] = $artistName;
+
+    // Add server-controlled fields
+    $final["created_at"] = time();
+    $final["created_by"] = AFGetSenderID();
+
+    // Store (session = projectId, class = Artist, name = artist UUID)
     NVSetSessionList(
         $projectId,
         "Artist",
@@ -365,6 +368,243 @@ if ($messageParts[0] === "LIST_ARTISTS")
         $row["artist_id"] = $artistId;
 
         // Return full row as-is (plus artist_id)
+        $out[] = $row;
+    }
+
+    return $out;
+
+}
+
+// Message sent from WebControl to create a venue
+// E.g. "ADD_VENUE|<project_uuid>|<json_info>"
+if ($messageParts[0] === "ADD_VENUE")
+{
+
+    // Called from WebControl → allow backend write
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1]) || !isset($messageParts[2])) return false;
+
+    $projectId = trim($messageParts[1]);
+    $jsonInfo  = $messageParts[2];
+
+    if ($projectId === "" || $jsonInfo === "") return false;
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Decode + validate payload
+    $info = json_decode($jsonInfo, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($info)) return false;
+
+    // Minimal required fields (keep it minimal so it's easy to extend later)
+    $venueName = trim((string)($info["name"] ?? ""));
+    if ($venueName === "") return false;
+
+    // Create UUID
+    $venueId = AFGenerateUUID();
+
+    // Start from input JSON and enrich (extensible design)
+    $final = $info;
+
+    // Ensure canonical required fields (avoid storing weird whitespace)
+    $final["name"] = $venueName;
+
+    // Add server-controlled fields
+    $final["created_at"] = time();
+    $final["created_by"] = AFGetSenderID();
+
+    // Store (session = projectId, class = Venue, name = venue UUID)
+    NVSetSessionList(
+        $projectId,
+        "Venue",
+        $venueId,
+        json_encode($final, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
+    // Acknowledge success
+    return true;
+
+}
+
+// List venues for a project (returns full JSON + injected venue_id key)
+// E.g. "LIST_VENUES|<project_uuid>"
+if ($messageParts[0] === "LIST_VENUES")
+{
+
+    // Called from WebControl → allow backend read
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1])) return [];
+
+    $projectId = trim($messageParts[1]);
+    if ($projectId === "") return [];
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return [];
+
+    // Enumerate all venues in this project session
+    $venueIds = NVGetSessionLists($projectId, "Venue");
+    if (!is_array($venueIds) || count($venueIds) === 0) return [];
+
+    $out = [];
+
+    foreach ($venueIds as $venueId) {
+
+        if (!is_string($venueId) || $venueId === "") continue;
+
+        $json = NVGetSessionList($projectId, "Venue", $venueId);
+        if (!is_string($json) || $json === "") continue;
+
+        $row = json_decode($json, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($row)) continue;
+
+        // Inject the key as venue_id (not stored redundantly in DB JSON)
+        $row["venue_id"] = $venueId;
+
+        // Return full row as-is (plus venue_id)
+        $out[] = $row;
+    }
+
+    return $out;
+
+}
+
+// Message sent from WebControl to create an event
+// E.g. "ADD_EVENT|<project_uuid>|<json_info>|<base64_pic>"
+if ($messageParts[0] === "ADD_EVENT")
+{
+
+    // Called from WebControl → allow backend write
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1]) || !isset($messageParts[2]) || !isset($messageParts[3])) return false;
+
+    $projectId = trim($messageParts[1]);
+    $jsonInfo  = $messageParts[2];
+    $base64Pic = $messageParts[3]; // raw base64 (no data: prefix). Can be empty.
+
+    if ($projectId === "" || $jsonInfo === "") return false;
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Decode + validate payload
+    $info = json_decode($jsonInfo, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($info)) return false;
+
+    // Minimal required fields (keep it minimal so it's easy to extend later)
+    $name = trim((string)($info["name"] ?? ""));
+    $date = trim((string)($info["date"] ?? "")); // "YYYY-MM-DD"
+
+    if ($name === "" || $date === "") return false;
+
+    // Derive Event class from date: EventYYYYMM
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m)) return false;
+    $class = "Event" . $m[1] . $m[2];
+
+    // Create UUID
+    $eventId = AFGenerateUUID();
+
+    // Optional: store picture via FileService and keep file_id in event JSON
+    $pictureFileId = "";
+    if (is_string($base64Pic) && $base64Pic !== "") {
+
+        $binaryData = base64_decode($base64Pic);
+
+        // Minimal validation (same spirit as your UNICAT code)
+        if ($binaryData && strlen($binaryData) >= 1000) {
+
+            // Build filename (jpg/png detection by base64 prefix)
+            $filename = "";
+            if (str_starts_with($base64Pic, "/9j/")) {
+                $filename = $eventId . ".jpg";
+            } elseif (str_starts_with($base64Pic, "iVBOR")) {
+                $filename = $eventId . ".png";
+            }
+
+            if ($filename !== "") {
+                $fileId = FSUpload($filename, $binaryData);
+                if ($fileId) $pictureFileId = $fileId;
+            }
+        }
+    }
+
+    // Start from input JSON and enrich (extensible design)
+    $final = $info;
+
+    // Ensure canonical required fields (avoid storing weird whitespace)
+    $final["name"] = $name;
+    $final["date"] = $date;
+
+    // Add server-controlled fields
+    $final["picture_id"] = $pictureFileId;   // empty string if none
+    $final["created_at"] = time();
+    $final["created_by"] = AFGetSenderID();
+
+    // Store (session = projectId, class = EventYYYYMM, name = event UUID)
+    NVSetSessionList(
+        $projectId,
+        $class,
+        $eventId,
+        json_encode($final, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
+    return true;
+
+}
+
+// List events for a project month (returns full JSON + injected event_id key)
+// E.g. "LIST_EVENTS|<project_uuid>|<year>|<month>"
+if ($messageParts[0] === "LIST_EVENTS")
+{
+
+    // Called from WebControl → allow backend read
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1]) || !isset($messageParts[2]) || !isset($messageParts[3])) return [];
+
+    $projectId = trim($messageParts[1]);
+    $year      = trim($messageParts[2]); // "YYYY"
+    $month     = trim($messageParts[3]); // "01".."12" (or "1".."12" tolerated below)
+
+    if ($projectId === "" || $year === "" || $month === "") return [];
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return [];
+
+    // Normalize + validate year/month
+    if (!preg_match('/^\d{4}$/', $year)) return [];
+    if (!preg_match('/^\d{1,2}$/', $month)) return [];
+    $month = str_pad($month, 2, "0", STR_PAD_LEFT);
+    if ((int)$month < 1 || (int)$month > 12) return [];
+
+    $class = "Event" . $year . $month;
+
+    // Enumerate all events in this project session for that class
+    $eventIds = NVGetSessionLists($projectId, $class);
+    if (!is_array($eventIds) || count($eventIds) === 0) return [];
+
+    $out = [];
+
+    foreach ($eventIds as $eventId) {
+
+        if (!is_string($eventId) || $eventId === "") continue;
+
+        $json = NVGetSessionList($projectId, $class, $eventId);
+        if (!is_string($json) || $json === "") continue;
+
+        $row = json_decode($json, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($row)) continue;
+
+        // Inject the key as event_id (not stored redundantly in DB JSON)
+        $row["event_id"] = $eventId;
+
+        // Return full row as-is (plus event_id)
         $out[] = $row;
     }
 
