@@ -142,11 +142,6 @@ if ($messageParts[0] === "LIST_PROJECTS" && AFGetSenderID() === AFGetOwnerID())
 if ($messageParts[0] === "LIST_TRUSTER_PROJECTS" && AFIsUnsafe() !== true)
 {
 
-    // Checks if the sender is a truster of mine
-    if (!CheckTrusted(AFGetSenderID())) {
-        return [];
-    }
-
     // My projects
     $myProjects = ProjectsList(); // expected: [ ["project_id"=>..., "name"=>...], ... ]
     if (!is_array($myProjects)) {
@@ -283,23 +278,104 @@ if ($messageParts[0] === "GETPREFERENCES" && AFGetSenderID() === AFGetOwnerID())
 
 }
 
+// Message sent from WebControl to create an artist
+// E.g. "ADD_ARTIST|<project_uuid>|<json_info>"
+if ($messageParts[0] === "ADD_ARTIST")
+{
+    
+    // Called from WebControl → allow backend write
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1]) || !isset($messageParts[2])) return false;
+
+    $projectId = trim($messageParts[1]);
+    $jsonInfo  = $messageParts[2];
+
+    if ($projectId === "" || $jsonInfo === "") return false;
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Decode + validate payload
+    $info = json_decode($jsonInfo, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($info)) return false;
+
+    $name = trim((string)($info["name"] ?? ""));
+    $desc = trim((string)($info["description"] ?? ""));
+
+    if ($name === "") return false;
+
+    // Create UUID + store
+    $artistId = AFGenerateUUID();
+
+    $final = [
+        "name"        => $name,
+        "description" => $desc,
+        "created_at"  => time(),
+        "created_by"  => AFGetSenderID(),
+    ];
+
+    NVSetSessionList(
+        $projectId,
+        "Artist",
+        $artistId,
+        json_encode($final, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
+    // Acknowledge success
+    return true;
+
+}
+
+// List artists for a project (returns full JSON + injected artist_id key)
+// E.g. "LIST_ARTISTS|<project_uuid>"
+if ($messageParts[0] === "LIST_ARTISTS")
+{
+
+    // Called from WebControl → allow backend read
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1])) return [];
+
+    $projectId = trim($messageParts[1]);
+    if ($projectId === "") return [];
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return [];
+
+    // Enumerate all artists in this project session
+    $artistIds = NVGetSessionLists($projectId, "Artist");
+    if (!is_array($artistIds) || count($artistIds) === 0) return [];
+
+    $out = [];
+
+    foreach ($artistIds as $artistId) {
+
+        if (!is_string($artistId) || $artistId === "") continue;
+
+        $json = NVGetSessionList($projectId, "Artist", $artistId);
+        if (!is_string($json) || $json === "") continue;
+
+        $row = json_decode($json, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($row)) continue;
+
+        // Inject the key as artist_id (not stored redundantly in DB JSON)
+        $row["artist_id"] = $artistId;
+
+        // Return full row as-is (plus artist_id)
+        $out[] = $row;
+    }
+
+    return $out;
+
+}
 
 
-// List events
 
-// List artists
 
-// List venues
 
-// List boards
-
-// Get event info
-
-// Get artist info
-
-// Get venue info
-
-// Get board info
 
 
 // Always return explicitely, because if not, PHP returns 1

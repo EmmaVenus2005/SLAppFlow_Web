@@ -183,92 +183,690 @@ function addCreateProjectListener(opts = {}) {
     });
 }
 
-/**
- * Initialize all interactions related to the "Add Entity" overlay.
- *
- * This function is safe to call multiple times; listeners will only be
- * attached once.
- */
-function addAddEntityListener() {
+function addAddEntityListener()
+{
+
+    /**
+     * addAddEntityListener
+     *
+     * Purpose:
+     * - Wires ALL interactions related to the "Add Entity" overlay.
+     * - The overlay skeleton is assumed to ALWAYS exist in index.html:
+     *     #add-entity-overlay, #add-entity-title, #add-entity-content,
+     *     .overlay-backdrop[data-overlay-close="1"], #add-entity-close-btn
+     *
+     * Design:
+     * - Single function only (no external utilities).
+     * - Top: listeners (bound once).
+     * - Then: openOverlay / closeOverlay helpers.
+     * - Then: form templates by entity type (Events / Artists / Venues / Boards).
+     * - Then: per-form wiring (validation, photo load in RAM, submit behavior).
+     *
+     * Backend contract:
+     * - Event:
+     *     ADD_EVENT|<infos_json>|<base64_img>
+     *     - <infos_json> is a JSON string (no base64 inside).
+     *     - <base64_img> is raw base64 (no "data:image/...;base64," prefix). Can be empty.
+     * - Artist:
+     *     ADD_ARTIST|<infos_json>
+     *     - <infos_json> includes: name, description
+     * - Venue:
+     *     ADD_VENUE|<infos_json>
+     *     - <infos_json> includes: name, description
+     *
+     * Boards:
+     * - Not handled here (no overlay form).
+     * - The ➕ button is disabled when "Boards List" is selected.
+     */
+
     // -------------------------------------------------------------------------
-    // Idempotency guard
+    // 0) Idempotency guard (prevents double-binding)
     // -------------------------------------------------------------------------
     if (addAddEntityListener._isBound) return;
     addAddEntityListener._isBound = true;
 
     // -------------------------------------------------------------------------
-    // Private helpers (NOT exposed outside this function)
+    // 1) DOM references (overlay skeleton must exist in index.html)
     // -------------------------------------------------------------------------
+    const overlay  = document.getElementById("add-entity-overlay");
+    const titleEl  = document.getElementById("add-entity-title");
+    const contentEl = document.getElementById("add-entity-content");
+    const addBtn   = document.getElementById("add-entity-btn");
+    const closeBtn = document.getElementById("add-entity-close-btn");
+    const viewSelect = document.getElementById("main-view-select");
 
-    /**
-     * Open the overlay with a given title and HTML content.
-     *
-     * @param {string} title - Overlay title text.
-     * @param {string} html  - HTML content injected into the overlay body.
-     */
-    function openOverlay(title, html) {
-        const overlay = document.getElementById("add-entity-overlay");
-        const titleEl = document.getElementById("add-entity-title");
-        const content = document.getElementById("add-entity-content");
-
-        if (!overlay || !titleEl || !content) return;
-
-        titleEl.textContent = title || "Add";
-        content.innerHTML = html || "";
-
-        overlay.style.display = "block";
-    }
-
-    /**
-     * Close the overlay and reset its content.
-     */
-    function closeOverlay() {
-        const overlay = document.getElementById("add-entity-overlay");
-        const content = document.getElementById("add-entity-content");
-
-        if (!overlay || !content) return;
-
-        overlay.style.display = "none";
-        content.innerHTML = "";
-    }
+    // If overlay is missing, do nothing (safe no-op)
+    if (!overlay || !titleEl || !contentEl || !addBtn || !viewSelect) return;
 
     // -------------------------------------------------------------------------
-    // Event bindings
+    // 2) LISTENERS (global overlay interactions + view-based enabling)
     // -------------------------------------------------------------------------
 
-    // 1) Click on overlay background or any element explicitly marked to close it
+    // 2.1) Close overlay when clicking backdrop (or any element marked data-overlay-close="1")
     document.addEventListener("click", (e) => {
-        const target = e.target;
-
-        if (target?.getAttribute?.("data-overlay-close") === "1") {
+        const t = e.target;
+        if (t?.getAttribute?.("data-overlay-close") === "1") {
             closeOverlay();
         }
     });
 
-    // 2) Close button
-    document
-        .getElementById("add-entity-close-btn")
-        ?.addEventListener("click", closeOverlay);
+    // 2.2) Close overlay with X button
+    closeBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeOverlay();
+    });
 
-    // 3) Escape key
+    // 2.3) Close overlay with Escape key
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeOverlay();
     });
 
-    // 4) "Add Entity" button → open overlay based on current view
-    document
-        .getElementById("add-entity-btn")
-        ?.addEventListener("click", () => {
-            const view =
-                document.getElementById("main-view-select")?.value ||
-                "Events List";
+    // 2.4) Disable ➕ button when Boards List is selected
+    // - This improves UX: boards are not created here.
+    // - Also closes the overlay if user switches to Boards while overlay is open.
+    const syncAddButtonState = () => {
+        const viewLabel = viewSelect.value || "Events List";
+        const isBoards = (viewLabel === "Boards List");
 
-            if (view === "Events List") {
-                openOverlay("Add Event", `<div>…event form…</div>`);
-            } else if (view === "Artists List") {
-                openOverlay("Add Artist", `<div>…artist form…</div>`);
+        addBtn.disabled = isBoards;
+        addBtn.style.opacity = isBoards ? "0.45" : "1";
+        addBtn.style.cursor = isBoards ? "not-allowed" : "pointer";
+
+        if (isBoards) closeOverlay();
+    };
+
+    viewSelect.addEventListener("change", () => {
+        syncAddButtonState();
+    });
+
+    // Ensure correct state on init
+    syncAddButtonState();
+
+    // 2.5) Open overlay with the ➕ button (form depends on current main view)
+    addBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        // If disabled, do nothing (extra safety)
+        if (addBtn.disabled) return;
+
+        const viewLabel = viewSelect.value || "Events List";
+
+        // Decide entity type based on the active table/view
+        let entityType = "event";
+        if (viewLabel === "Artists List") entityType = "artist";
+        if (viewLabel === "Venues List")  entityType = "venue";
+        if (viewLabel === "Boards List")  entityType = "board"; // should not happen due to disabled button
+
+        // Render + wire the form for this entity type
+        await renderAndWireForm(entityType);
+    });
+
+    // -------------------------------------------------------------------------
+    // 3) Overlay helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * openOverlay
+     *
+     * @param {string} title - Overlay title
+     * @param {string} html  - Overlay body HTML
+     */
+    function openOverlay(title, html) {
+        titleEl.textContent = title || "Add";
+        contentEl.innerHTML = html || "";
+        overlay.style.display = "block";
+    }
+
+    /**
+     * closeOverlay
+     *
+     * - Hides overlay
+     * - Clears content (so the next open is clean)
+     */
+    function closeOverlay() {
+        overlay.style.display = "none";
+        contentEl.innerHTML = "";
+    }
+
+    // -------------------------------------------------------------------------
+    // 4) Form HTML templates (one section per entity type)
+    // -------------------------------------------------------------------------
+
+    /**
+     * formHtmlByType
+     *
+     * - Each function returns HTML string for the overlay content.
+     * - Keep the HTML close to its wiring logic for readability.
+     */
+    const formHtmlByType = {
+
+        // ---------------------------------------------------------------------
+        // 4.A) EVENT form
+        // ---------------------------------------------------------------------
+        event: () => {
+            const artists = Array.isArray(window.artists) ? window.artists : [];
+            const venues  = Array.isArray(window.venues)  ? window.venues  : [];
+
+            const artistOptions = artists.length
+                ? [`<option value=""></option>`, ...artists.map(a => {
+                    const id = String(a.id ?? a.artist_id ?? "");
+                    const nm = String(a.name ?? "");
+                    return `<option value="${escapeHtml(id)}">${escapeHtml(nm)}</option>`;
+                })].join("")
+                : `<option value="">(no artists yet)</option>`;
+
+            const venueOptions = venues.length
+                ? [`<option value=""></option>`, ...venues.map(v => {
+                    const id = String(v.id ?? v.venue_id ?? "");
+                    const nm = String(v.name ?? "");
+                    return `<option value="${escapeHtml(id)}">${escapeHtml(nm)}</option>`;
+                })].join("")
+                : `<option value="">(no venues yet)</option>`;
+
+            return `
+                <div style="display:flex; flex-direction:column; gap:10px;">
+
+                    <div>
+                        <label style="font-weight:600;">Event name</label>
+                        <input id="ae_event_name" type="text" placeholder="e.g. DJ Madison Live"
+                            style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                    </div>
+
+                    <div>
+                        <label style="font-weight:600;">Artist</label>
+                        <select id="ae_event_artist"
+                            style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                            ${artistOptions}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="font-weight:600;">Venue</label>
+                        <select id="ae_event_venue"
+                            style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                            ${venueOptions}
+                        </select>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label style="font-weight:600;">Date</label>
+                            <input id="ae_event_date" type="date"
+                                style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-weight:600;">Start time</label>
+                            <input id="ae_event_start" type="time"
+                                style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-weight:600;">End time</label>
+                            <input id="ae_event_end" type="time"
+                                style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="font-weight:600;">Photo</label>
+                        <input id="ae_event_photo" type="file" accept="image/*"
+                            style="width:100%; padding:6px 0;">
+                        <div id="ae_event_photo_hint" style="color:#666; font-size:0.95em;">
+                            No photo loaded.
+                        </div>
+                    </div>
+
+                    <div id="ae_event_error" style="color:#c14a42; font-size:0.95em; display:none;"></div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+                        <button id="ae_event_cancel"
+                            style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                            Cancel
+                        </button>
+                        <button id="ae_event_add"
+                            style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                            Add
+                        </button>
+                    </div>
+                </div>
+            `;
+        },
+
+        // ---------------------------------------------------------------------
+        // 4.B) ARTIST form
+        // Fields:
+        // - name
+        // - description
+        // Submit:
+        // - ADD_ARTIST|<infos_json>
+        // ---------------------------------------------------------------------
+        artist: () => `
+            <div style="display:flex; flex-direction:column; gap:10px;">
+
+                <div>
+                    <label style="font-weight:600;">Artist name</label>
+                    <input id="ae_artist_name" type="text" placeholder="e.g. Madison Star"
+                        style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;">Description</label>
+                    <textarea id="ae_artist_desc" rows="4" placeholder="Short bio / notes"
+                        style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; resize:vertical;"></textarea>
+                </div>
+
+                <div id="ae_artist_error" style="color:#c14a42; font-size:0.95em; display:none;"></div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+                    <button id="ae_artist_cancel"
+                        style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button id="ae_artist_add"
+                        style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                        Add
+                    </button>
+                </div>
+
+            </div>
+        `,
+
+        // ---------------------------------------------------------------------
+        // 4.C) VENUE form
+        // Fields:
+        // - name
+        // - description
+        // Submit:
+        // - ADD_VENUE|<infos_json>
+        // ---------------------------------------------------------------------
+        venue: () => `
+            <div style="display:flex; flex-direction:column; gap:10px;">
+
+                <div>
+                    <label style="font-weight:600;">Venue name</label>
+                    <input id="ae_venue_name" type="text" placeholder="e.g. Starlit Night Club"
+                        style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;">Description</label>
+                    <textarea id="ae_venue_desc" rows="4" placeholder="Short description / location notes"
+                        style="width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; resize:vertical;"></textarea>
+                </div>
+
+                <div id="ae_venue_error" style="color:#c14a42; font-size:0.95em; display:none;"></div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+                    <button id="ae_venue_cancel"
+                        style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button id="ae_venue_add"
+                        style="padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer;">
+                        Add
+                    </button>
+                </div>
+
+            </div>
+        `,
+
+        // ---------------------------------------------------------------------
+        // 4.D) BOARD form (not handled here)
+        // ---------------------------------------------------------------------
+        board: () => `
+            <div style="color:#666;">
+                Boards are not created here.
+            </div>
+        `,
+    };
+
+    // -------------------------------------------------------------------------
+    // 5) Render + wire logic (one block that routes by entity type)
+    // -------------------------------------------------------------------------
+
+    /**
+     * renderAndWireForm
+     *
+     * - Injects the correct HTML for the entity type
+     * - Attaches per-form listeners (submit, cancel, photo load, etc.)
+     *
+     * @param {"event"|"artist"|"venue"|"board"} entityType
+     */
+    async function renderAndWireForm(entityType) {
+
+        // 5.1) Pick HTML builder
+        const htmlBuilder = formHtmlByType[entityType];
+        const html = (typeof htmlBuilder === "function")
+            ? htmlBuilder()
+            : `<div style="color:#666;">Unknown form.</div>`;
+
+        // 5.2) Open overlay with title
+        const titles = {
+            event: "Add Event",
+            artist: "Add Artist",
+            venue: "Add Venue",
+            board: "Add",
+        };
+        openOverlay(titles[entityType] || "Add", html);
+
+        // 5.3) Wire the form according to entity type
+        if (entityType === "event")  wireEventForm();
+        if (entityType === "artist") wireArtistForm();
+        if (entityType === "venue")  wireVenueForm();
+        // Boards: no wiring
+    }
+
+    // -------------------------------------------------------------------------
+    // 6) EVENT form wiring (validation + photo RAM + backend call)
+    // -------------------------------------------------------------------------
+
+    /**
+     * wireEventForm
+     *
+     * - Loads photo in RAM as base64 (WITHOUT data URL prefix)
+     * - On Add:
+     *     ADD_EVENT|<infos_json>|<base64_img>
+     * - infos_json includes:
+     *     name, artist_id, venue_id, date, start_time, end_time
+     */
+    function wireEventForm() {
+
+        const nameEl   = document.getElementById("ae_event_name");
+        const artistEl = document.getElementById("ae_event_artist");
+        const venueEl  = document.getElementById("ae_event_venue");
+        const dateEl   = document.getElementById("ae_event_date");
+        const startEl  = document.getElementById("ae_event_start");
+        const endEl    = document.getElementById("ae_event_end");
+
+        const photoEl  = document.getElementById("ae_event_photo");
+        const hintEl   = document.getElementById("ae_event_photo_hint");
+
+        const errEl    = document.getElementById("ae_event_error");
+        const cancelBtn = document.getElementById("ae_event_cancel");
+        const addBtn    = document.getElementById("ae_event_add");
+
+        let photoBase64 = "";
+
+        const showError = (msg) => {
+            if (!errEl) return;
+            errEl.textContent = msg || "Error";
+            errEl.style.display = "block";
+        };
+        const hideError = () => {
+            if (!errEl) return;
+            errEl.textContent = "";
+            errEl.style.display = "none";
+        };
+
+        cancelBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeOverlay();
+        });
+
+        photoEl?.addEventListener("change", async () => {
+            hideError();
+
+            const file = photoEl.files?.[0];
+            if (!file) {
+                photoBase64 = "";
+                if (hintEl) hintEl.textContent = "No photo loaded.";
+                return;
+            }
+
+            try {
+                const dataUrl = await readFileAsDataURL(file);
+                const idx = dataUrl.indexOf(",");
+                photoBase64 = (idx >= 0) ? dataUrl.slice(idx + 1) : "";
+
+                if (hintEl) {
+                    hintEl.textContent = `Loaded: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+                }
+            } catch (ex) {
+                console.warn("Photo read failed", ex);
+                photoBase64 = "";
+                if (hintEl) hintEl.textContent = "No photo loaded.";
+                showError("Failed to load photo.");
             }
         });
+
+        addBtn?.addEventListener("click", async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const payload = {
+                name: (nameEl?.value || "").trim(),
+                artist_id: (artistEl?.value || "").trim(),
+                venue_id: (venueEl?.value || "").trim(),
+                date: (dateEl?.value || "").trim(),
+                start_time: (startEl?.value || "").trim(),
+                end_time: (endEl?.value || "").trim(),
+            };
+
+            if (!payload.name) { showError("Please enter an event name."); return; }
+            if (!payload.date) { showError("Please select a date."); return; }
+
+            if (addBtn) addBtn.disabled = true;
+
+            try {
+                const appId = await AFGetAppID();
+                const ownerId = await AFGetOwnerID();
+
+                const safePayload = {
+                    ...payload,
+                    name: payload.name.replaceAll("|", " "),
+                };
+
+                const infosJson = JSON.stringify(safePayload);
+                const msg = `ADD_EVENT|${infosJson}|${photoBase64 || ""}`;
+
+                const res = await AFSendFlowMessage(appId, ownerId, msg);
+
+                if (res === false) {
+                    showError("Failed to add event.");
+                    if (addBtn) addBtn.disabled = false;
+                    return;
+                }
+
+                closeOverlay();
+                if (typeof renderTable === "function") renderTable();
+
+            } catch (ex) {
+                console.warn("ADD_EVENT failed", ex);
+                showError("Failed to add event.");
+                if (addBtn) addBtn.disabled = false;
+            }
+        });
+
+        nameEl?.focus();
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(String(r.result || ""));
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7) ARTIST form wiring (validation + backend call)
+    // -------------------------------------------------------------------------
+
+    /**
+     * wireArtistForm
+     *
+     * - On Add:
+     *     ADD_ARTIST|<infos_json>
+     * - infos_json includes:
+     *     name, description
+     */
+    function wireArtistForm() {
+
+        const nameEl = document.getElementById("ae_artist_name");
+        const descEl = document.getElementById("ae_artist_desc");
+
+        const errEl = document.getElementById("ae_artist_error");
+        const cancelBtn = document.getElementById("ae_artist_cancel");
+        const addBtn = document.getElementById("ae_artist_add");
+
+        const showError = (msg) => {
+            if (!errEl) return;
+            errEl.textContent = msg || "Error";
+            errEl.style.display = "block";
+        };
+        const hideError = () => {
+            if (!errEl) return;
+            errEl.textContent = "";
+            errEl.style.display = "none";
+        };
+
+        cancelBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeOverlay();
+        });
+
+        addBtn?.addEventListener("click", async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const payload = {
+                name: (nameEl?.value || "").trim(),
+                description: (descEl?.value || "").trim(),
+            };
+
+            if (!payload.name) { showError("Please enter an artist name."); return; }
+
+            if (addBtn) addBtn.disabled = true;
+
+            try {
+                const appId = await AFGetAppID();
+                const ownerId = await AFGetOwnerID();
+
+                const safePayload = {
+                    ...payload,
+                    name: payload.name.replaceAll("|", " "),
+                    description: payload.description.replaceAll("|", " "),
+                };
+
+                const infosJson = JSON.stringify(safePayload);
+                const msg = `ADD_ARTIST|${infosJson}`;
+
+                const res = await AFSendFlowMessage(appId, ownerId, msg);
+
+                if (res === false) {
+                    showError("Failed to add artist.");
+                    if (addBtn) addBtn.disabled = false;
+                    return;
+                }
+
+                closeOverlay();
+                if (typeof renderTable === "function") renderTable();
+
+            } catch (ex) {
+                console.warn("ADD_ARTIST failed", ex);
+                showError("Failed to add artist.");
+                if (addBtn) addBtn.disabled = false;
+            }
+        });
+
+        nameEl?.focus();
+    }
+
+    // -------------------------------------------------------------------------
+    // 8) VENUE form wiring (validation + backend call)
+    // -------------------------------------------------------------------------
+
+    /**
+     * wireVenueForm
+     *
+     * - On Add:
+     *     ADD_VENUE|<infos_json>
+     * - infos_json includes:
+     *     name, description
+     */
+    function wireVenueForm() {
+
+        const nameEl = document.getElementById("ae_venue_name");
+        const descEl = document.getElementById("ae_venue_desc");
+
+        const errEl = document.getElementById("ae_venue_error");
+        const cancelBtn = document.getElementById("ae_venue_cancel");
+        const addBtn = document.getElementById("ae_venue_add");
+
+        const showError = (msg) => {
+            if (!errEl) return;
+            errEl.textContent = msg || "Error";
+            errEl.style.display = "block";
+        };
+        const hideError = () => {
+            if (!errEl) return;
+            errEl.textContent = "";
+            errEl.style.display = "none";
+        };
+
+        cancelBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeOverlay();
+        });
+
+        addBtn?.addEventListener("click", async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const payload = {
+                name: (nameEl?.value || "").trim(),
+                description: (descEl?.value || "").trim(),
+            };
+
+            if (!payload.name) { showError("Please enter a venue name."); return; }
+
+            if (addBtn) addBtn.disabled = true;
+
+            try {
+                const appId = await AFGetAppID();
+                const ownerId = await AFGetOwnerID();
+
+                const safePayload = {
+                    ...payload,
+                    name: payload.name.replaceAll("|", " "),
+                    description: payload.description.replaceAll("|", " "),
+                };
+
+                const infosJson = JSON.stringify(safePayload);
+                const msg = `ADD_VENUE|${infosJson}`;
+
+                const res = await AFSendFlowMessage(appId, ownerId, msg);
+
+                if (res === false) {
+                    showError("Failed to add venue.");
+                    if (addBtn) addBtn.disabled = false;
+                    return;
+                }
+
+                closeOverlay();
+                if (typeof renderTable === "function") renderTable();
+
+            } catch (ex) {
+                console.warn("ADD_VENUE failed", ex);
+                showError("Failed to add venue.");
+                if (addBtn) addBtn.disabled = false;
+            }
+        });
+
+        nameEl?.focus();
+    }
+
+    // -------------------------------------------------------------------------
+    // 9) Tiny HTML escape helper (local to this single function)
+    // -------------------------------------------------------------------------
+    function escapeHtml(s) {
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
 }
 
 // ----------------------------------------------------------------------------
