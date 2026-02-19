@@ -497,10 +497,10 @@ if ($messageParts[0] === "ADD_EVENT")
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($info)) return false;
 
     // Minimal required fields (keep it minimal so it's easy to extend later)
-    $name = trim((string)($info["name"] ?? ""));
+    $eventName = trim((string)($info["name"] ?? ""));
     $date = trim((string)($info["date"] ?? "")); // "YYYY-MM-DD"
 
-    if ($name === "" || $date === "") return false;
+    if ($eventName === "" || $date === "") return false;
 
     // Derive Event class from date: EventYYYYMM
     if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m)) return false;
@@ -519,11 +519,10 @@ if ($messageParts[0] === "ADD_EVENT")
         if ($binaryData && strlen($binaryData) >= 1000) {
 
             // Build filename (jpg/png detection by base64 prefix)
-            $filename = "";
             if (str_starts_with($base64Pic, "/9j/")) {
-                $filename = $eventId . ".jpg";
+                $filename = $class . ".jpg";
             } elseif (str_starts_with($base64Pic, "iVBOR")) {
-                $filename = $eventId . ".png";
+                $filename = $class . ".png";
             }
 
             if ($filename !== "") {
@@ -537,7 +536,7 @@ if ($messageParts[0] === "ADD_EVENT")
     $final = $info;
 
     // Ensure canonical required fields (avoid storing weird whitespace)
-    $final["name"] = $name;
+    $final["name"] = $eventName;
     $final["date"] = $date;
 
     // Add server-controlled fields
