@@ -37,7 +37,7 @@ if (AFGetSenderAppID() !== AFGetAppID()) { return; }
 // Separating the message parts
 $messageParts = explode("|", AFGetMessage());
 
-// Lists the images from the board
+// Lists the slide payload from the board (full node)
 // CALLED FROM THE FRONT-END MEDIA
 // Sent to the owner of the board
 // E.g. "LIST_BOARD_IMAGES|<board_id>"
@@ -59,23 +59,16 @@ if ($messageParts[0] === "LIST_BOARD_IMAGES" && AFGetSenderID() === "Media")
     $board = json_decode($boardJson, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) return [];
 
-    // Return slide items as list of image IDs (empty if absent)
-    $items = (isset($board["slide"]["items"]) && is_array($board["slide"]["items"])) ? $board["slide"]["items"] : [];
+    // Return slide node as-is (or empty object if absent)
+    $slide = (isset($board["slide"]) && is_array($board["slide"])) ? $board["slide"] : [];
 
-    $out = [];
-    foreach ($items as $it) {
-        if (!is_array($it)) continue;
+    // Ensure the node has the expected shape (minimal defaults)
+    if (!isset($slide["items"]) || !is_array($slide["items"])) $slide["items"] = [];
+    if (!isset($slide["step_sec"]) || !is_int($slide["step_sec"]) || $slide["step_sec"] <= 0) $slide["step_sec"] = 10;
+    if (!isset($slide["start_at"]) || !is_int($slide["start_at"]) || $slide["start_at"] <= 0) $slide["start_at"] = time();
 
-        $img = trim((string)($it["image_id"] ?? ""));
-        if ($img === "") continue;
-
-        // Keep unique (preserve order)
-        if (!in_array($img, $out, true)) {
-            $out[] = $img;
-        }
-    }
-
-    return $out;
+    // Return the slide node as-is (with defaults if missing/invalid)
+    return $slide;
 
 }
 

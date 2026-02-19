@@ -38,19 +38,18 @@
     }
 
     .frame img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-      opacity: 0;
-      transform: scale(1.01);
-      transition: opacity 420ms ease, transform 420ms ease;
-      background: #000;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity 320ms ease-in-out;
+        background: #000;
     }
 
     .frame img.is-visible {
-      opacity: 1;
-      transform: scale(1);
+        opacity: 1;
     }
 
     .meta {
@@ -105,7 +104,8 @@
     <div class="hint" id="boardHint">Loading…</div>
 
     <div class="frame">
-      <img id="slideImg" alt="Slide" src="" />
+        <img id="slideImgA" alt="Slide A" />
+        <img id="slideImgB" alt="Slide B" />
     </div>
 
     <div class="meta">
@@ -132,26 +132,32 @@
     const params = new URLSearchParams(window.location.search);
 
     const state = {
-      boardId: (params.get("board_id") || "").trim(),
-      ownerId: (params.get("owner_id") || "").trim(),
-      appId: null,
-      slideSec: 10,                  // default (will be overridden if board config is exposed later)
-      listRefreshMs: 60 * 60 * 1000,  // 1 hour
-      currentIdx: 0,
-      imageIds: [],                  // current list from backend
-      cache: {},                     // { [imageId]: { src: "data:image/...", ts: number } }
+      boardId: (params.get("board_id") || "").trim(),       // expected to be a UUID string
+      ownerId: (params.get("owner_id") || "").trim(),       // expected to be a UUID string
+      appId: null,                                          // set on load
+      slideSec: 10,                                         // default (overridden by slide.step_sec)
+      listRefreshMs: 60 * 60 * 1000,                        // 1 hour
+      currentIdx: 0,                                        // current index in the imageIds list for the slideshow
+      imageIds: [],                                         // current list from backend (image_id only)
+      cache: {},                                            // { [imageId]: { src: "data:image/...", ts: number, ready: Promise<string> } }
       tickTimer: null,
       refreshTimer: null,
       isStarted: false,
+      activeLayer: "A",
+
+      // Slide sync params (from backend slide node)
+      slideStartAt: 0,                                      // UNIX seconds
+      lastSlideLoadedAt: 0,                                 // UNIX seconds (debug / info)
     };
 
     // UI refs
     const ui = {
-      root: document.getElementById("boardRoot"),
-      hint: document.getElementById("boardHint"),
-      img:  document.getElementById("slideImg"),
-      label: document.getElementById("slideLabel"),
-      clock: document.getElementById("slideClock"),
+        root: document.getElementById("boardRoot"),
+        hint: document.getElementById("boardHint"),
+        imgA: document.getElementById("slideImgA"),
+        imgB: document.getElementById("slideImgB"),
+        label: document.getElementById("slideLabel"),
+        clock: document.getElementById("slideClock"),
     };
 
     function getQueryParam(name) {
@@ -230,39 +236,171 @@
       return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     }
 
+    function extractImageIdsFromSlide(slide) {
+      const items = (slide && Array.isArray(slide.items)) ? slide.items : [];
+      const out = [];
+      for (const it of items) {
+        if (!it || typeof it !== "object") continue;
+        const img = String(it.image_id || "").trim();
+        if (!img) continue;
+        out.push(img);
+      }
+      return uniqueStrings(out);
+    }
+
+    function computeSyncedIndex(total) {
+      if (!total) return 0;
+
+      const step = Math.max(1, state.slideSec);
+      const startAt = (typeof state.slideStartAt === "number" && state.slideStartAt > 0)
+        ? state.slideStartAt
+        : nowTs();
+
+      const elapsed = Math.max(0, nowTs() - startAt);
+      const slot = Math.floor(elapsed / step);
+
+      return slot % total;
+    }
+
+    function restartSlideLoopSynced() {
+      if (state.tickTimer) clearInterval(state.tickTimer);
+
+      const stepMs = Math.max(1, state.slideSec) * 1000;
+
+      // Align ticks to the backend schedule (start_at + N*step_sec)
+      const startAt = (typeof state.slideStartAt === "number" && state.slideStartAt > 0)
+        ? state.slideStartAt
+        : nowTs();
+
+      const now = nowTs();
+      const elapsed = Math.max(0, now - startAt);
+      const intoStep = elapsed % Math.max(1, state.slideSec);
+      const msToNext = (Math.max(1, state.slideSec) - intoStep) * 1000;
+
+      state.tickTimer = setTimeout(() => {
+        nextSlide();
+        state.tickTimer = setInterval(() => {
+          nextSlide();
+        }, stepMs);
+      }, Math.max(0, msToNext));
+    }
+
     async function loadBoardImagesList() {
       // Must have boardId + appId
       if (!state.boardId) return [];
 
       let res = await AFSendFlowMessage(state.appId, state.ownerId, "LIST_BOARD_IMAGES|" + state.boardId);
-      console.log("LIST_BOARD_IMAGES response:", res);
+      //console.log("LIST_BOARD_IMAGES response:", res);
 
-      // Normalize: backend may return array or stringified JSON
-      let list = [];
-      if (Array.isArray(res)) {
-        list = res;
+      // Normalize: backend may return object or stringified JSON
+      let slide = null;
+
+      if (res && typeof res === "object" && !Array.isArray(res)) {
+        slide = res;
       } else if (typeof res === "string") {
         try {
           const parsed = JSON.parse(res);
-          list = Array.isArray(parsed) ? parsed : [];
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            slide = parsed;
+          }
         } catch {
+          slide = null;
+        }
+      }
+
+      // Backward-compat: if backend still returns an array, accept it
+      let list = [];
+      if (!slide) {
+        if (Array.isArray(res)) {
+          list = uniqueStrings(res);
+        } else if (typeof res === "string") {
+          try {
+            const parsed = JSON.parse(res);
+            list = Array.isArray(parsed) ? uniqueStrings(parsed) : [];
+          } catch {
+            list = [];
+          }
+        } else {
           list = [];
         }
       } else {
-        list = [];
-      }
+        // Use backend slide parameters
+        state.slideSec = (typeof slide.step_sec === "number" && slide.step_sec > 0) ? slide.step_sec : state.slideSec;
+        state.slideStartAt = (typeof slide.start_at === "number" && slide.start_at > 0) ? slide.start_at : state.slideStartAt;
+        state.lastSlideLoadedAt = nowTs();
 
-      list = uniqueStrings(list);
+        list = extractImageIdsFromSlide(slide);
+      }
 
       // Cache eviction: remove entries not in the new list
       purgeCache(list);
 
       state.imageIds = list;
 
-      // Keep current index in range
-      if (state.currentIdx >= state.imageIds.length) state.currentIdx = 0;
+      // Compute synced index (everyone should land on same image for same slide.start_at/step_sec)
+      state.currentIdx = computeSyncedIndex(state.imageIds.length);
+
+      // Preload all images into cache immediately (startup + hourly refresh)
+      await Promise.allSettled(list.map(id => ensureImageCached(id)));
 
       return list;
+    }
+
+    async function ensureImageCached(imageId) {
+      if (!imageId) return makeMissingImageDataUrl("", "Missing image_id");
+
+      // If already in cache and we already have a "ready" promise, await it
+      const existing = state.cache[imageId];
+      if (existing && existing.ready) {
+        return existing.ready;
+      }
+
+      // Create a single shared "ready" promise per image_id
+      state.cache[imageId] = {
+        src: "",
+        ts: nowTs(),
+        ready: (async () => {
+
+          // Download (base64)
+          let b64 = await AFSendFlowMessage(
+            state.appId,
+            state.ownerId,
+            "GET_BOARD_IMAGE|" + state.boardId + "|" + imageId
+          );
+
+          let src = "";
+          if (typeof b64 === "string") {
+            const raw = b64.trim();
+
+            // Most failures in your backend return false => may arrive as "" or "false" depending on transport
+            if (raw.length > 30 && raw !== "false") {
+              src = "data:image/png;base64," + raw;
+            }
+          }
+
+          // Failure -> placeholder
+          if (!src) {
+            src = makeMissingImageDataUrl(imageId, "FSDownload returned empty / not found");
+          }
+
+          // Decode offscreen so slideshow fade-in is identical cached vs not
+          const img = new Image();
+          img.src = src;
+
+          if (img.decode) {
+            try { await img.decode(); } catch { /* ignore */ }
+          } else {
+            await new Promise(resolve => { img.onload = img.onerror = resolve; });
+          }
+
+          state.cache[imageId].src = src;
+          state.cache[imageId].ts = nowTs();
+          return src;
+
+        })()
+      };
+
+      return state.cache[imageId].ready;
     }
 
     async function fetchImageAsDataUrl(imageId) {
@@ -273,27 +411,7 @@
         return state.cache[imageId].src;
       }
 
-      // Download (base64)
-      let b64 = await AFSendFlowMessage(state.appId, state.ownerId, "GET_BOARD_IMAGE|" + state.boardId + "|" + imageId);
-
-      if (typeof b64 === "string") {
-        const raw = b64.trim();
-
-        // Most failures in your backend return false => may arrive as "" or "false" depending on transport
-        if (raw.length > 30 && raw !== "false") {
-          // We don't know file type from FSDownload; assume PNG for now (works for JPG in most browsers too? no).
-          // Safer: try PNG first, but if it's actually JPG it still often displays if correct header is in bytes
-          // However we only have base64, so mime matters. We'll assume "image/png" for v1 like your other apps.
-          const src = "data:image/png;base64," + raw;
-          state.cache[imageId] = { src, ts: nowTs() };
-          return src;
-        }
-      }
-
-      // Failure -> placeholder
-      const src = makeMissingImageDataUrl(imageId, "FSDownload returned empty / not found");
-      state.cache[imageId] = { src, ts: nowTs() };
-      return src;
+      return await ensureImageCached(imageId);
     }
 
     function renderSlideMeta(imageId, idx, total) {
@@ -306,9 +424,10 @@
 
       const total = state.imageIds.length;
       if (!total) {
-        ui.img.classList.remove("is-visible");
-        ui.img.src = makeMissingImageDataUrl("no-images", "No images in board slide yet");
-        requestAnimationFrame(() => ui.img.classList.add("is-visible"));
+        ui.imgA.classList.remove("is-visible");
+        ui.imgB.classList.remove("is-visible");
+        ui.imgA.src = makeMissingImageDataUrl("no-images", "No images in board slide yet");
+        requestAnimationFrame(() => ui.imgA.classList.add("is-visible"));
         renderSlideMeta("", 0, 0);
         setHint("No images (waiting for events / slide generation)");
         return;
@@ -320,17 +439,22 @@
       const imageId = state.imageIds[idx];
       renderSlideMeta(imageId, idx, total);
 
-      // Simple fade transition
-      ui.img.classList.remove("is-visible");
+      const nextLayer = state.activeLayer === "A" ? "B" : "A";
+      const currentImg = state.activeLayer === "A" ? ui.imgA : ui.imgB;
+      const nextImg = nextLayer === "A" ? ui.imgA : ui.imgB;
 
-      // Ensure we have it (cached or fetched)
       const src = await fetchImageAsDataUrl(imageId);
 
-      // Update image
-      ui.img.src = src || makeMissingImageDataUrl(imageId, "Unknown error");
+      // Prepare next image underneath
+      nextImg.src = src || makeMissingImageDataUrl(imageId, "Unknown error");
+      nextImg.classList.remove("is-visible");
+      void nextImg.offsetWidth;
 
-      // Fade in next frame
-      requestAnimationFrame(() => ui.img.classList.add("is-visible"));
+      // Crossfade
+      nextImg.classList.add("is-visible");
+      currentImg.classList.remove("is-visible");
+
+      state.activeLayer = nextLayer;
 
       // Hint line
       if (src && src.startsWith("data:image/svg+xml")) {
@@ -344,24 +468,27 @@
       await showSlide(state.currentIdx + 1);
     }
 
-    function startSlideLoop() {
-      if (state.tickTimer) clearInterval(state.tickTimer);
-
-      state.tickTimer = setInterval(() => {
-        nextSlide();
-      }, Math.max(1, state.slideSec) * 1000);
-    }
-
     async function refreshListAndKeepRunning() {
       await loadBoardImagesList();
+
+      // On every refresh, ensure we are synced to the backend schedule
+      // (same image for everyone, even after reload)
+      if (state.imageIds.length) {
+        state.currentIdx = computeSyncedIndex(state.imageIds.length);
+      } else {
+        state.currentIdx = 0;
+      }
 
       // If first start, show immediately
       if (!state.isStarted) {
         state.isStarted = true;
         ui.root.style.display = "";
-        await showSlide(state.currentIdx);
-        startSlideLoop();
       }
+
+      await showSlide(state.currentIdx);
+
+      // Restart loop aligned to (start_at + N*step_sec)
+      restartSlideLoopSynced();
     }
 
     // Main async flow
@@ -378,7 +505,7 @@
         return;
       }
 
-      // First load + start
+      // First load + start (synced)
       await refreshListAndKeepRunning();
 
       // Refresh list every hour
