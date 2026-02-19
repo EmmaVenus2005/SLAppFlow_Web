@@ -12,6 +12,9 @@ function NVGetSessionValue($session, $valueName)
         return false;
     }
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     $stmt = $conn->prepare("SELECT `Value` FROM Parameter WHERE AppID = ? AND UserID = ? AND SessionID = ? AND `Key` = ? LIMIT 1");
     if (!$stmt) {
         error_log("NVGetSessionValue: Statement preparation failed: " . $conn->error);

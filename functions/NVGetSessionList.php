@@ -11,6 +11,9 @@ function NVGetSessionList($session, $listClass, $listName) {
         return false;
     }
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     $stmt = $conn->prepare("SELECT Elements FROM List WHERE AppID = ? AND UserID = ? AND SessionID = ? AND Class = ? AND Name = ?");
     if (!$stmt) {
         error_log("NVGetSessionList: Statement preparation failed: " . $conn->error);

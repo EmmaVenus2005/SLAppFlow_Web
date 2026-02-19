@@ -4,6 +4,10 @@
 function IsAdmin($user)
 {
 
+    // Since 19th Feb fix prevented using NV functions in unsafe mode, need to set safe
+    // Should not cause security issue since is only called from the back-end
+    AFSetSafe();
+
     // Only relevant for the Global user
     if (AFGetOwnerID() !== "Global") return false;
 

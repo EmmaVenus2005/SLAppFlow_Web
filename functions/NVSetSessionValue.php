@@ -12,6 +12,9 @@ function NVSetSessionValue($session, $valueName, $value)
         return false;
     }
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     // Get the owner name using the dedicated function
     $name = AFGetOwnerName();
 

@@ -11,6 +11,9 @@ function NVGetValue($valueName)
         error_log("NVGetValue: Required variables are not set.");
         return false;
     }
+
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
     
     $stmt = $conn->prepare("SELECT `Value` FROM Parameter WHERE AppID = ? AND UserID = ? AND `Key` = ? LIMIT 1");
     if (!$stmt) {

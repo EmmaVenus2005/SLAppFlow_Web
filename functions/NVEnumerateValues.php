@@ -11,6 +11,9 @@ function NVEnumerateValues($key) {
         return false;
     }
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     $stmt = $conn->prepare("SELECT * FROM Parameter WHERE AppID = ? AND `Key` = ? AND UserID = ?");
     if (!$stmt) {
         error_log("NVEnumerateValues: Statement preparation failed: " . $conn->error);

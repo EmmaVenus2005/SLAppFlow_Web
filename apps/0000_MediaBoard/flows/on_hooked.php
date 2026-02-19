@@ -22,15 +22,16 @@
  * 
  */
 
-SLOwnerSay(AFGetFlowObjectID(), "MediaBoard hooked!");
+// Debug command, do not use in production
+//SLOwnerSay(AFGetFlowObjectID(), "MediaBoard hooked!");
 
 // JSON structure to apply the media texture to the prim
 $textureInfo = [[
     "link" => 1,                    // Target prim (1 = specific prim, not root)
     "face" => 5,                    // Target face on the prim
     "type" => "media",              // Type: media (web URL)
-    "scale" => [0.28, 0.43],          // Default scale
-    "offset" => [0.0, 0.0],         // Default offset
+    "scale" => [0.1, 0.0875],       // Default scale
+    "offset" => [0.0, 0.258],       // Default offset
     "rotation" => 0.0,              // No rotation
 
     "media" => [

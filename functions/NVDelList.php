@@ -12,6 +12,9 @@ function NVDelList($listClass, $listName)
         return false;
     }
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     $stmt = $conn->prepare("DELETE FROM List WHERE AppID = ? AND UserID = ? AND Class = ? AND Name = ?");
     if (!$stmt) {
         error_log("NVDelList: Statement preparation failed: " . $conn->error);

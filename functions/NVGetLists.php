@@ -11,6 +11,9 @@ function NVGetLists($listClass)
         error_log("SetValue: Required variables are not set.");
         return false;
     }
+
+	// Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
 	
 	$stmt = $conn->prepare("SELECT Name FROM List WHERE AppID = ? AND UserID = ? AND Class = ?");
 	

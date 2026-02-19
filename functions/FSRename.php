@@ -7,6 +7,9 @@ function FSRename($id, $newName)
     // Environment variables
     global $config;
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     // Get the current owner ID and app ID
     $owner = AFGetOwnerID();
     $app = AFGetAppID();

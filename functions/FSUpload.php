@@ -7,6 +7,9 @@ function FSUpload($name, $data)
     // Environmement variables
     global $config;
 
+    // Not allowed when called from front-end without being sanitized
+    if (AFIsUnsafe()) return false;
+
     // Getting the path to the files directory
     $filesPath = $config['dirs']['filesdir'];
 
