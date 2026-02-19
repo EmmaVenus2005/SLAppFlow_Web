@@ -987,30 +987,36 @@ function renderTable() {
                 sortValue: (ev) => String(ev.name ?? "")
             },
 
-            // Artist name (ev.artist = uuid)
+            // Artist name (event stores artist_id)
             {
                 key: "artist",
                 label: "Artist",
                 optional: true,
                 render: (ev) => {
-                    const id = ev.artist;
+                    const id = ev.artist_id || ev.artist || "";
                     const name = window.artistsById?.[id]?.name;
                     return name ? String(name) : (id ? "(unknown artist)" : "");
                 },
-                sortValue: (ev) => String(window.artistsById?.[ev.artist]?.name ?? "")
+                sortValue: (ev) => {
+                    const id = ev.artist_id || ev.artist || "";
+                    return String(window.artistsById?.[id]?.name ?? "");
+                }
             },
 
-            // Venue name (ev.artist = uuid)
+            // Venue name (event stores venue_id)
             {
                 key: "venue",
                 label: "Venue",
                 optional: true,
                 render: (ev) => {
-                    const id = ev.artist;
+                    const id = ev.venue_id || ev.venue || "";
                     const name = window.venuesById?.[id]?.name;
                     return name ? String(name) : (id ? "(unknown venue)" : "");
                 },
-                sortValue: (ev) => String(window.venuesById?.[ev.venues]?.name ?? "")
+                sortValue: (ev) => {
+                    const id = ev.venue_id || ev.venue || "";
+                    return String(window.venuesById?.[id]?.name ?? "");
+                }
             },
 
             // Date (expects ev.date = "YYYY-MM-DD")
@@ -1467,6 +1473,12 @@ async function loadEventsFromFilters()
         } else {
             list = [];
         }
+
+        // Ensure each event has an "id" field for selection + rendering
+        list = list.map(ev => ({
+            ...ev,
+            id: ev.event_id || ev.id || "",
+        }));
 
         window.events = list;
 
@@ -2018,6 +2030,12 @@ async function loadArtists()
             }
         }
 
+        // Ensure each artist has an "id" field for selection + rendering
+        list = list.map(a => ({
+            ...a,
+            id: a.artist_id || a.id || "",
+        }));
+
         // 4) Store globals
         window.artists = list;
 
@@ -2096,6 +2114,12 @@ async function loadVenues()
             }
         }
 
+        // Ensure each venue has an "id" field for selection + rendering
+        list = list.map(v => ({
+            ...v,
+            id: v.venue_id || v.id || "",
+        }));
+
         // 4) Store globals
         window.venues = list;
 
@@ -2120,4 +2144,3 @@ async function loadVenues()
     }
 
 }
-

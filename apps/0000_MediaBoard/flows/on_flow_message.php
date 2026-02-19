@@ -73,6 +73,145 @@ if ($messageParts[0] === "GET_BOARD_IMAGE" && AFGetSenderID() === "Media")
     
 }
 
+// Message sent from WebControl to get the board config
+// E.g. "GET_BOARD_CONFIG|<board_id>"
+if ($messageParts[0] === "GET_BOARD_CONFIG") 
+{
+
+    // Called from WebControl → allow backend read (safe thread)
+    AFSetSafe();
+
+    if (!isset($messageParts[1])) return false;
+
+    $boardId = trim((string)$messageParts[1]);
+    if ($boardId === "") return false;
+
+    // Load board
+    $boardJson = NVGetList("Board", $boardId);
+    if (!is_string($boardJson) || $boardJson === "") return false;
+
+    $board = json_decode($boardJson, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) return false;
+
+    // Access check (owner OR trusted) on the board's linked project
+    $projectId = trim((string)($board["project_id"] ?? ""));
+    if ($projectId === "") return false;
+
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Return config node as-is (or {} if absent)
+    $cfg = (isset($board["config"]) && is_array($board["config"])) ? $board["config"] : [];
+    return $cfg;
+
+}
+
+// Message sent from WebControl to set the board config (and optionally project linkage)
+// E.g. "SET_BOARD_CONFIG|<board_id>|<json_config>"
+if ($messageParts[0] === "SET_BOARD_CONFIG") 
+{
+
+    // Called from WebControl → allow backend write (safe thread)
+    AFSetSafe();
+
+    if (!isset($messageParts[1]) || !isset($messageParts[2])) return false;
+
+    $boardId = trim((string)$messageParts[1]);
+    $jsonIn  = $messageParts[2];
+
+    if ($boardId === "" || !is_string($jsonIn) || $jsonIn === "") return false;
+
+    // Load board
+    $boardJson = NVGetList("Board", $boardId);
+    if (!is_string($boardJson) || $boardJson === "") return false;
+
+    $board = json_decode($boardJson, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) return false;
+
+    // Decode incoming payload
+    $incoming = json_decode($jsonIn, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($incoming)) return false;
+
+    // Resolve sender role
+    $senderId = AFGetSenderID();
+    $isOwner  = ($senderId === AFGetOwnerID());
+
+    // Existing / incoming project_id
+    $existingProjectId = trim((string)($board["project_id"] ?? ""));
+    $incomingProjectId = trim((string)($incoming["project_id"] ?? ""));
+
+    // If board already linked to a project: sender must be authorized on it
+    if ($existingProjectId !== "") {
+
+        if (!IsTrustedForProject($existingProjectId, $senderId)) return false;
+
+        // Trusted cannot change project linkage: must match existing if provided
+        if (!$isOwner && $incomingProjectId !== "" && $incomingProjectId !== $existingProjectId) return false;
+
+        // Owner may change project linkage if provided (and non-empty)
+        if ($isOwner && $incomingProjectId !== "" && $incomingProjectId !== $existingProjectId) {
+            $board["project_id"] = $incomingProjectId;
+            $existingProjectId = $incomingProjectId; // keep local consistent (optional)
+        }
+
+    } else {
+
+        // Board has no project yet:
+        // - Only owner can assign it
+        if (!$isOwner) return false;
+
+        // Owner must provide a project_id to link (otherwise we can still update config only)
+        if ($incomingProjectId !== "") {
+            $board["project_id"] = $incomingProjectId;
+            $existingProjectId = $incomingProjectId;
+        }
+    }
+
+    // Extract config node from incoming payload
+    $cfgIn = $incoming["config"] ?? null;
+    if (!is_array($cfgIn)) return false;
+
+    // Validate config types (minimal + explicit)
+    // all_artists: bool (optional)
+    if (array_key_exists("all_artists", $cfgIn) && !is_bool($cfgIn["all_artists"])) return false;
+
+    // artists: array of strings (optional)
+    if (array_key_exists("artists", $cfgIn)) {
+        if (!is_array($cfgIn["artists"])) return false;
+        foreach ($cfgIn["artists"] as $a) {
+            if (!is_string($a)) return false;
+        }
+    }
+
+    // all_venues: bool (optional)
+    if (array_key_exists("all_venues", $cfgIn) && !is_bool($cfgIn["all_venues"])) return false;
+
+    // venues: array of strings (optional)
+    if (array_key_exists("venues", $cfgIn)) {
+        if (!is_array($cfgIn["venues"])) return false;
+        foreach ($cfgIn["venues"] as $v) {
+            if (!is_string($v)) return false;
+        }
+    }
+
+    // days_ahead: int (optional)
+    if (array_key_exists("days_ahead", $cfgIn) && !is_int($cfgIn["days_ahead"])) return false;
+
+    // show_mins_after_start: int (optional)
+    if (array_key_exists("show_mins_after_start", $cfgIn) && !is_int($cfgIn["show_mins_after_start"])) return false;
+
+    // seconds_shown: int (optional)
+    if (array_key_exists("seconds_shown", $cfgIn) && !is_int($cfgIn["seconds_shown"])) return false;
+
+    // Persist (merge with existing config to support partial updates)
+    $existingCfg = (isset($board["config"]) && is_array($board["config"])) ? $board["config"] : [];
+    $board["config"] = array_replace($existingCfg, $cfgIn);
+
+    NVSetList("Board", $boardId, json_encode($board, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+    return true;
+
+}
+
 // Message sent from WebControl by me to create a project
 // E.g. "ADD_PROJECT|<project_name>"
 if ($messageParts[0] === "ADD_PROJECT" && AFGetSenderID() === AFGetOwnerID())
@@ -611,7 +750,31 @@ if ($messageParts[0] === "LIST_EVENTS")
 
 }
 
+// Message sent from WebControl to get an image
+// E.g. "GET_IMAGE|<project_uuid>|<image_id>"
+if ($messageParts[0] === "GET_IMAGE") 
+{
 
+    // Called from WebControl; allow backend read (safe thread)
+    AFSetSafe();
+
+    if (!isset($messageParts[1]) || !isset($messageParts[2])) return false;
+
+    $projectId = trim((string)$messageParts[1]);
+    $imageId   = trim((string)$messageParts[2]);
+
+    if ($projectId === "" || $imageId === "") return false;
+
+    // Authorization for THIS project (owner OR trusted)
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Fetch from File Service
+    $imageData = FSDownload($imageId);
+    if (!is_string($imageData) || $imageData === "") return false;
+
+    return base64_encode($imageData);
+
+}
 
 
 
