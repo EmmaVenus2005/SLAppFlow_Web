@@ -40,37 +40,91 @@ $messageParts = explode("|", AFGetMessage());
 // Lists the images from the board
 // CALLED FROM THE FRONT-END MEDIA
 // Sent to the owner of the board
-// E. g. "LIST_IMAGES|<boardID>"
+// E.g. "LIST_BOARD_IMAGES|<board_id>"
 if ($messageParts[0] === "LIST_BOARD_IMAGES" && AFGetSenderID() === "Media")
 {
-
+    
     // Since called from media, we have to sanitize the thread
     AFSetSafe();
 
-    // Checks if the boardID exists, and belongs to the sender
-    // ...
+    if (!isset($messageParts[1])) return [];
+
+    $boardId = trim((string)$messageParts[1]);
+    if ($boardId === "") return [];
+
+    // Load board
+    $boardJson = NVGetList("Board", $boardId);
+    if (!is_string($boardJson) || $boardJson === "") return [];
+
+    $board = json_decode($boardJson, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) return [];
+
+    // Return slide items as list of image IDs (empty if absent)
+    $items = (isset($board["slide"]["items"]) && is_array($board["slide"]["items"])) ? $board["slide"]["items"] : [];
+
+    $out = [];
+    foreach ($items as $it) {
+        if (!is_array($it)) continue;
+
+        $img = trim((string)($it["image_id"] ?? ""));
+        if ($img === "") continue;
+
+        // Keep unique (preserve order)
+        if (!in_array($img, $out, true)) {
+            $out[] = $img;
+        }
+    }
+
+    return $out;
 
 }
 
 // Gets the image
 // CALLED FROM THE FRONT-END MEDIA
 // Sent to the owner of the board
-// E. g. "GETIMAGE|<imageID>"
+// E.g. "GET_BOARD_IMAGE|<board_id>|<image_id>"
 if ($messageParts[0] === "GET_BOARD_IMAGE" && AFGetSenderID() === "Media")
 {
 
     // Since called from media, we have to sanitize the thread
     AFSetSafe();
 
-    // Checks if the image is displayed on this board
-    // ...
+    if (!isset($messageParts[1]) || !isset($messageParts[2])) return false;
+
+    $boardId = trim((string)$messageParts[1]);
+    $imageId = trim((string)$messageParts[2]);
+
+    if ($boardId === "" || $imageId === "") return false;
+
+    // Load board
+    $boardJson = NVGetList("Board", $boardId);
+    if (!is_string($boardJson) || $boardJson === "") return false;
+
+    $board = json_decode($boardJson, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) return false;
+
+    // Check that the requested image is part of this board slide
+    $items = (isset($board["slide"]["items"]) && is_array($board["slide"]["items"])) ? $board["slide"]["items"] : [];
+
+    $allowed = false;
+    foreach ($items as $it) {
+        if (!is_array($it)) continue;
+
+        $img = trim((string)($it["image_id"] ?? ""));
+        if ($img !== "" && $img === $imageId) {
+            $allowed = true;
+            break;
+        }
+    }
+    if (!$allowed) return false;
 
     // Gets the image from File Service
-    $imageData = FSDownload($imageID);
+    $imageData = FSDownload($imageId);
+    if (!is_string($imageData) || $imageData === "") return false;
 
     // Returns the image data directly
     return base64_encode($imageData);
-    
+
 }
 
 // Message sent from WebControl to get the board config
@@ -691,6 +745,29 @@ if ($messageParts[0] === "ADD_EVENT")
         json_encode($final, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     );
 
+    // After creating the event, refresh the slide payload for all boards linked to this project.
+    // (We expect up to ~10 boards per project, so a full scan is fine in v1.)
+    $boardIds = NVGetLists("Board");
+    if (is_array($boardIds) && count($boardIds) > 0) {
+
+        foreach ($boardIds as $boardId) {
+
+            if (!is_string($boardId) || $boardId === "") continue;
+
+            $boardJson = NVGetList("Board", $boardId);
+            if (!is_string($boardJson) || $boardJson === "") continue;
+
+            $board = json_decode($boardJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) continue;
+
+            if (($board["project_id"] ?? "") !== $projectId) continue;
+
+            // This function is expected to update the "slide" node in the board JSON
+            PrepareBoardImages($boardId);
+        }
+    }
+
+    // Acknowledge success
     return true;
 
 }

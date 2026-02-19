@@ -1,54 +1,390 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Events List</title>
-    </head>
-    <body>
-        <div id="container">
-        <!-- Will be populated by JS -->
-        </div>
-    
-        <!-- Include SLAppFlow public functions -->
-        <script src="/webcontrol/include_functions.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <title>MediaBoard</title>
 
-        <script>
-            
-            // Function to get the board ID from the URL query parameters
-            async function getBoardID() 
-            {
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background: #0f0f10;
+      color: #f0f0f0;
+      overflow: hidden;
+    }
 
-                // Gets the board ID from the URL query parameter board_id
-                const params = new URLSearchParams(window.location.search);
-                return params.get('board_id') || null;
+    .board {
+      width: 760px;
+      max-width: calc(100vw - 40px);
+      margin: 28px auto;
+      background: #1b1b1f;
+      border-radius: 14px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.45);
+      padding: 18px;
+      box-sizing: border-box;
+      position: relative;
+    }
 
-            }
+    .frame {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0b0b0d;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-            // Function to populate the container with content
-            async function populateContainer(content)
-            {
+    .frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      opacity: 0;
+      transform: scale(1.01);
+      transition: opacity 420ms ease, transform 420ms ease;
+      background: #000;
+    }
 
-                const container = document.querySelector('container');
-                container.innerHTML = content;
+    .frame img.is-visible {
+      opacity: 1;
+      transform: scale(1);
+    }
 
-            }
+    .meta {
+      margin-top: 12px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
-            // Temp
-            // appID = AFGetAppID();
-            // boardID = await getBoardID();
+    .meta .left {
+      font-size: 13px;
+      opacity: 0.85;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-            //populateContainer("test");
+    .meta .right {
+      font-size: 12px;
+      opacity: 0.65;
+      white-space: nowrap;
+    }
 
-            // populateContainer(`
-            //     <h1>MediaBoard App</h1>
-            //     <p>App ID: ${appID}</p>
-            //     <p>Board ID: ${boardID}</p>
-            // `);
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255, 200, 51, 0.14);
+      color: #ffc833;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      margin-right: 8px;
+    }
 
-        </script>
+    .hint {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      font-size: 12px;
+      opacity: 0.7;
+      background: rgba(0,0,0,0.35);
+      padding: 6px 10px;
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+    }
+  </style>
+</head>
 
-        <!-- Displays in full screen -->
-        <img src="https://assets.simpleviewinc.com/simpleview/image/upload/c_fill,h_650,q_75,w_952/v1/clients/scilly/A_Trip_to_Bishop_Rock_624983e8-ebac-4ebf-a975-333712c4b04d.jpg" alt="Media Board" style="width: 100vw; height: 100vh; object-fit: cover;">
-    
-    </body>
+<body>
+  <div class="board" id="boardRoot" style="display:none;">
+    <div class="hint" id="boardHint">Loading…</div>
+
+    <div class="frame">
+      <img id="slideImg" alt="Slide" src="" />
+    </div>
+
+    <div class="meta">
+      <div class="left" id="slideLabel"></div>
+      <div class="right" id="slideClock"></div>
+    </div>
+  </div>
+
+  <!-- Include SLAppFlow public functions -->
+  <script src="/webcontrol/include_functions.js"></script>
+
+  <script>
+    // -----------------------------------------------------------------------------
+    // MediaBoard front-end (MEDIA)
+    // - Loads LIST_BOARD_IMAGES on open, then refreshes every hour
+    // - Fetches images via GET_BOARD_IMAGE
+    // - Caches images by image_id (does not re-download if still needed)
+    // - Purges cache entries that are no longer present in the latest list
+    // - Simple slide loop using the board config (seconds_shown) when available
+    // - If an image cannot be fetched, we render a placeholder "image" with the id
+    // -----------------------------------------------------------------------------
+
+    // Read query params (board_id and owner_id are required for MEDIA)
+    const params = new URLSearchParams(window.location.search);
+
+    const state = {
+      boardId: (params.get("board_id") || "").trim(),
+      ownerId: (params.get("owner_id") || "").trim(),
+      appId: null,
+      slideSec: 10,                  // default (will be overridden if board config is exposed later)
+      listRefreshMs: 60 * 60 * 1000,  // 1 hour
+      currentIdx: 0,
+      imageIds: [],                  // current list from backend
+      cache: {},                     // { [imageId]: { src: "data:image/...", ts: number } }
+      tickTimer: null,
+      refreshTimer: null,
+      isStarted: false,
+    };
+
+    // UI refs
+    const ui = {
+      root: document.getElementById("boardRoot"),
+      hint: document.getElementById("boardHint"),
+      img:  document.getElementById("slideImg"),
+      label: document.getElementById("slideLabel"),
+      clock: document.getElementById("slideClock"),
+    };
+
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return (params.get(name) || "").trim();
+    }
+
+    function nowTs() {
+      return Math.floor(Date.now() / 1000);
+    }
+
+    function setHint(text) {
+      ui.hint.textContent = text;
+    }
+
+    function setClock() {
+      // Local time is fine for the media UI
+      ui.clock.textContent = new Date().toLocaleString("en-GB", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function uniqueStrings(arr) {
+      const out = [];
+      for (const v of arr) {
+        if (typeof v !== "string") continue;
+        const s = v.trim();
+        if (!s) continue;
+        if (!out.includes(s)) out.push(s);
+      }
+      return out;
+    }
+
+    function purgeCache(keepIds) {
+      const keep = new Set(keepIds);
+      for (const k of Object.keys(state.cache)) {
+        if (!keep.has(k)) delete state.cache[k];
+      }
+    }
+
+    function makeMissingImageDataUrl(imageId, reason) {
+      // SVG placeholder (acts like an image, so the slideshow continues smoothly)
+      const safeId = String(imageId || "").replace(/[<>&"]/g, "");
+      const safeReason = String(reason || "Missing image").replace(/[<>&"]/g, "");
+
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#222"/>
+              <stop offset="1" stop-color="#111"/>
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#g)"/>
+          <text x="50%" y="44%" text-anchor="middle"
+                font-family="system-ui, -apple-system, Segoe UI, Arial"
+                font-size="40" fill="#ffc833" font-weight="700">
+            Image not available
+          </text>
+          <text x="50%" y="54%" text-anchor="middle"
+                font-family="system-ui, -apple-system, Segoe UI, Arial"
+                font-size="22" fill="#eaeaea" opacity="0.9">
+            ${safeReason}
+          </text>
+          <text x="50%" y="66%" text-anchor="middle"
+                font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                font-size="20" fill="#eaeaea" opacity="0.75">
+            id: ${safeId}
+          </text>
+        </svg>`;
+
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+
+    async function loadBoardImagesList() {
+      // Must have boardId + appId
+      if (!state.boardId) return [];
+
+      let res = await AFSendFlowMessage(state.appId, state.ownerId, "LIST_BOARD_IMAGES|" + state.boardId);
+      console.log("LIST_BOARD_IMAGES response:", res);
+
+      // Normalize: backend may return array or stringified JSON
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (typeof res === "string") {
+        try {
+          const parsed = JSON.parse(res);
+          list = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          list = [];
+        }
+      } else {
+        list = [];
+      }
+
+      list = uniqueStrings(list);
+
+      // Cache eviction: remove entries not in the new list
+      purgeCache(list);
+
+      state.imageIds = list;
+
+      // Keep current index in range
+      if (state.currentIdx >= state.imageIds.length) state.currentIdx = 0;
+
+      return list;
+    }
+
+    async function fetchImageAsDataUrl(imageId) {
+      if (!imageId) return null;
+
+      // Cache hit
+      if (state.cache[imageId] && state.cache[imageId].src) {
+        return state.cache[imageId].src;
+      }
+
+      // Download (base64)
+      let b64 = await AFSendFlowMessage(state.appId, state.ownerId, "GET_BOARD_IMAGE|" + state.boardId + "|" + imageId);
+
+      if (typeof b64 === "string") {
+        const raw = b64.trim();
+
+        // Most failures in your backend return false => may arrive as "" or "false" depending on transport
+        if (raw.length > 30 && raw !== "false") {
+          // We don't know file type from FSDownload; assume PNG for now (works for JPG in most browsers too? no).
+          // Safer: try PNG first, but if it's actually JPG it still often displays if correct header is in bytes
+          // However we only have base64, so mime matters. We'll assume "image/png" for v1 like your other apps.
+          const src = "data:image/png;base64," + raw;
+          state.cache[imageId] = { src, ts: nowTs() };
+          return src;
+        }
+      }
+
+      // Failure -> placeholder
+      const src = makeMissingImageDataUrl(imageId, "FSDownload returned empty / not found");
+      state.cache[imageId] = { src, ts: nowTs() };
+      return src;
+    }
+
+    function renderSlideMeta(imageId, idx, total) {
+      const badge = `<span class="badge">${total ? (idx + 1) + " / " + total : "—"}</span>`;
+      ui.label.innerHTML = `${badge}<span style="opacity:.9">image_id:</span> <span style="font-family:ui-monospace,monospace;opacity:.8">${imageId || "(none)"}</span>`;
+    }
+
+    async function showSlide(index) {
+      setClock();
+
+      const total = state.imageIds.length;
+      if (!total) {
+        ui.img.classList.remove("is-visible");
+        ui.img.src = makeMissingImageDataUrl("no-images", "No images in board slide yet");
+        requestAnimationFrame(() => ui.img.classList.add("is-visible"));
+        renderSlideMeta("", 0, 0);
+        setHint("No images (waiting for events / slide generation)");
+        return;
+      }
+
+      const idx = ((index % total) + total) % total;
+      state.currentIdx = idx;
+
+      const imageId = state.imageIds[idx];
+      renderSlideMeta(imageId, idx, total);
+
+      // Simple fade transition
+      ui.img.classList.remove("is-visible");
+
+      // Ensure we have it (cached or fetched)
+      const src = await fetchImageAsDataUrl(imageId);
+
+      // Update image
+      ui.img.src = src || makeMissingImageDataUrl(imageId, "Unknown error");
+
+      // Fade in next frame
+      requestAnimationFrame(() => ui.img.classList.add("is-visible"));
+
+      // Hint line
+      if (src && src.startsWith("data:image/svg+xml")) {
+        setHint("Missing image → showing placeholder");
+      } else {
+        setHint("Playing slideshow");
+      }
+    }
+
+    async function nextSlide() {
+      await showSlide(state.currentIdx + 1);
+    }
+
+    function startSlideLoop() {
+      if (state.tickTimer) clearInterval(state.tickTimer);
+
+      state.tickTimer = setInterval(() => {
+        nextSlide();
+      }, Math.max(1, state.slideSec) * 1000);
+    }
+
+    async function refreshListAndKeepRunning() {
+      await loadBoardImagesList();
+
+      // If first start, show immediately
+      if (!state.isStarted) {
+        state.isStarted = true;
+        ui.root.style.display = "";
+        await showSlide(state.currentIdx);
+        startSlideLoop();
+      }
+    }
+
+    // Main async flow
+    WebControlReady.then(async function () {
+
+      state.appId = await AFGetAppID();
+
+      // board_id is expected in query string for MEDIA
+      // Example: media.html?board_id=<uuid>
+      state.boardId = getQueryParam("board_id");
+
+      if (!state.boardId) {
+        document.body.innerHTML = "<div style='padding:18px;font-family:system-ui;color:#fff;background:#111'>Missing URL parameter: <b>board_id</b></div>";
+        return;
+      }
+
+      // First load + start
+      await refreshListAndKeepRunning();
+
+      // Refresh list every hour
+      state.refreshTimer = setInterval(refreshListAndKeepRunning, state.listRefreshMs);
+
+    });
+  </script>
+</body>
 </html>
