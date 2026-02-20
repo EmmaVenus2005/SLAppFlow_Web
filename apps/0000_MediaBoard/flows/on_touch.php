@@ -35,7 +35,7 @@
  * 
  */
 
-SLOwnerSay(AFGetFlowObjectID(),"Touched face: " . AFGetFlowParameter(7));
-SLOwnerSay(AFGetFlowObjectID(),"Touched link: " . AFGetFlowParameter(11));
+// SLOwnerSay(AFGetFlowObjectID(),"Touched face: " . AFGetFlowParameter(7));
+// SLOwnerSay(AFGetFlowObjectID(),"Touched link: " . AFGetFlowParameter(11));
 
 // Face 5 link 1 to use for media
