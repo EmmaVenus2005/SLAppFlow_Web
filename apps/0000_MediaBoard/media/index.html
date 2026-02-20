@@ -120,12 +120,31 @@
   <script>
     // -----------------------------------------------------------------------------
     // MediaBoard front-end (MEDIA)
-    // - Loads LIST_BOARD_IMAGES on open, then refreshes every hour
-    // - Fetches images via GET_BOARD_IMAGE
-    // - Caches images by image_id (does not re-download if still needed)
-    // - Purges cache entries that are no longer present in the latest list
-    // - Simple slide loop using the board config (seconds_shown) when available
-    // - If an image cannot be fetched, we render a placeholder "image" with the id
+    //
+    // Key rule / time model (IMPORTANT):
+    // - Humans create/edit Events in SLT (America/Los_Angeles) on the backend side.
+    // - When the backend updates the board "slide" config, it converts all display windows
+    //   to UNIX epoch seconds (UTC) and stores them in slide.items:
+    //      { image_id, from_ts, until_ts, start_ts }
+    //
+    //   Meaning:
+    //   - from_ts  : first second where the image is eligible to be shown (epoch UTC).
+    //   - until_ts : first second where the image must STOP being shown (epoch UTC).
+    //               (we treat it as an exclusive bound: now < until_ts)
+    //   - start_ts : event start (epoch UTC). Often used by backend to compute until_ts:
+    //               until_ts = start_ts + (show_mins_after_start * 60)
+    //               Example: show_mins_after_start=0 => until_ts == start_ts
+    //
+    // Front-end responsibility:
+    // - Do NOT recompute SLT conversions here.
+    // - We only compare epoch seconds: nowTs() vs from_ts/until_ts.
+    // - On each tick, we build the "active playlist" = items whose interval contains now.
+    // - Slideshow runs only through that active playlist.
+    //
+    // Refresh model:
+    // - We still refresh the slide data (LIST_BOARD_IMAGES) aligned to UTC top-of-hour,
+    //   but the time-window filtering happens continuously on every tick.
+    //   So images will disappear exactly at until_ts even if we do not refresh immediately.
     // -----------------------------------------------------------------------------
 
     // Read query params (board_id and owner_id are required for MEDIA)
@@ -135,18 +154,22 @@
       boardId: (params.get("board_id") || "").trim(),       // expected to be a UUID string
       ownerId: (params.get("owner_id") || "").trim(),       // expected to be a UUID string
       appId: null,                                          // set on load
+
       slideSec: 10,                                         // default (overridden by slide.step_sec)
-      listRefreshMs: 60 * 60 * 1000,                        // 1 hour
-      currentIdx: 0,                                        // current index in the imageIds list for the slideshow
-      imageIds: [],                                         // current list from backend (image_id only)
+      listRefreshMs: 60 * 60 * 1000,                        // 1 hour (used after UTC-aligned first tick)
+
+      currentIdx: 0,                                        // current index in the ACTIVE playlist
+      slideItems: [],                                       // raw items from backend (with epochs)
+
       cache: {},                                            // { [imageId]: { src: "data:image/...", ts: number, ready: Promise<string> } }
-      tickTimer: null,
-      refreshTimer: null,
+      tickTimer: null,                                      // setTimeout + setInterval combo (aligned to start_at)
+      refreshTimer: null,                                   // interval handle
+      refreshAlignTimer: null,                              // timeout handle (first aligned refresh)
       isStarted: false,
       activeLayer: "A",
 
       // Slide sync params (from backend slide node)
-      slideStartAt: 0,                                      // UNIX seconds
+      slideStartAt: 0,                                      // UNIX seconds (UTC)
       lastSlideLoadedAt: 0,                                 // UNIX seconds (debug / info)
     };
 
@@ -166,6 +189,7 @@
     }
 
     function nowTs() {
+      // Epoch seconds are UTC by definition
       return Math.floor(Date.now() / 1000);
     }
 
@@ -174,7 +198,7 @@
     }
 
     function setClock() {
-      // Local time is fine for the media UI
+      // Keep local UI clock (does not affect sync logic)
       ui.clock.textContent = new Date().toLocaleString("en-GB", {
         year: "numeric",
         month: "2-digit",
@@ -236,18 +260,65 @@
       return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     }
 
-    function extractImageIdsFromSlide(slide) {
+    // -----------------------------------------------------------------------------
+    // Slide items parsing
+    // - Backend slide.items already contains EPOCH seconds (UTC)
+    // - We keep items as objects so we can filter by [from_ts, until_ts)
+    // -----------------------------------------------------------------------------
+    function extractSlideItems(slide) {
       const items = (slide && Array.isArray(slide.items)) ? slide.items : [];
       const out = [];
+
       for (const it of items) {
         if (!it || typeof it !== "object") continue;
-        const img = String(it.image_id || "").trim();
-        if (!img) continue;
-        out.push(img);
+
+        const imageId = String(it.image_id || "").trim();
+        if (!imageId) continue;
+
+        const fromTs  = Number(it.from_ts || 0);
+        const untilTs = Number(it.until_ts || 0);
+        const startTs = Number(it.start_ts || 0);
+
+        out.push({
+          image_id: imageId,
+          from_ts:  Number.isFinite(fromTs)  ? fromTs  : 0,
+          until_ts: Number.isFinite(untilTs) ? untilTs : 0,
+          start_ts: Number.isFinite(startTs) ? startTs : 0,
+        });
       }
-      return uniqueStrings(out);
+
+      return out;
     }
 
+    // -----------------------------------------------------------------------------
+    // Active playlist (computed at runtime, no helpers explosion)
+    // Rule:
+    // - from_ts inclusive
+    // - until_ts exclusive  (now < until_ts)
+    // This ensures we stop showing exactly when the event starts if until_ts==start_ts.
+    // -----------------------------------------------------------------------------
+    function getActiveItems(now) {
+      const items = Array.isArray(state.slideItems) ? state.slideItems : [];
+      const active = [];
+
+      for (const it of items) {
+        const from = Number(it.from_ts || 0);
+        const until = Number(it.until_ts || 0);
+
+        const fromOk = (!from || now >= from);
+        const untilOk = (!until || now < until);
+
+        if (fromOk && untilOk) active.push(it);
+      }
+
+      return active;
+    }
+
+    // -----------------------------------------------------------------------------
+    // Sync index against backend slideshow schedule (start_at + N*step_sec)
+    // - We sync to step slots, then mod by "active playlist" length.
+    // - That means everyone sees the same active image if they share the same slideStartAt/stepSec.
+    // -----------------------------------------------------------------------------
     function computeSyncedIndex(total) {
       if (!total) return 0;
 
@@ -263,19 +334,24 @@
     }
 
     function restartSlideLoopSynced() {
-      if (state.tickTimer) clearInterval(state.tickTimer);
+      if (state.tickTimer) {
+        // tickTimer can be either timeout or interval depending on phase
+        clearTimeout(state.tickTimer);
+        clearInterval(state.tickTimer);
+      }
 
-      const stepMs = Math.max(1, state.slideSec) * 1000;
+      const stepSec = Math.max(1, state.slideSec);
+      const stepMs = stepSec * 1000;
 
-      // Align ticks to the backend schedule (start_at + N*step_sec)
+      // Align ticks to backend schedule (start_at + N*step_sec)
       const startAt = (typeof state.slideStartAt === "number" && state.slideStartAt > 0)
         ? state.slideStartAt
         : nowTs();
 
       const now = nowTs();
       const elapsed = Math.max(0, now - startAt);
-      const intoStep = elapsed % Math.max(1, state.slideSec);
-      const msToNext = (Math.max(1, state.slideSec) - intoStep) * 1000;
+      const intoStep = elapsed % stepSec;
+      const msToNext = (stepSec - intoStep) * 1000;
 
       state.tickTimer = setTimeout(() => {
         nextSlide();
@@ -285,12 +361,16 @@
       }, Math.max(0, msToNext));
     }
 
+    // -----------------------------------------------------------------------------
+    // Load slide definition from backend
+    // - LIST_BOARD_IMAGES|<board_id> may return:
+    //   - modern: object slide { step_sec, start_at, items:[...] } (items contain epochs)
+    //   - compat: array of image ids (no time windows) -> treated as always active
+    // -----------------------------------------------------------------------------
     async function loadBoardImagesList() {
-      // Must have boardId + appId
       if (!state.boardId) return [];
 
-      let res = await AFSendFlowMessage(state.appId, state.ownerId, "LIST_BOARD_IMAGES|" + state.boardId);
-      //console.log("LIST_BOARD_IMAGES response:", res);
+      const res = await AFSendFlowMessage(state.appId, state.ownerId, "LIST_BOARD_IMAGES|" + state.boardId);
 
       // Normalize: backend may return object or stringified JSON
       let slide = null;
@@ -308,61 +388,66 @@
         }
       }
 
-      // Backward-compat: if backend still returns an array, accept it
-      let list = [];
-      if (!slide) {
-        if (Array.isArray(res)) {
-          list = uniqueStrings(res);
-        } else if (typeof res === "string") {
-          try {
-            const parsed = JSON.parse(res);
-            list = Array.isArray(parsed) ? uniqueStrings(parsed) : [];
-          } catch {
-            list = [];
-          }
-        } else {
-          list = [];
-        }
-      } else {
-        // Use backend slide parameters
+      // If we have a slide object, use it (preferred)
+      if (slide) {
+
+        // Use backend slide parameters (UNIX epoch seconds = UTC)
         state.slideSec = (typeof slide.step_sec === "number" && slide.step_sec > 0) ? slide.step_sec : state.slideSec;
         state.slideStartAt = (typeof slide.start_at === "number" && slide.start_at > 0) ? slide.start_at : state.slideStartAt;
         state.lastSlideLoadedAt = nowTs();
 
-        list = extractImageIdsFromSlide(slide);
+        // Keep full items for time-window filtering
+        state.slideItems = extractSlideItems(slide);
+
+      } else {
+
+        // Backward-compat: if backend returns ids only, treat them as always-active
+        let ids = [];
+
+        if (Array.isArray(res)) {
+          ids = uniqueStrings(res);
+        } else if (typeof res === "string") {
+          try {
+            const parsed = JSON.parse(res);
+            ids = Array.isArray(parsed) ? uniqueStrings(parsed) : [];
+          } catch {
+            ids = [];
+          }
+        }
+
+        const now = nowTs();
+        state.slideItems = ids.map(id => ({
+          image_id: id,
+          from_ts: 0,       // always active
+          until_ts: 0,      // always active
+          start_ts: now,    // not used in compat mode
+        }));
       }
 
-      // Cache eviction: remove entries not in the new list
-      purgeCache(list);
+      // Cache eviction uses all known ids (not only currently active)
+      const allIds = uniqueStrings(state.slideItems.map(it => String(it.image_id || "").trim()).filter(Boolean));
+      purgeCache(allIds);
 
-      state.imageIds = list;
+      // Preload all images into cache immediately (startup + refresh)
+      await Promise.allSettled(allIds.map(id => ensureImageCached(id)));
 
-      // Compute synced index (everyone should land on same image for same slide.start_at/step_sec)
-      state.currentIdx = computeSyncedIndex(state.imageIds.length);
-
-      // Preload all images into cache immediately (startup + hourly refresh)
-      await Promise.allSettled(list.map(id => ensureImageCached(id)));
-
-      return list;
+      return allIds;
     }
 
     async function ensureImageCached(imageId) {
       if (!imageId) return makeMissingImageDataUrl("", "Missing image_id");
 
-      // If already in cache and we already have a "ready" promise, await it
       const existing = state.cache[imageId];
       if (existing && existing.ready) {
         return existing.ready;
       }
 
-      // Create a single shared "ready" promise per image_id
       state.cache[imageId] = {
         src: "",
         ts: nowTs(),
         ready: (async () => {
 
-          // Download (base64)
-          let b64 = await AFSendFlowMessage(
+          const b64 = await AFSendFlowMessage(
             state.appId,
             state.ownerId,
             "GET_BOARD_IMAGE|" + state.boardId + "|" + imageId
@@ -371,14 +456,11 @@
           let src = "";
           if (typeof b64 === "string") {
             const raw = b64.trim();
-
-            // Most failures in your backend return false => may arrive as "" or "false" depending on transport
             if (raw.length > 30 && raw !== "false") {
               src = "data:image/png;base64," + raw;
             }
           }
 
-          // Failure -> placeholder
           if (!src) {
             src = makeMissingImageDataUrl(imageId, "FSDownload returned empty / not found");
           }
@@ -406,7 +488,6 @@
     async function fetchImageAsDataUrl(imageId) {
       if (!imageId) return null;
 
-      // Cache hit
       if (state.cache[imageId] && state.cache[imageId].src) {
         return state.cache[imageId].src;
       }
@@ -414,30 +495,41 @@
       return await ensureImageCached(imageId);
     }
 
-    function renderSlideMeta(imageId, idx, total) {
+    function renderSlideMeta(imageId, idx, total, item) {
       const badge = `<span class="badge">${total ? (idx + 1) + " / " + total : "—"}</span>`;
-      ui.label.innerHTML = `${badge}<span style="opacity:.9">image_id:</span> <span style="font-family:ui-monospace,monospace;opacity:.8">${imageId || "(none)"}</span>`;
+
+      // Keep meta simple but useful: show id + until_ts for quick sanity checks
+      const until = item && item.until_ts ? (" until " + item.until_ts) : "";
+      ui.label.innerHTML =
+        `${badge}<span style="opacity:.9">image_id:</span> ` +
+        `<span style="font-family:ui-monospace,monospace;opacity:.8">${imageId || "(none)"}</span>` +
+        `<span style="opacity:.55; margin-left:10px; font-family:ui-monospace,monospace;">${until}</span>`;
     }
 
     async function showSlide(index) {
       setClock();
 
-      const total = state.imageIds.length;
+      // Build ACTIVE playlist from epoch windows (computed at runtime)
+      const active = getActiveItems(nowTs());
+      const total = active.length;
+
       if (!total) {
         ui.imgA.classList.remove("is-visible");
         ui.imgB.classList.remove("is-visible");
-        ui.imgA.src = makeMissingImageDataUrl("no-images", "No images in board slide yet");
+        ui.imgA.src = makeMissingImageDataUrl("no-active", "No active images (time window)");
         requestAnimationFrame(() => ui.imgA.classList.add("is-visible"));
-        renderSlideMeta("", 0, 0);
-        setHint("No images (waiting for events / slide generation)");
+        renderSlideMeta("", 0, 0, null);
+        setHint("No active images (waiting for next display window)");
         return;
       }
 
       const idx = ((index % total) + total) % total;
       state.currentIdx = idx;
 
-      const imageId = state.imageIds[idx];
-      renderSlideMeta(imageId, idx, total);
+      const item = active[idx];
+      const imageId = String(item.image_id || "").trim();
+
+      renderSlideMeta(imageId, idx, total, item);
 
       const nextLayer = state.activeLayer === "A" ? "B" : "A";
       const currentImg = state.activeLayer === "A" ? ui.imgA : ui.imgB;
@@ -456,30 +548,27 @@
 
       state.activeLayer = nextLayer;
 
-      // Hint line
       if (src && src.startsWith("data:image/svg+xml")) {
         setHint("Missing image → showing placeholder");
       } else {
-        setHint("Playing slideshow");
+        setHint("Playing slideshow (active time windows)");
       }
     }
 
     async function nextSlide() {
+      // Note: the active playlist may change over time (items expiring),
+      // so showSlide() always re-builds it at the current moment.
       await showSlide(state.currentIdx + 1);
     }
 
     async function refreshListAndKeepRunning() {
       await loadBoardImagesList();
 
-      // On every refresh, ensure we are synced to the backend schedule
-      // (same image for everyone, even after reload)
-      if (state.imageIds.length) {
-        state.currentIdx = computeSyncedIndex(state.imageIds.length);
-      } else {
-        state.currentIdx = 0;
-      }
+      // Sync index against backend schedule, but MODULO the ACTIVE playlist length
+      // so everyone lands on the same "slot" among currently active items.
+      const active = getActiveItems(nowTs());
+      state.currentIdx = computeSyncedIndex(active.length);
 
-      // If first start, show immediately
       if (!state.isStarted) {
         state.isStarted = true;
         ui.root.style.display = "";
@@ -491,25 +580,57 @@
       restartSlideLoopSynced();
     }
 
+    // -----------------------------------------------------------------------------
+    // UTC top-of-hour refresh
+    // - First refresh happens immediately on startup
+    // - Then refresh again exactly at the next UTC top-of-hour (HH:00:00Z)
+    // - After that, refresh every hour
+    //
+    // Important: even without refresh, the board will still stop displaying an item
+    // exactly at until_ts, because filtering is applied on every tick.
+    // -----------------------------------------------------------------------------
+    function msUntilNextUtcTopOfHour() {
+      const nowMs = Date.now(); // epoch ms (UTC)
+      const nowSec = Math.floor(nowMs / 1000);
+      const nextHourSec = (Math.floor(nowSec / 3600) + 1) * 3600; // HH:00:00Z
+      const deltaMs = (nextHourSec * 1000) - nowMs;
+      return Math.max(0, deltaMs);
+    }
+
+    function startHourlyRefreshAlignedToUtc() {
+      if (state.refreshAlignTimer) clearTimeout(state.refreshAlignTimer);
+      if (state.refreshTimer) clearInterval(state.refreshTimer);
+      state.refreshAlignTimer = null;
+      state.refreshTimer = null;
+
+      const firstDelay = msUntilNextUtcTopOfHour();
+
+      state.refreshAlignTimer = setTimeout(async () => {
+        await refreshListAndKeepRunning();
+        state.refreshTimer = setInterval(refreshListAndKeepRunning, state.listRefreshMs);
+      }, firstDelay);
+    }
+
     // Main async flow
     WebControlReady.then(async function () {
 
       state.appId = await AFGetAppID();
 
-      // board_id is expected in query string for MEDIA
-      // Example: media.html?board_id=<uuid>
       state.boardId = getQueryParam("board_id");
+      state.ownerId = getQueryParam("owner_id");
 
       if (!state.boardId) {
-        document.body.innerHTML = "<div style='padding:18px;font-family:system-ui;color:#fff;background:#111'>Missing URL parameter: <b>board_id</b></div>";
+        document.body.innerHTML =
+          "<div style='padding:18px;font-family:system-ui;color:#fff;background:#111'>" +
+          "Missing URL parameter: <b>board_id</b></div>";
         return;
       }
 
       // First load + start (synced)
       await refreshListAndKeepRunning();
 
-      // Refresh list every hour
-      state.refreshTimer = setInterval(refreshListAndKeepRunning, state.listRefreshMs);
+      // Then refresh on UTC top-of-hour (aligned), then every hour
+      startHourlyRefreshAlignedToUtc();
 
     });
   </script>

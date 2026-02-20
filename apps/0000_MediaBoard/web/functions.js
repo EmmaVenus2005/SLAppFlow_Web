@@ -636,22 +636,67 @@ function addAddEntityListener()
         const photoEl  = document.getElementById("ae_event_photo");
         const hintEl   = document.getElementById("ae_event_photo_hint");
 
-        const errEl    = document.getElementById("ae_event_error");
+        const errEl     = document.getElementById("ae_event_error");
         const cancelBtn = document.getElementById("ae_event_cancel");
         const addBtn    = document.getElementById("ae_event_add");
 
         let photoBase64 = "";
+
+        // -------------------------------------------------------------------------
+        // Helpers (local)
+        // -------------------------------------------------------------------------
 
         const showError = (msg) => {
             if (!errEl) return;
             errEl.textContent = msg || "Error";
             errEl.style.display = "block";
         };
+
         const hideError = () => {
             if (!errEl) return;
             errEl.textContent = "";
             errEl.style.display = "none";
         };
+
+        /**
+         * Normalize a time string to "HH:MM" (drops seconds if present).
+         * Accepts:
+         *  - "" -> ""
+         *  - "H:MM" / "HH:MM" -> "HH:MM"
+         *  - "H:MM:SS" / "HH:MM:SS" -> "HH:MM"
+         */
+        const normalizeHHMM = (t) => {
+            const s = String(t || "").trim();
+            if (!s) return "";
+
+            const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (!m) return s; // keep as-is if unexpected format (backend may reject; you can instead return "")
+
+            const hh = String(Math.max(0, Math.min(23, parseInt(m[1], 10)))).padStart(2, "0");
+            const mm = String(Math.max(0, Math.min(59, parseInt(m[2], 10)))).padStart(2, "0");
+            return `${hh}:${mm}`;
+        };
+
+        /**
+         * Very light time sanity check for "HH:MM"
+         */
+        const isValidHHMM = (t) => {
+            if (!t) return true; // allow empty
+            return /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+        };
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(String(r.result || ""));
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+
+        // -------------------------------------------------------------------------
+        // UI wiring
+        // -------------------------------------------------------------------------
 
         cancelBtn?.addEventListener("click", (e) => {
             e.preventDefault();
@@ -688,17 +733,31 @@ function addAddEntityListener()
             e.preventDefault();
             hideError();
 
+            // ---------------------------------------------------------------------
+            // Build payload (SLT everywhere: date + times are treated as SLT values)
+            // ---------------------------------------------------------------------
+
+            const rawStart = normalizeHHMM(startEl?.value || "");
+            const rawEnd   = normalizeHHMM(endEl?.value || "");
+
+            // Optional: if you want a default "00:00" when empty, uncomment:
+            // const rawStart = normalizeHHMM(startEl?.value || "00:00");
+
             const payload = {
                 name: (nameEl?.value || "").trim(),
                 artist_id: (artistEl?.value || "").trim(),
                 venue_id: (venueEl?.value || "").trim(),
-                date: (dateEl?.value || "").trim(),
-                start_time: (startEl?.value || "").trim(),
-                end_time: (endEl?.value || "").trim(),
+                date: (dateEl?.value || "").trim(),          // "YYYY-MM-DD" in SLT
+                start_time: rawStart,                        // "HH:MM" in SLT (no seconds)
+                end_time: rawEnd,                            // "HH:MM" in SLT (no seconds)
             };
 
+            // Basic validation
             if (!payload.name) { showError("Please enter an event name."); return; }
             if (!payload.date) { showError("Please select a date."); return; }
+
+            if (!isValidHHMM(payload.start_time)) { showError("Invalid start time (expected HH:MM)."); return; }
+            if (!isValidHHMM(payload.end_time))   { showError("Invalid end time (expected HH:MM)."); return; }
 
             // Resolve project_id + destination owner (project owner)
             const { projectId, projectOwnerId } = getSelectedProjectContext();
@@ -710,6 +769,7 @@ function addAddEntityListener()
             try {
                 const appId = await AFGetAppID();
 
+                // Avoid breaking CMD|arg protocol (also helps JSON safety)
                 const safePayload = {
                     ...payload,
                     name: payload.name.replaceAll("|", " "),
@@ -739,15 +799,6 @@ function addAddEntityListener()
         });
 
         nameEl?.focus();
-
-        function readFileAsDataURL(file) {
-            return new Promise((resolve, reject) => {
-                const r = new FileReader();
-                r.onload = () => resolve(String(r.result || ""));
-                r.onerror = reject;
-                r.readAsDataURL(file);
-            });
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -927,30 +978,54 @@ function addAddEntityListener()
     }
 }
 
-// ----------------------------------------------------------------------------
-// renderTable()
-// ----------------------------------------------------------------------------
-// - Renders the active view table (Events for now, but supports other views).
-// - Builds the columns menu (☰) from columns marked as optional:true.
-// - Shows/hides optional columns based on preferences + menu checkboxes.
-// - Persists visible optional columns in preferences via savePreferences().
-//
-// Expected globals / functions:
-// - window.events (and later window.artists, window.venues, window.boards)
-// - activeFilters (array of status strings) OR you can ignore filters per view
-// - sortKey, sortDirection ("asc"|"desc")
-// - window.selectedEvent (optional) + selectEvent(ev) (optional)
-// - savePreferences(...pairs)  -> sends SETPREFERENCES with partial payload
-// - renderTable() can be called again safely
-//
-// Stored preference keys (per view):
-// - visible_columns_events: ["status", ...]
-// - visible_columns_artists: [...]
-// - visible_columns_venues: [...]
-// - visible_columns_boards: [...]
-// ----------------------------------------------------------------------------
-
 function renderTable() {
+
+    // ----------------------------------------------------------------------------
+    // renderTable()
+    // ----------------------------------------------------------------------------
+    // Purpose:
+    // - Renders the active view table (Events / Artists / Venues / Boards).
+    // - Shows ONLY the active table and hides the others.
+    // - Builds the optional columns menu (☰) from columns marked optional:true.
+    // - Shows/hides optional columns based on preferences + menu checkboxes.
+    // - Persists visible optional columns in preferences via savePreferences().
+    //
+    // Time handling:
+    // - The system is SLT-first (date/time values are treated as SLT everywhere).
+    // - start_time / end_time are displayed as "HH:MM" (seconds dropped if present).
+    //
+    // Expected globals / functions:
+    // - window.events, window.artists, window.venues, window.boards (arrays)
+    // - window.artistsById, window.venuesById (maps; optional but recommended)
+    // - window.preferences (object; loaded by loadPreferences())
+    // - activeFilters (array of status strings) OR window.activeFilters (used for status filtering)
+    // - sortKey, sortDirection ("asc"|"desc")
+    // - window.selectedEvent (optional) + selectEvent(ev) (optional)
+    // - savePreferences(...pairs) (debounced SETPREFERENCES patch sender)
+    //
+    // Stored preference keys (per view):
+    // - visible_columns_events  : ["artist","venue","date","start_time","end_time","status", ...]
+    // - visible_columns_artists : [...]
+    // - visible_columns_venues  : [...]
+    // - visible_columns_boards  : [...]
+    // ----------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------
+    // Local helpers (scoped to renderTable only)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Normalize a time string to "HH:MM" (drops seconds if present).
+     * Accepts: "", "H:MM", "HH:MM", "H:MM:SS", "HH:MM:SS"
+     */
+    function toHHMM(t) {
+        const s = String(t || "").trim();
+        if (!s) return "";
+        const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+        if (!m) return s;
+        const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+        return `${hh}:${m[2]}`;
+    }
 
     // ------------------------------------------------------------------------
     // 1) Resolve current view
@@ -959,7 +1034,7 @@ function renderTable() {
     const view = (viewLabel.split(" ")[0] || "Events").toLowerCase(); // "events","artists","venues","boards"
 
     // ------------------------------------------------------------------------
-    // 2) Data sources (extend later)
+    // 2) Data sources
     // ------------------------------------------------------------------------
     const dataByView = {
         events:  Array.isArray(window.events)  ? window.events  : [],
@@ -973,7 +1048,7 @@ function renderTable() {
     // ------------------------------------------------------------------------
     // 3) Columns configuration (base + optional)
     // ------------------------------------------------------------------------
-    // - optional columns are toggled from the ☰ menu.
+    // - optional:true columns are toggled from the ☰ menu.
     // - base columns are always visible (optional:false or missing).
     const columnsByView = {
         events: [
@@ -1019,7 +1094,7 @@ function renderTable() {
                 }
             },
 
-            // Date (expects ev.date = "YYYY-MM-DD")
+            // Date (SLT everywhere; stored as "YYYY-MM-DD")
             {
                 key: "date",
                 label: "Date",
@@ -1028,22 +1103,22 @@ function renderTable() {
                 sortValue: (ev) => String(ev.date ?? "")
             },
 
-            // Start time (expects ev.start_time = "HH:MM" or "HH:MM:SS")
+            // Start time (SLT, display as HH:MM)
             {
                 key: "start_time",
                 label: "Start Time",
                 optional: true,
-                render: (ev) => String(ev.start_time ?? ""),
-                sortValue: (ev) => String(ev.start_time ?? "")
+                render: (ev) => toHHMM(ev.start_time),
+                sortValue: (ev) => toHHMM(ev.start_time)
             },
 
-            // End time (expects ev.end_time = "HH:MM" or "HH:MM:SS")
+            // End time (SLT, display as HH:MM)
             {
                 key: "end_time",
                 label: "End Time",
                 optional: true,
-                render: (ev) => String(ev.end_time ?? ""),
-                sortValue: (ev) => String(ev.end_time ?? "")
+                render: (ev) => toHHMM(ev.end_time),
+                sortValue: (ev) => toHHMM(ev.end_time)
             },
 
             // Status badge (optional toggle via ☰ menu)
@@ -1055,15 +1130,18 @@ function renderTable() {
                 sortValue: (ev) => String(ev.status ?? "")
             }
         ],
+
         artists: [
             { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
             { key: "name", label: "Artist", render: (a) => String(a.name ?? ""), sortValue: (a) => String(a.name ?? "") },
-            // add optional columns later
+            // optional columns can be added later
         ],
+
         venues: [
             { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
             { key: "name", label: "Venue", render: (v) => String(v.name ?? ""), sortValue: (v) => String(v.name ?? "") },
         ],
+
         boards: [
             { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
             { key: "name", label: "Board", render: (b) => String(b.name ?? ""), sortValue: (b) => String(b.name ?? "") },
@@ -1115,7 +1193,6 @@ function renderTable() {
     // ------------------------------------------------------------------------
     // 6) Build / wire the optional columns menu (☰)
     // ------------------------------------------------------------------------
-    // One handler that re-renders + saves prefs when checkboxes change.
     (function buildOptionalColumnsMenu() {
 
         const container = document.getElementById("column-options");
@@ -1232,7 +1309,7 @@ function renderTable() {
     // ------------------------------------------------------------------------
     let filtered = data;
 
-    // If you keep "activeFilters", apply it for rows that have a status
+    // Apply activeFilters if available and row has a status
     if (Array.isArray(window.activeFilters) || Array.isArray(activeFilters)) {
         const filters = Array.isArray(activeFilters) ? activeFilters : window.activeFilters;
         filtered = data.filter(r => {
@@ -1279,7 +1356,7 @@ function renderTable() {
                 return;
             }
 
-            // Status badge rendering (if status exists)
+            // Status badge rendering
             if (col.key === "status") {
                 const status = (rowObj.status || "").toLowerCase();
                 const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
@@ -1294,7 +1371,7 @@ function renderTable() {
             tr.appendChild(td);
         });
 
-        // Row click (events only for now; keep safe if handler missing)
+        // Row click (events only)
         tr.style.cursor = "pointer";
         tr.onclick = () => {
             if (view === "events" && typeof selectEvent === "function") {
@@ -1546,14 +1623,24 @@ function initializeDateFilters()
     }
 
     // -------------------------------------------------------------------------
-    // 2) Defaults (current local month/year)
+    // 2) Defaults (current SLT month/year)
     // -------------------------------------------------------------------------
-    const now = new Date();
-    const currentYear  = now.getFullYear();
-    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    // SLT = America/Los_Angeles (handles PST/PDT automatically via Intl)
+    const sltNowParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles",
+        year: "numeric",
+        month: "2-digit",
+    }).formatToParts(new Date());
 
-    monthSelect.value = currentMonth;
-    yearInput.value = String(currentYear);
+    const sltYear  = sltNowParts.find(p => p.type === "year")?.value || String(new Date().getFullYear());
+    const sltMonth = sltNowParts.find(p => p.type === "month")?.value || String(new Date().getMonth() + 1).padStart(2, "0");
+
+    monthSelect.value = sltMonth;     // "01".."12"
+    yearInput.value   = sltYear;      // "YYYY"
+
+    // Keep these as "currentYear/currentMonth" references for your helpers below
+    const currentYear  = parseInt(sltYear, 10);
+    const currentMonth = sltMonth;
 
     // -------------------------------------------------------------------------
     // 3) Helpers
