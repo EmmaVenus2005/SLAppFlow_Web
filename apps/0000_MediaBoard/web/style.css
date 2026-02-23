@@ -372,3 +372,37 @@ html, body {
     outline: none;
     font-size: 14px;
 }
+
+/* -----------------------------
+   List actions (Delete button)
+----------------------------- */
+.list-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-start; /* Align left */
+}
+
+#delete-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #d9534f;
+    background: #d9534f;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+/* Hover only when enabled */
+#delete-btn:not(:disabled):hover {
+    background: #c9302c;
+    border-color: #c9302c;
+}
+
+/* Disabled state */
+#delete-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: #e0a3a1;
+    border-color: #e0a3a1;
+}

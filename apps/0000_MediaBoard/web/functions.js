@@ -1,36 +1,36 @@
-async function displayImage() 
-{
+// async function displayImage() 
+// {
 
-    // Reference to the preview container
-    const preview = document.getElementById('preview-image');
+//     // Reference to the preview container
+//     const preview = document.getElementById('preview-image');
 
-    // Show a loading state
-    preview.innerHTML = `<span style="color:#bbb;font-size:1.6em;">Loading...</span>`;
+//     // Show a loading state
+//     preview.innerHTML = `<span style="color:#bbb;font-size:1.6em;">Loading...</span>`;
 
-    const appId = await AFGetAppID();
-    const base64 = await AFSendFlowMessage(appId, "Global", `GETIMAGE|${painting.number}`);
+//     const appId = await AFGetAppID();
+//     const base64 = await AFSendFlowMessage(appId, "Global", `GETIMAGE|${painting.number}`);
 
-    // Debug: Show in console
-    //console.log('Fetched Base64:', base64 ? base64.substring(0, 40) : "(empty)", "length:", base64 ? base64.length : 0);
+//     // Debug: Show in console
+//     //console.log('Fetched Base64:', base64 ? base64.substring(0, 40) : "(empty)", "length:", base64 ? base64.length : 0);
 
-    if (!base64 || typeof base64 !== 'string' || base64.length < 100) {
-        preview.innerHTML = `
-            <span style="color:#bbb;font-size:2em;">🎨</span>
-            <span class="preview-upload-icon" title="Upload image">⬆️</span>
-        `;
-    } else {
-        // Heuristic: JPEG files usually start with "/9j/"
-        let mime = "image/png";
-        if (base64.startsWith("/9j/")) mime = "image/jpeg";
-        const dataUrl = `data:${mime};base64,${base64}`;
-        imageCache[painting.number] = dataUrl;
-        preview.innerHTML = `
-            <img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">
-            <span class="preview-upload-icon" title="Upload image">⬆️</span>
-        `;
-    }
+//     if (!base64 || typeof base64 !== 'string' || base64.length < 100) {
+//         preview.innerHTML = `
+//             <span style="color:#bbb;font-size:2em;">🎨</span>
+//             <span class="preview-upload-icon" title="Upload image">⬆️</span>
+//         `;
+//     } else {
+//         // Heuristic: JPEG files usually start with "/9j/"
+//         let mime = "image/png";
+//         if (base64.startsWith("/9j/")) mime = "image/jpeg";
+//         const dataUrl = `data:${mime};base64,${base64}`;
+//         imageCache[painting.number] = dataUrl;
+//         preview.innerHTML = `
+//             <img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">
+//             <span class="preview-upload-icon" title="Upload image">⬆️</span>
+//         `;
+//     }
 
-}
+// }
 
 /**
  * addCreateProjectListener
@@ -1033,6 +1033,9 @@ function renderTable() {
     const viewLabel = document.getElementById("main-view-select")?.value || "Events List";
     const view = (viewLabel.split(" ")[0] || "Events").toLowerCase(); // "events","artists","venues","boards"
 
+    // Grey out the delete button by default
+    syncDeleteButton();
+
     // ------------------------------------------------------------------------
     // 2) Data sources
     // ------------------------------------------------------------------------
@@ -1134,7 +1137,6 @@ function renderTable() {
         artists: [
             { key: "_row", label: "", width: "36px", sortable: false, render: () => "" },
             { key: "name", label: "Artist", render: (a) => String(a.name ?? ""), sortValue: (a) => String(a.name ?? "") },
-            // optional columns can be added later
         ],
 
         venues: [
@@ -1348,7 +1350,22 @@ function renderTable() {
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
                 checkbox.classList.add("row-checkbox");
-                checkbox.dataset.id = rowObj.id || "";
+
+                // ----------------------------------------------------------------
+                // IMPORTANT:
+                // - Delete logic relies on dataset.id
+                // - row objects may not have "id" but rather "event_id"/"artist_id"/"venue_id"/"board_id"
+                // - This fallback ensures dataset.id is ALWAYS populated with the real primary key
+                // ----------------------------------------------------------------
+                const inferredId =
+                    rowObj.id ||
+                    rowObj.event_id ||
+                    rowObj.artist_id ||
+                    rowObj.venue_id ||
+                    rowObj.board_id ||
+                    "";
+
+                checkbox.dataset.id = String(inferredId || "").trim();
 
                 checkbox.addEventListener("click", (e) => e.stopPropagation());
                 td.appendChild(checkbox);
@@ -1380,12 +1397,25 @@ function renderTable() {
         };
 
         // Highlight selection (events only)
-        if (view === "events" && window.selectedEvent && window.selectedEvent.id === rowObj.id) {
-            tr.style.background = "#ffecf5";
+        if (view === "events" && window.selectedEvent) {
+            const selId = String(window.selectedEvent.event_id || window.selectedEvent.id || "").trim();
+            const rowId = String(rowObj.event_id || rowObj.id || "").trim();
+            if (selId && rowId && selId === rowId) {
+                tr.style.background = "#ffecf5";
+            }
         }
 
         tbody.appendChild(tr);
     });
+
+    // Update delete button state when checkboxes change
+    tbody.querySelectorAll('input.row-checkbox[type="checkbox"]').forEach(cb => {
+        cb.addEventListener("change", syncDeleteButton);
+    });
+
+    // Final state sync after render
+    syncDeleteButton();
+
 }
 
 // Load preferences from backend and apply to UI state
@@ -1847,6 +1877,11 @@ async function loadProjects()
                     loadVenues(),
                 ]);
 
+                window.selectedEvent = null;
+
+                const preview = document.getElementById("preview-image");
+                if (preview) preview.innerHTML = `<span style="color:#bbb;">No preview</span>`;
+
                 if (typeof renderTable === "function") renderTable();
             });
         }
@@ -2227,6 +2262,344 @@ async function loadVenues()
         window.venues = [];
         window.venuesById = {};
         return [];
+
+    }
+
+}
+
+function bindDeleteButton() {
+
+    /**
+     * bindDeleteButton()
+     * -------------------------------------------------------------------------
+     * Purpose:
+     * - Robust "Delete selected" binding that survives ANY UI rerender.
+     * - Uses event delegation:
+     *     - document click -> handles #delete-btn
+     *     - document change -> handles .row-checkbox
+     *
+     * Backend contract:
+     * - DEL_EVENTS | <YYYYMM> | <project_id> | <json_ids>
+     * - DEL_ARTISTS| <project_id> | <json_ids>
+     * - DEL_VENUES | <project_id> | <json_ids>
+     * - DEL_BOARDS | <project_id> | <json_ids>
+     *
+     * Notes:
+     * - If your UI recreates the toolbar/header via innerHTML,
+     *   direct button listeners are lost. Delegation fixes that.
+     * -------------------------------------------------------------------------
+     */
+
+    // -------------------------------------------------------------------------
+    // 1) Checkbox change -> keep delete button enabled/disabled
+    // -------------------------------------------------------------------------
+    document.addEventListener("change", (e) => {
+        const t = e.target;
+        if (!t) return;
+        if (t.type !== "checkbox") return;
+        if (!t.classList || !t.classList.contains("row-checkbox")) return;
+        syncDeleteButton();
+    });
+
+    // -------------------------------------------------------------------------
+    // 2) Delete click (delegated)
+    // -------------------------------------------------------------------------
+    document.addEventListener("click", async (e) => {
+
+        // Find click on the delete button (or any child inside it)
+        const btn = e.target?.closest?.("#delete-btn");
+        if (!btn) return;
+
+        // If disabled, do nothing
+        if (btn.disabled) return;
+
+        // Debug (keep until fixed)
+        //console.log("[Delete] Clicked.");
+
+        // Determine active view
+        const viewLabel = document.getElementById("main-view-select")?.value || "Events List";
+        const view = (viewLabel.split(" ")[0] || "Events").toLowerCase(); // events/artists/venues/boards
+
+        const tbodyMap = {
+            events: "events-tbody",
+            artists: "artists-tbody",
+            venues: "venues-tbody",
+            boards: "boards-tbody",
+        };
+
+        const tbodyId = tbodyMap[view];
+        const tbody = tbodyId ? document.getElementById(tbodyId) : null;
+
+        if (!tbody) {
+            console.warn("[Delete] No tbody for view:", view, "tbodyId:", tbodyId);
+            return;
+        }
+
+        // Collect checked IDs
+        const ids = Array.from(tbody.querySelectorAll('input.row-checkbox[type="checkbox"]:checked'))
+            .map(cb => String(cb.dataset.id || "").trim())
+            .filter(Boolean);
+
+        if (ids.length === 0) {
+            // Nothing selected -> just keep UI in sync
+            syncDeleteButton();
+            return;
+        }
+
+        // Confirmation
+        const labelMap = {
+            events: "event(s)",
+            artists: "artist(s)",
+            venues: "venue(s)",
+            boards: "board(s)",
+        };
+
+        const ok = confirm(`Delete ${ids.length} ${labelMap[view] || "item(s)"}?`);
+        if (!ok) return;
+
+        // Resolve selected project + owner
+        const projectId = (document.getElementById("project-list")?.value || "").trim();
+        const projects = Array.isArray(window.projects) ? window.projects : [];
+        const proj = projects.find(p => String(p?.project_id || "") === projectId) || null;
+        const projectOwnerId = proj ? String(proj.owner || "") : "";
+
+        if (!projectId || !projectOwnerId) {
+            console.warn("[Delete] Missing projectId or projectOwnerId.", { projectId, projectOwnerId });
+            return;
+        }
+
+        // Build command
+        const cmdMap = {
+            events: "DEL_EVENTS",
+            artists: "DEL_ARTISTS",
+            venues: "DEL_VENUES",
+            boards: "DEL_BOARDS",
+        };
+
+        const cmd = cmdMap[view] || "DEL_EVENTS";
+        const idsJson = JSON.stringify(ids);
+
+        let msg = "";
+
+        if (cmd === "DEL_EVENTS") {
+            const year  = (document.getElementById("filter-year")?.value || "").trim();
+            const month = (document.getElementById("filter-month")?.value || "").trim();
+
+            // Required for backend DB routing
+            if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
+                console.warn("[Delete] DEL_EVENTS aborted: invalid year/month filters.", { year, month });
+                return;
+            }
+
+            const yyyymm = `${year}${month}`;
+            msg = `${cmd}|${yyyymm}|${projectId}|${idsJson}`;
+        } else {
+            msg = `${cmd}|${projectId}|${idsJson}`;
+        }
+
+        // Prevent double click while pending
+        btn.disabled = true;
+        btn.style.opacity = "0.55";
+        btn.style.cursor = "not-allowed";
+
+        try {
+            const appId = await AFGetAppID();
+
+            // Debug (keep until fixed)
+            // console.log("[Delete] Sending:", msg, "to owner:", projectOwnerId);
+
+            const res = await AFSendFlowMessage(appId, projectOwnerId, msg);
+
+            // If your backend returns null/undefined on success, we treat it as success.
+            // Only explicit false means failure.
+            if (res === false) {
+                console.warn("[Delete] Backend returned false.");
+                return;
+            }
+
+            // Refresh dataset from backend
+            if (view === "events"  && typeof loadEventsFromFilters === "function") await loadEventsFromFilters();
+            if (view === "artists" && typeof loadArtists === "function")          await loadArtists();
+            if (view === "venues"  && typeof loadVenues === "function")           await loadVenues();
+            if (view === "boards"  && typeof loadBoards === "function")           await loadBoards();
+
+            // Re-render table
+            if (typeof renderTable === "function") renderTable();
+
+        } catch (err) {
+            console.warn("[Delete] Failed:", err);
+        } finally {
+            // Re-enable button according to current selection
+            syncDeleteButton();
+        }
+    });
+
+    // Initial sync (in case the UI is already rendered)
+    syncDeleteButton();
+}
+
+function syncDeleteButton() {
+
+    /**
+     * syncDeleteButton()
+     * -------------------------------------------------------------------------
+     * Purpose:
+     * - Enable/disable Delete button depending on whether there is at least one
+     *   checked row in the currently active view.
+     * -------------------------------------------------------------------------
+     */
+
+    const btn = document.getElementById("delete-btn");
+    if (!btn) return;
+
+    const viewLabel = document.getElementById("main-view-select")?.value || "Events List";
+    const view = (viewLabel.split(" ")[0] || "Events").toLowerCase();
+
+    const tbodyMap = {
+        events: "events-tbody",
+        artists: "artists-tbody",
+        venues: "venues-tbody",
+        boards: "boards-tbody",
+    };
+
+    const tbody = document.getElementById(tbodyMap[view]);
+    if (!tbody) {
+        btn.disabled = true;
+        btn.style.opacity = "0.55";
+        btn.style.cursor = "not-allowed";
+        return;
+    }
+
+    const hasChecked = tbody.querySelector('input.row-checkbox[type="checkbox"]:checked') !== null;
+
+    btn.disabled = !hasChecked;
+    btn.style.opacity = hasChecked ? "1" : "0.55";
+    btn.style.cursor = hasChecked ? "pointer" : "not-allowed";
+
+}
+
+async function showEventPreview(ev) {
+
+    // -------------------------------------------------------------------------
+    // showEventPreview(ev)
+    // -------------------------------------------------------------------------
+    // Purpose:
+    // - Displays the selected Event image inside the #preview-image container.
+    // - Fetches the image using backend command:
+    //       GET_IMAGE|<project_uuid>|<image_uuid>
+    // - The request MUST be routed to the PROJECT OWNER context (not "Global"),
+    //   because images are stored under the owner/app file space.
+    // - Uses an in-memory cache (window.imageCache) to avoid repeated fetches.
+    //
+    // Expected event structure:
+    //   {
+    //     event_id: "...",
+    //     name: "...",
+    //     picture_id: "uuid",   // empty string if no image
+    //     ...
+    //   }
+    //
+    // Behavior:
+    // - If no event or no picture_id → renders "No preview".
+    // - If image already cached → renders immediately.
+    // - If backend response is invalid or too short → renders "No preview".
+    // - Accepts raw base64 (without data prefix).
+    // - JPEG is detected via "/9j/" prefix; defaults to PNG otherwise.
+    //
+    // Requirements:
+    // - window.projects populated via loadProjects()
+    // - AFGetAppID()
+    // - AFSendFlowMessage(appId, userId, message)
+    // - window.imageCache initialized (object)
+    // -------------------------------------------------------------------------
+
+    const preview = document.getElementById("preview-image");
+    if (!preview) return;
+
+    // Helper: render empty preview state
+    const showEmpty = () => {
+        preview.innerHTML = `<span style="color:#bbb;">No preview</span>`;
+    };
+
+    // Basic validation
+    if (!ev || typeof ev !== "object") {
+        showEmpty();
+        return;
+    }
+
+    const imageId = String(ev.picture_id || "").trim();
+    if (!imageId) {
+        showEmpty();
+        return;
+    }
+
+    const projectId = String(document.getElementById("project-list")?.value || "").trim();
+    if (!projectId) {
+        showEmpty();
+        return;
+    }
+
+    // Resolve project owner (images are stored under project owner's context)
+    const projects = Array.isArray(window.projects) ? window.projects : [];
+    const proj = projects.find(p => String(p?.project_id || "") === projectId) || null;
+    const projectOwnerId = proj ? String(proj.owner || "") : "";
+
+    if (!projectOwnerId) {
+        showEmpty();
+        return;
+    }
+
+    // Cache key for this image (projectId + imageId)
+    const cacheKey = `${projectId}|${imageId}`;
+
+    // Cache hit → render immediately
+    const cached = window.imageCache?.[cacheKey];
+    if (cached) {
+        preview.innerHTML = `
+            <img src="${cached}" alt="Preview" style="max-width:100%;max-height:100%;">
+        `;
+        return;
+    }
+
+    // Loading state
+    preview.innerHTML = `<span style="color:#bbb;font-size:1.2em;">Loading...</span>`;
+
+    try {
+
+        const appId = await AFGetAppID();
+
+        // Backend call (must be routed to project owner)
+        const base64 = await AFSendFlowMessage(
+            appId,
+            projectOwnerId,
+            `GET_IMAGE|${projectId}|${imageId}`
+        );
+
+        // Validate backend response
+        if (!base64 || typeof base64 !== "string" || base64.length < 100) {
+            showEmpty();
+            return;
+        }
+
+        // Detect mime type (simple heuristic)
+        let mime = "image/png";
+        if (base64.startsWith("/9j/")) mime = "image/jpeg";
+
+        const dataUrl = `data:${mime};base64,${base64}`;
+
+        // Store in cache
+        if (!window.imageCache) window.imageCache = {};
+        window.imageCache[cacheKey] = dataUrl;
+
+        // Render image
+        preview.innerHTML = `
+            <img src="${dataUrl}" alt="Preview" style="max-width:100%;max-height:100%;">
+        `;
+
+    } catch (e) {
+
+        console.warn("showEventPreview failed", e);
+        showEmpty();
 
     }
 

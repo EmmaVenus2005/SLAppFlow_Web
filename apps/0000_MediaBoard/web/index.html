@@ -111,6 +111,13 @@
                     </tbody>
                 </table>
 
+                <!-- Delete row: appears under the lists -->
+                <div class="list-actions">
+                    <button id="delete-btn" type="button" disabled>
+                        Delete
+                    </button>
+                </div>
+
             </div>
 
             <!-- Right panel: Preview and details (tabs) -->
@@ -166,10 +173,15 @@
             window.selectedEvent = window.selectedEvent || null;
 
             // Temporary selection handler (so row clicks work)
-            window.selectEvent = window.selectEvent || function (ev) {
+            window.selectEvent = window.selectEvent || async function (ev) {
                 window.selectedEvent = ev;
                 renderTable();
+                await showEventPreview(ev);
             };
+
+            // In-RAM cache for preview images
+            // key = "<projectId>|<imageId>"  value = "data:image/...;base64,..."
+            window.imageCache = window.imageCache || {};
 
             // Main async flow
             // ---------------
@@ -198,15 +210,12 @@
                 // Inits the date filter for the event list
                 initializeDateFilters();
 
-                // Loads the initial list
-                // window.events = [
-                //     { id: "ev1", name: "Test Event", status: "upcoming" },
-                //     { id: "ev2", name: "Live DJ Set", status: "active" }
-                // ];
-
                 // Adding event listeners
                 addAddEntityListener()          // Add entity button listener (event, artist, venue)
                 addCreateProjectListener();     // Add project button listener
+
+                // Inits the Delete button
+                bindDeleteButton();
 
                 // Displays the list of events on opening
                 renderTable();

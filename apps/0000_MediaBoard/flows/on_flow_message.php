@@ -846,6 +846,94 @@ if ($messageParts[0] === "GET_IMAGE")
 
 }
 
+// Delete events for a project month
+// E.g. "DEL_EVENTS|<yyyymm>|<project_uuid>|<json_ids>"
+if ($messageParts[0] === "DEL_EVENTS")
+{
+    
+    // Called from WebControl → allow backend write
+    AFSetSafe();
+
+    // Args
+    if (!isset($messageParts[1]) || !isset($messageParts[2]) || !isset($messageParts[3])) return false;
+
+    $yyyymm    = trim((string)$messageParts[1]); // "202602"
+    $projectId = trim((string)$messageParts[2]);
+    $jsonIds   = $messageParts[3];
+
+    if ($yyyymm === "" || $projectId === "" || !is_string($jsonIds) || $jsonIds === "") return false;
+
+    // Authorization for THIS project
+    if (!IsTrustedForProject($projectId, AFGetSenderID())) return false;
+
+    // Validate yyyymm
+    if (!preg_match('/^\d{6}$/', $yyyymm)) return false;
+    $year  = substr($yyyymm, 0, 4);
+    $month = substr($yyyymm, 4, 2);
+    if ((int)$month < 1 || (int)$month > 12) return false;
+
+    // Decode ids
+    $ids = json_decode($jsonIds, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($ids)) return false;
+
+    // Build class derived from yyyymm
+    $class = "Event" . $year . $month;
+
+    // Single loop: for each event id -> load -> delete image -> delete event row
+    foreach ($ids as $eventIdRaw) {
+
+        if (!is_string($eventIdRaw)) continue;
+        $eventId = trim($eventIdRaw);
+        if ($eventId === "") continue;
+
+        // Read event row (to retrieve picture_id)
+        $json = NVGetSessionList($projectId, $class, $eventId);
+        if (is_string($json) && $json !== "") {
+
+            $row = json_decode($json, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($row)) {
+
+                // Delete picture first (if any)
+                $pictureId = trim((string)($row["picture_id"] ?? ""));
+                if ($pictureId !== "") {
+
+                    // Deletes file in FileService (scoped to current owner/app)
+                    // If deletion fails (file missing, etc.), we still delete the event row.
+                    FSDelete($pictureId);
+                }
+            }
+        }
+
+        // Delete the event row
+        NVDelSessionList($projectId, $class, $eventId);
+        
+    }
+
+    // Refresh the slide payload for all boards linked to this project
+    $boardIds = NVGetLists("Board");
+    if (is_array($boardIds) && count($boardIds) > 0) {
+
+        foreach ($boardIds as $boardId) {
+
+            if (!is_string($boardId) || $boardId === "") continue;
+
+            $boardJson = NVGetList("Board", $boardId);
+            if (!is_string($boardJson) || $boardJson === "") continue;
+
+            $board = json_decode($boardJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($board)) continue;
+
+            if (($board["project_id"] ?? "") !== $projectId) continue;
+
+            PrepareBoardImages($boardId);
+        }
+    }
+
+    // Acknowledge success
+    return true;
+
+}
+
 
 
 
