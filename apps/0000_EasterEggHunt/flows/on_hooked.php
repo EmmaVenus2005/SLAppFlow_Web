@@ -23,7 +23,7 @@
  */
 
 // Only relevant when a egg is hooked
-if ($appmode === "Egg")
+if (AFGetFlowAppMode() === "Egg")
 {
 
     // Header of the dialog
@@ -38,22 +38,22 @@ if ($appmode === "Egg")
     {
 
         // Opening the textbox		
-        $answer = SLTextBox($objid, $uuid, $dialog);
+        $answer = SLTextBox(AFGetFlowObjectID(), AFGetOwnerID(), $dialog);
 
         // Creating additional elements for the list
         $elements = [
             'addedOn' => date('c'),  // Format ISO 8601, ex: 2025-04-13T18:45:00+02:00
-            'posX'    => $objx,
-            'posY'    => $objy,
-            'posZ'    => $objz,
+            'posX'    => AFGetFlowObjectPosition()["x"],
+            'posY'    => AFGetFlowObjectPosition()["y"],
+            'posZ'    => AFGetFlowObjectPosition()["z"],
             'name'    => $answer ?? 'Unnamed'
         ];
 
         // The egg registers itself in the database
-        NVSetSessionList($objregion, "EasterEgg", $objid, json_encode($elements));
+        NVSetSessionList(AFGetFlowRegionPosition(), "EasterEgg", AFGetFlowObjectID(), json_encode($elements));
 
         // Console output to ensure the egg has been added
-        SLOwnerSay($objid, "The egg has been added to the game !");
+        SLOwnerSay(AFGetFlowObjectID(), "The egg has been added to the game !");
 
     } 
     
